@@ -50,7 +50,7 @@ class LoginController extends Controller
 
         if ($user && Hash::check($request->pin, $user->pin)) {
             Auth::login($user, true);
-            session()->flash('success', 'Selamat datang, ' . $user->name . '.');
+            session()->flash('login success', 'Selamat datang, ' . $user->name . '.');
 
             switch ($user->role) {
                 case 'Admin':

@@ -1,9 +1,9 @@
 <nav id="sidebar" class="sidebar js-sidebar">
 <div class="sidebar-content js-simplebar">
-    <a class="sidebar-brand" href="index.html">
+    <div class="sidebar-brand">
         <span class="align-middle">Sistem Baitul Maal</span>
         <p> Yayasan Masjid Al Iman Surabaya</p>
-    </a>
+    </div>
 
     <ul class="sidebar-nav">
         <li class="sidebar-header">Manajemen</li>

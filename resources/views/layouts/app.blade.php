@@ -10,7 +10,7 @@
     <title>@yield('title') | Sistem Baitul Maal Yayasan Masjid Al Iman Surabaya</title>
 
     <!-- Favicon -->
-    <link rel="shortcut icon" href="{{ asset('img/icons/icon-48x48.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/icons/favicon.ico') }}">
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
@@ -54,6 +54,17 @@
     @stack('scripts')
 
     <!-- SweetAlert2 Notifications -->
+    @if (session('login success'))
+        <script>
+            Swal.fire({
+                icon: 'success',
+                title: 'Login Berhasil!',
+                text: "{{ session('login success') }}",
+                confirmButtonColor: '#28a745',
+            });
+        </script>
+    @endif
+
     @if (session('success'))
         <script>
             Swal.fire({
@@ -64,7 +75,6 @@
             });
         </script>
     @endif
-
     @if (session('error'))
         <script>
             Swal.fire({
