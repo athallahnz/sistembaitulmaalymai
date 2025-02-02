@@ -10,6 +10,7 @@ use App\Http\Controllers\BendaharaController;
 use App\Http\Controllers\ManajerController;
 use App\Http\Controllers\BidangController;
 use App\Http\Controllers\KetuaController;
+use App\Http\Controllers\TransaksiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,8 +47,17 @@ Route::middleware(['role:Bendahara'])->group(function () {
 
 // Bidang routes
 Route::middleware(['role:Bidang'])->group(function () {
+    // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
+
+    // Route untuk transaksi
+    Route::prefix('bidang/transaksi')->group(function () {
+        Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');  // Menampilkan daftar transaksi
+        Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create'); // Form input transaksi
+        Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Menyimpan transaksi
+    });
 });
+
 
 
 
@@ -76,6 +86,10 @@ Route::resource('users', UserController::class)->middleware('auth');
 Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
 Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
 
+// // Routing untuk transaksi
+// Route::prefix('transaksi')->middleware(['auth', 'role:Bidang'])->group(function () {
+//     Route::resource('transaksi', TransaksiController::class);
+// });
 
 
 
