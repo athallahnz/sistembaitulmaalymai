@@ -49,7 +49,11 @@
             justify-content: center;
         }
 
-        .btn-outline-secondary:hover {
+        .btn-outline-dark {
+            color: #622200;
+        }
+
+        .btn-outline-dark:hover {
             background-color: #622200;
             /* Warna coklat saat hover */
             color: white;
@@ -89,7 +93,7 @@
                                                     <div class="d-flex gap-2">
                                                         @foreach ($row as $num)
                                                             <button type="button"
-                                                                class="btn btn-outline-secondary btn-circle"
+                                                                class="btn btn-outline-dark btn-circle"
                                                                 onclick="appendPin('{{ $num }}')">{{ $num }}</button>
                                                         @endforeach
                                                     </div>
@@ -99,7 +103,7 @@
                                                         onclick="clearPin()">
                                                         <i class="bi bi-backspace"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-circle"
+                                                    <button type="button" class="btn btn-outline-dark btn-circle"
                                                         onclick="appendPin('0')">0</button>
                                                     <button type="submit" class="btn btn-primary btn-circle">
                                                         <i class="bi bi-arrow-right"></i>

@@ -25,7 +25,7 @@
         @endrole
 
         @role('Ketua Yayasan')
-        <li class="sidebar-item">
+        <li class="sidebar-item {{ request()->routeIs('ketua.index') ? 'active' : '' }}">
             <a class="sidebar-link" href="{{ route('ketua.index') }}">
                 <i class="align-middle" data-feather="sliders"></i>
                 <span class="align-middle">Dashboard Ketua</span>
@@ -34,7 +34,7 @@
         @endrole
 
         @role('Manajer Keuangan')
-        <li class="sidebar-item">
+        <li class="sidebar-item {{ request()->routeIs('manajer.index') ? 'active' : '' }}">
             <a class="sidebar-link" href="{{ route('manajer.index') }}">
                 <i class="align-middle" data-feather="sliders"></i>
                 <span class="align-middle">Dashboard Manajer</span>
@@ -43,7 +43,7 @@
         @endrole
 
         @role('Bendahara')
-        <li class="sidebar-item">
+        <li class="sidebar-item {{ request()->routeIs('bendahara.index') ? 'active' : '' }}">
             <a class="sidebar-link" href="{{ route('bendahara.index') }}">
                 <i class="align-middle" data-feather="sliders"></i>
                 <span class="align-middle">Dashboard Bendahara</span>
@@ -52,7 +52,7 @@
         @endrole
 
         @role('Bidang')
-        <li class="sidebar-item">
+        <li class="sidebar-item {{ request()->routeIs('bidang.index') ? 'active' : '' }}">
             <a class="sidebar-link" href="{{ route('bidang.index') }}">
                 <i class="align-middle" data-feather="sliders"></i>
                 <span class="align-middle">Dashboard Bidang</span>

@@ -1,5 +1,5 @@
 <div class="text-end">
-    @if($user->trashed())
+    @if ($user->trashed())
         <form action="{{ route('admin.users.restore', $user->id) }}" method="POST" class="d-inline">
             @csrf
             @method('PUT')
@@ -23,7 +23,8 @@
             <i class="bi bi-trash"></i>
         </button>
 
-        <form id="delete-form-{{ $user->id }}" action="{{ route('admin.users.destroy', $user->id) }}" method="POST" style="display: none;">
+        <form id="delete-form-{{ $user->id }}" action="{{ route('admin.users.destroy', $user->id) }}" method="POST"
+            style="display: none;">
             @csrf
             @method('DELETE')
         </form>

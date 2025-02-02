@@ -26,6 +26,7 @@ use App\Http\Controllers\KetuaController;
 Route::middleware(['role:Admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.index');
     Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
+    Route::get('admin/admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
 });
 
 // Ketua routes
