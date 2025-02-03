@@ -2,7 +2,7 @@
 @section('title', 'Manajemen Pengguna')
 @section('content')
     <div class="container">
-        <h2 class="mb-4">Manajemen Pengguna</h2>
+        <h1 class="mb-4">Data Transaksi Keuangan Bidang {{ auth()->user()->bidang_name }}</h1>
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
@@ -22,7 +22,7 @@
                         <!-- Form Create Transaksi -->
                         <form action="{{ route('transaksi.store') }}" method="POST">
                             @csrf
-                            <div class="mb-3">
+                            <div class="mb-3 d-none">
                                 <label class="mb-2">Bidang</label>
                                 <input type="text" name="bidang_name" class="form-control"
                                     value="{{ auth()->user()->bidang_name }}" readonly>
@@ -35,12 +35,6 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="mb-2">Deskripsi Transaksi</label>
-                                <input type="text" name="deskripsi" class="form-control" placeholder="Masukkan Deskripsi"
-                                    required>
-                            </div>
-
-                            <div class="mb-3">
                                 <label class="mb-2">Tanggal Transaksi</label>
                                 <input type="date" name="tanggal_transaksi" class="form-control" required>
                             </div>
@@ -48,7 +42,6 @@
                             <div class="mb-3">
                                 <label class="mb-2">Jenis Akun</label>
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
-                                    <option value="">Pilih Jenis Akun</option>
                                     @foreach ($akunTanpaParent as $akun)
                                         <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
                                             {{ $akun->nama_akun }}</option>
@@ -63,22 +56,33 @@
                                 </select>
                             </div>
 
+                            <div class="mb-3">
+                                <label class="mb-2">Deskripsi Transaksi</label>
+                                <input type="text" name="deskripsi" class="form-control" placeholder="Masukkan Deskripsi"
+                                    required>
+                            </div>
+
                             <div id="debit-container" class="mb-3">
                                 <label class="mb-2">Debit</label>
-                                <input type="number" name="debit" id="debit" class="form-control" value="{{ old('debit', 0) }}" required>
+                                <input type="number" name="debit" id="debit" class="form-control"
+                                    value="{{ old('debit', 0) }}" required>
                                 <input type="hidden" name="debit_hidden" id="debit_hidden" value="{{ old('debit', 0) }}">
                             </div>
 
                             <div id="kredit-container" class="mb-3">
                                 <label class="mb-2">Kredit</label>
-                                <input type="number" name="kredit" id="kredit" class="form-control" value="{{ old('kredit', 0) }}" required>
-                                <input type="hidden" name="kredit_hidden" id="kredit_hidden" value="{{ old('kredit', 0) }}">
+                                <input type="number" name="kredit" id="kredit" class="form-control"
+                                    value="{{ old('kredit', 0) }}" required>
+                                <input type="hidden" name="kredit_hidden" id="kredit_hidden"
+                                    value="{{ old('kredit', 0) }}">
                             </div>
 
                             <div class="mb-3">
                                 <label class="mb-2">Saldo</label>
-                                <input type="number" name="saldo" class="form-control" placeholder="Masukkan Saldo">
+                                <input type="number" name="saldo" class="form-control"
+                                    value="{{ old('saldo', $lastSaldo) }}" placeholder="Masukkan Saldo" readonly>
                             </div>
+
                             <button type="submit" class="btn btn-primary">Simpan</button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                         </form>
@@ -87,35 +91,23 @@
             </div>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Bidang</th> <!-- Kolom Bidang -->
-                    <th>Deskripsi</th>
-                    <th>Kode Transaksi</th>
-                    <th>Tanggal</th>
-                    <th>Jenis Transaksi</th>
-                    <th>Debit</th>
-                    <th>Kredit</th>
-                    <th>Saldo</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($transaksi as $item)
+        <div class="p-3 shadow table-responsive rounded">
+            <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
+                <thead class="table-light">
                     <tr>
-                        <td>{{ $bidang_name }}</td> <!-- Menggunakan bidang_name dari controller -->
-                        <td>{{ $item->deskripsi }}</td>
-                        <td>{{ $item->kode_transaksi }}</td>
-                        <td>{{ $item->tanggal_transaksi }}</td>
-                        <td>{{ $item->akun_keuangan_id ? $item->akunKeuangan->nama_akun : 'N/A' }}</td>
-                        <td>{{ number_format($item->debit, 2) }}</td>
-                        <td>{{ number_format($item->kredit, 2) }}</td>
-                        <td>{{ number_format($item->saldo, 2) }}</td>
-                        <!-- Menampilkan bidang_name berdasarkan role -->
+                        <th>Tanggal</th>
+                        <th>Kode Transaksi</th>
+                        <th>Akun</th>
+                        <th>Jenis Transaksi</th>
+                        <th>Deskripsi</th>
+                        <th>Debit</th>
+                        <th>Kredit</th>
+                        <th>Saldo</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
     </div>
     <script>
@@ -184,6 +176,73 @@
 
             // Jalankan saat halaman pertama kali dimuat
             akunKeuangan.dispatchEvent(new Event("change"));
+        });
+
+        $(document).ready(function() {
+            var table = $('.yajra-datatable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ route('transaksi.data') }}", // Sesuaikan dengan route yang sesuai untuk mengambil data transaksi
+                columns: [
+                    // {
+                    //     data: 'bidang_name', // Ambil bidang_name dari data transaksi
+                    //     name: 'bidang_name'
+                    // },
+                    {
+                        data: 'tanggal_transaksi', // Ambil tanggal transaksi
+                        name: 'tanggal_transaksi'
+                    },
+                    {
+                        data: 'kode_transaksi', // Ambil kode transaksi
+                        name: 'kode_transaksi'
+                    },
+                    {
+                        data: 'akun_keuangan_id', // Ambil nama akun yang terkait
+                        name: 'akun_keuangan_id',
+                        render: function(data, type, row) {
+                            return row.akun_keuangan ? row.akun_keuangan.nama_akun :
+                                'N/A'; // Menampilkan nama akun keuangan
+                        }
+                    },
+                    {
+                        data: 'parent_akun_id', // Ambil parent_akun_id dari data transaksi
+                        name: 'parent_akun_id',
+                        render: function(data, type, row) {
+                            return row.parent_akun_keuangan ? row.parent_akun_keuangan.nama_akun :
+                                'N/A'; // Menampilkan nama akun keuangan
+                        }
+                    },
+                    {
+                        data: 'deskripsi', // Ambil deskripsi dari data transaksi
+                        name: 'deskripsi'
+                    },
+                    {
+                        data: 'debit', // Ambil debit
+                        name: 'debit',
+                        render: function(data) {
+                            return new Intl.NumberFormat().format(data); // Format angka untuk debit
+                        }
+                    },
+                    {
+                        data: 'kredit', // Ambil kredit
+                        name: 'kredit',
+                        render: function(data) {
+                            return new Intl.NumberFormat().format(
+                                data); // Format angka untuk kredit
+                        }
+                    },
+                    {
+                        data: 'saldo', // Ambil saldo
+                        name: 'saldo',
+                        render: function(data) {
+                            return new Intl.NumberFormat().format(data); // Format angka untuk saldo
+                        }
+                    },
+                ],
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText); // Debugging error response
+                }
+            });
         });
     </script>
 

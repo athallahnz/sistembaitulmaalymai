@@ -7,6 +7,8 @@ use App\Models\Transaksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Yajra\DataTables\Facades\DataTables;
+
 
 class TransaksiController extends Controller
 {
@@ -14,6 +16,11 @@ class TransaksiController extends Controller
     {
         // Ambil akun keuangan dari database
         $akunKeuangan = AkunKeuangan::all();
+
+        // Ambil saldo terakhir berdasarkan bidang_name
+        $lastSaldo = Transaksi::where('bidang_name', auth()->user()->bidang_name)
+            ->latest()
+            ->first()->saldo ?? 0;
 
         // Ambil akun tanpa parent (parent_id = null)
         $akunTanpaParent = DB::table('akun_keuangans')
@@ -56,8 +63,9 @@ class TransaksiController extends Controller
         // Generate kode transaksi
         $kodeTransaksi = $prefix . strtoupper($bidang_name) . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
-        return view('transaksi.create', compact('akunTanpaParent', 'akunDenganParent', 'bidang_name', 'kodeTransaksi'));
+        return view('transaksi.create', compact('akunTanpaParent', 'akunDenganParent', 'bidang_name', 'kodeTransaksi', 'lastSaldo'));
     }
+
     public function store(Request $request)
     {
         // Logging untuk debugging
@@ -75,17 +83,32 @@ class TransaksiController extends Controller
             'kredit' => 'required|numeric',
         ]);
 
-        // Pastikan parent_akun_id bisa null jika tidak dipilih
-        $validatedData['parent_akun_id'] = $validatedData['parent_akun_id'] ?? null;
+        // Hitung saldo berdasarkan debit dan kredit
+        // Ambil saldo terakhir berdasarkan bidang_name
+        $lastSaldo = Transaksi::where('bidang_name', $request->input('bidang_name'))
+            ->latest()
+            ->first()->saldo ?? 0;
 
         // Hitung saldo berdasarkan debit dan kredit
-        $validatedData['saldo'] = $validatedData['debit'] - $validatedData['kredit'];
+        $debit = $request->input('debit');
+        $kredit = $request->input('kredit');
+        $saldo = $lastSaldo + $debit - $kredit;
 
-        // Simpan transaksi ke database menggunakan Eloquent
-        $transaksi = Transaksi::create($validatedData);
+        // Simpan transaksi baru
+        $transaksi = new Transaksi();
+        $transaksi->debit = $debit;
+        $transaksi->kredit = $kredit;
+        $transaksi->saldo = $saldo;
+        $transaksi->deskripsi = $request->input('deskripsi');
+        $transaksi->kode_transaksi = $request->input('kode_transaksi');
+        $transaksi->akun_keuangan_id = $request->input('akun_keuangan_id');
+        $transaksi->parent_akun_id = $request->input('parent_akun_id') ?? null; // Pastikan jika parent_akun_id tidak ada, diset ke null
+        $transaksi->tanggal_transaksi = $request->input('tanggal_transaksi');
+        $transaksi->bidang_name = $request->input('bidang_name');
+        $transaksi->save();
 
         // Logging hasil penyimpanan
-        if ($transaksi) {
+        if ($transaksi->exists) {
             Log::info('Data transaksi berhasil disimpan', ['id' => $transaksi->id]);
         } else {
             Log::error('Data transaksi gagal disimpan');
@@ -94,13 +117,19 @@ class TransaksiController extends Controller
         return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil ditambahkan!');
     }
 
+
+
     public function index()
     {
-        // Ambil user yang sedang login
         $user = auth()->user();
 
+        // Ambil saldo terakhir berdasarkan bidang_name
+        $lastSaldo = Transaksi::where('bidang_name', $user->bidang_name)
+            ->latest()
+            ->first()->saldo ?? 0;
+
         // Ambil transaksi berdasarkan role
-        $transaksiQuery = Transaksi::with('user');
+        $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
 
         // Jika user memiliki role 'Bidang', filter berdasarkan bidang_name
         if ($user->role === 'Bidang') {
@@ -111,7 +140,7 @@ class TransaksiController extends Controller
         $transaksi = $transaksiQuery->get();
 
         // Ambil semua data akun keuangan
-        $akunKeuangan = AkunKeuangan::all();  // Assuming you have a model named AkunKeuangan
+        $akunKeuangan = AkunKeuangan::all();
 
         // Ambil akun tanpa parent (parent_id = null)
         $akunTanpaParent = DB::table('akun_keuangans')
@@ -123,7 +152,7 @@ class TransaksiController extends Controller
             ->whereNotNull('parent_id')
             ->get()
             ->groupBy('parent_id')
-            ->toArray(); // Ubah menjadi array agar bisa digunakan di Blade
+            ->toArray();
 
         $role = auth()->user()->role;
         $bidang_name = auth()->user()->bidang_name;
@@ -153,6 +182,30 @@ class TransaksiController extends Controller
         // Generate kode transaksi
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
-        return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi'));
+        return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi', 'lastSaldo'));
+    }
+
+
+    public function getData()
+    {
+        $user = auth()->user();
+
+        // Ambil transaksi berdasarkan role
+        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan', 'user'); // Pastikan relasi sudah dimuat
+
+        if ($user->role === 'Bidang') {
+            $transaksiQuery->where('bidang_name', $user->bidang_name);
+        }
+
+        $transaksi = $transaksiQuery->get();
+
+        // Debugging relasi parentAkunKeuangan
+        Log::info('Data transaksi dengan parent akun:', $transaksi->toArray());
+
+        return DataTables::of($transaksi)
+            ->addColumn('parent_akun_nama', function ($item) {
+                return $item->parentAkunKeuangan ? $item->parentAkunKeuangan->nama_akun : 'N/A';
+            })
+            ->make(true);
     }
 }

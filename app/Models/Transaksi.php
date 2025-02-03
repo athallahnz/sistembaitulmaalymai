@@ -31,5 +31,9 @@ class Transaksi extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function parentAkunKeuangan()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'parent_akun_id', 'id');
+    }
 
 }

@@ -11,6 +11,7 @@ use App\Http\Controllers\ManajerController;
 use App\Http\Controllers\BidangController;
 use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
+use App\Http\Controllers\SaldoKeuanganController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,13 +50,18 @@ Route::middleware(['role:Bendahara'])->group(function () {
 Route::middleware(['role:Bidang'])->group(function () {
     // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
+    // Route::get('/bidang/{id}', [BidangController::class, 'index'])->name('bidang.index');
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
         Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');  // Menampilkan daftar transaksi
         Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create'); // Form input transaksi
         Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Menyimpan transaksi
+        Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
     });
+
+    // Route untuk saldo keuangan
+    Route::get('/saldo-keuangan', [SaldoKeuanganController::class, 'index'])->name('saldo-keuangan.index');
 });
 
 
