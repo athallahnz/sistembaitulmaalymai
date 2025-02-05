@@ -13,6 +13,7 @@ use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\SaldoKeuanganController;
 use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\Laporan\LaporanController;
 
 
 use App\Http\Controllers\TransactionController;
@@ -66,6 +67,8 @@ Route::middleware(['role:Bidang'])->group(function () {
     });
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
+
+    Route::get('/laporan/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
 
 
 
