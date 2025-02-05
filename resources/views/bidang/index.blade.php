@@ -25,15 +25,15 @@
             <div class="col-md-3 mb-4">
                 <div class="card">
                     <div class="icon bi bi-cash"></div>
-                    <h5>Kas</h5>
-                    <div class="value {{ $jumlahKas >= 0 ? 'positive' : 'negative' }}">{{ number_format($jumlahKas) }}</div>
+                    <h5>Saldo Kas</h5>
+                    <div class="value {{ $totalKas >= 0 ? 'positive' : 'negative' }}">{{ number_format($totalKas) }}</div>
                     <div class="description">Total s/d Bulan ini</div>
                 </div>
             </div>
             <div class="col-md-3 mb-4">
                 <div class="card">
                     <div class="icon bi bi-bank"></div>
-                    <h5>Bank</h5>
+                    <h5>Saldo Bank</h5>
                     <div class="value {{ $jumlahBank >= 0 ? 'positive' : 'negative' }}">{{ number_format($jumlahBank) }}</div>
                     <div class="description">Total s/d Bulan ini</div>
                 </div>

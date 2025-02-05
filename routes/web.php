@@ -12,6 +12,11 @@ use App\Http\Controllers\BidangController;
 use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\SaldoKeuanganController;
+use App\Http\Controllers\LedgerController;
+
+
+use App\Http\Controllers\TransactionController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -59,6 +64,12 @@ Route::middleware(['role:Bidang'])->group(function () {
         Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Menyimpan transaksi
         Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
     });
+    Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
+    Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
+
+
+
+
 
     // Route untuk saldo keuangan
     Route::get('/saldo-keuangan', [SaldoKeuanganController::class, 'index'])->name('saldo-keuangan.index');
@@ -91,13 +102,6 @@ Route::prefix('admin')->middleware('auth')->group(function () {
 Route::resource('users', UserController::class)->middleware('auth');
 Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
 Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
-
-// // Routing untuk transaksi
-// Route::prefix('transaksi')->middleware(['auth', 'role:Bidang'])->group(function () {
-//     Route::resource('transaksi', TransaksiController::class);
-// });
-
-
 
 // Route untuk home setelah login
 Route::get('/home', [HomeController::class, 'index'])->name('home');

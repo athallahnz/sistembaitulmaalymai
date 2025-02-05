@@ -2,7 +2,7 @@
 @section('title', 'Manajemen Pengguna')
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Data Transaksi Keuangan Bidang {{ auth()->user()->bidang_name }}</h1>
+        <h1 class="mb-4">Data Transaksi Kas Kecil Bidang {{ auth()->user()->bidang_name }}</h1>
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
@@ -40,6 +40,14 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label mb-2">Tipe Transaksi</label>
+                                <select name="type" class="form-control" required>
+                                    <option value="penerimaan">Penerimaan</option>
+                                    <option value="pengeluaran">Pengeluaran</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="mb-2">Jenis Akun</label>
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
                                     @foreach ($akunTanpaParent as $akun)
@@ -62,25 +70,9 @@
                                     required>
                             </div>
 
-                            <div id="debit-container" class="mb-3">
-                                <label class="mb-2">Debit</label>
-                                <input type="number" name="debit" id="debit" class="form-control"
-                                    value="{{ old('debit', 0) }}" required>
-                                <input type="hidden" name="debit_hidden" id="debit_hidden" value="{{ old('debit', 0) }}">
-                            </div>
-
-                            <div id="kredit-container" class="mb-3">
-                                <label class="mb-2">Kredit</label>
-                                <input type="number" name="kredit" id="kredit" class="form-control"
-                                    value="{{ old('kredit', 0) }}" required>
-                                <input type="hidden" name="kredit_hidden" id="kredit_hidden"
-                                    value="{{ old('kredit', 0) }}">
-                            </div>
-
                             <div class="mb-3">
-                                <label class="mb-2">Saldo</label>
-                                <input type="number" name="saldo" class="form-control"
-                                    value="{{ old('saldo', $lastSaldo) }}" placeholder="Masukkan Saldo" readonly>
+                                <label class="form-label mb-2">Jumlah</label>
+                                <input type="number" name="amount" class="form-control" required>
                             </div>
 
                             <button type="submit" class="btn btn-primary">Simpan</button>
@@ -97,12 +89,11 @@
                     <tr>
                         <th>Tanggal</th>
                         <th>Kode Transaksi</th>
-                        <th>Akun</th>
                         <th>Jenis Transaksi</th>
+                        <th>Akun</th>
+                        <th>Sub Akun</th>
                         <th>Deskripsi</th>
-                        <th>Debit</th>
-                        <th>Kredit</th>
-                        <th>Saldo</th>
+                        <th>Jumlah</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -139,45 +130,6 @@
             });
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
-            let akunKeuangan = document.getElementById("akun_keuangan");
-            let debitContainer = document.getElementById("debit-container");
-            let kreditContainer = document.getElementById("kredit-container");
-            let debitInput = document.getElementById("debit");
-            let kreditInput = document.getElementById("kredit");
-            let debitHidden = document.getElementById("debit_hidden");
-            let kreditHidden = document.getElementById("kredit_hidden");
-
-            akunKeuangan.addEventListener("change", function() {
-                let selectedOption = akunKeuangan.options[akunKeuangan.selectedIndex];
-                let saldoNormal = selectedOption.getAttribute("data-saldo-normal");
-
-                if (saldoNormal === "debit") {
-                    debitContainer.style.display = "block"; // Tampilkan Debit
-                    kreditContainer.style.display = "none"; // Sembunyikan Kredit
-                    kreditInput.value = 0; // Reset Kredit
-                    kreditHidden.value = 0; // Pastikan Hidden Input juga direset
-                } else if (saldoNormal === "kredit") {
-                    kreditContainer.style.display = "block"; // Tampilkan Kredit
-                    debitContainer.style.display = "none"; // Sembunyikan Debit
-                    debitInput.value = 0; // Reset Debit
-                    debitHidden.value = 0; // Pastikan Hidden Input juga direset
-                } else {
-                    debitContainer.style.display = "block"; // Tampilkan Debit
-                    kreditContainer.style.display = "block"; // Tampilkan Kredit
-                }
-            });
-
-            // Set nilai hidden sebelum form dikirim
-            document.querySelector("form").addEventListener("submit", function() {
-                debitHidden.value = debitInput.value;
-                kreditHidden.value = kreditInput.value;
-            });
-
-            // Jalankan saat halaman pertama kali dimuat
-            akunKeuangan.dispatchEvent(new Event("change"));
-        });
-
         $(document).ready(function() {
             var table = $('.yajra-datatable').DataTable({
                 processing: true,
@@ -195,6 +147,10 @@
                     {
                         data: 'kode_transaksi', // Ambil kode transaksi
                         name: 'kode_transaksi'
+                    },
+                    {
+                        data: 'type', // Ambil type
+                        name: 'type'
                     },
                     {
                         data: 'akun_keuangan_id', // Ambil nama akun yang terkait
@@ -217,33 +173,42 @@
                         name: 'deskripsi'
                     },
                     {
-                        data: 'debit', // Ambil debit
-                        name: 'debit',
-                        render: function(data) {
-                            return new Intl.NumberFormat().format(data); // Format angka untuk debit
+                        data: 'amount', // Ambil amount
+                        name: 'amount',
+                        render: function(data, type, row) {
+                            return number_format(data); // Format debit
                         }
                     },
-                    {
-                        data: 'kredit', // Ambil kredit
-                        name: 'kredit',
-                        render: function(data) {
-                            return new Intl.NumberFormat().format(
-                                data); // Format angka untuk kredit
-                        }
-                    },
-                    {
-                        data: 'saldo', // Ambil saldo
-                        name: 'saldo',
-                        render: function(data) {
-                            return new Intl.NumberFormat().format(data); // Format angka untuk saldo
-                        }
-                    },
+
                 ],
                 error: function(xhr, status, error) {
                     console.log(xhr.responseText); // Debugging error response
                 }
             });
         });
+
+        // Function to format numbers with thousand separators
+        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+            var n = !isFinite(+number) ? 0 : +number,
+                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+                s = '',
+                toFixedFix = function(n, prec) {
+                    var k = Math.pow(10, prec);
+                    return '' + Math.round(n * k) / k;
+                };
+            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+            if (s[0].length > 3) {
+                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            }
+            if ((s[1] || '').length < prec) {
+                s[1] = s[1] || '';
+                s[1] += new Array(prec - s[1].length + 1).join('0');
+            }
+            return s.join(dec);
+        }
     </script>
 
 

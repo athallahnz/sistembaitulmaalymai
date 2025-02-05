@@ -15,12 +15,14 @@ return new class extends Migration
             $table->id();
             $table->string('kode_transaksi')->unique(); // Kode unik untuk transaksi
             $table->date('tanggal_transaksi'); // Tanggal transaksi
-            $table->text('deskripsi'); // Deskripsi transaksi
+            $table->enum('type', ['penerimaan', 'pengeluaran'])->after('tanggal_transaksi');
             $table->foreignId('akun_keuangan_id')->constrained('akun_keuangans')->onDelete('cascade'); // Menghubungkan dengan akun_keuangans
-            $table->decimal('debit', 15, 2)->default(0); // Jumlah debit
-            $table->decimal('kredit', 15, 2)->default(0); // Jumlah kredit
-            $table->decimal('saldo', 15, 2)->default(0); // Saldo setelah transaksi
+            $table->unsignedBigInteger('parent_id')->nullable()->after('akun_keuangan_id');
+            $table->text('deskripsi'); // Deskripsi transaksi
+            $table->decimal('amount', 15, 2);
+            $table->string('bidang_name')->nullable();  // Menambahkan kolom bidang_name
             $table->timestamps();
+            $table->foreign('parent_id')->references('id')->on('akun_keuangans')->onDelete('set null');
         });
     }
 

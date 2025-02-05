@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
+use App\Models\Ledger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -74,13 +75,13 @@ class TransaksiController extends Controller
         // Validasi data input
         $validatedData = $request->validate([
             'bidang_name' => 'required|string',
-            'deskripsi' => 'required|string',
             'kode_transaksi' => 'required|string',
             'tanggal_transaksi' => 'required|date',
+            'type' => 'required|in:penerimaan,pengeluaran',
             'akun_keuangan_id' => 'required|integer',
             'parent_akun_id' => 'nullable|integer',
-            'debit' => 'required|numeric',
-            'kredit' => 'required|numeric',
+            'deskripsi' => 'required|string',
+            'amount' => 'required|numeric|min:0',
         ]);
 
         // Hitung saldo berdasarkan debit dan kredit
@@ -89,27 +90,24 @@ class TransaksiController extends Controller
             ->latest()
             ->first()->saldo ?? 0;
 
-        // Hitung saldo berdasarkan debit dan kredit
-        $debit = $request->input('debit');
-        $kredit = $request->input('kredit');
-        $saldo = $lastSaldo + $debit - $kredit;
-
         // Simpan transaksi baru
         $transaksi = new Transaksi();
-        $transaksi->debit = $debit;
-        $transaksi->kredit = $kredit;
-        $transaksi->saldo = $saldo;
-        $transaksi->deskripsi = $request->input('deskripsi');
+        $transaksi->bidang_name = $request->input('bidang_name');
         $transaksi->kode_transaksi = $request->input('kode_transaksi');
+        $transaksi->tanggal_transaksi = $request->input('tanggal_transaksi');
+        $transaksi->type = $request->input('type');
         $transaksi->akun_keuangan_id = $request->input('akun_keuangan_id');
         $transaksi->parent_akun_id = $request->input('parent_akun_id') ?? null; // Pastikan jika parent_akun_id tidak ada, diset ke null
-        $transaksi->tanggal_transaksi = $request->input('tanggal_transaksi');
-        $transaksi->bidang_name = $request->input('bidang_name');
+        $transaksi->deskripsi = $request->input('deskripsi');
+        $transaksi->amount = $request->input('amount');
         $transaksi->save();
 
         // Logging hasil penyimpanan
         if ($transaksi->exists) {
             Log::info('Data transaksi berhasil disimpan', ['id' => $transaksi->id]);
+
+            // Panggil createJournalEntry untuk mencatat jurnal
+            $this->createJournalEntry($transaksi);
         } else {
             Log::error('Data transaksi gagal disimpan');
         }
@@ -208,4 +206,68 @@ class TransaksiController extends Controller
             })
             ->make(true);
     }
+
+    private function createJournalEntry($transaksi)
+    {
+        // Ambil akun Kas (misalnya akun dengan id 101) dan Pendapatan (misalnya akun dengan id 202)
+        $kas = AkunKeuangan::where('id', 101)->first(); // Akun Kas
+        $pendapatan = AkunKeuangan::where('id', 202)->first(); // Akun Pendapatan
+
+        // Tentukan akun beban berdasarkan parent_akun_id
+        $akunBebanId = $transaksi->parent_akun_id ?? $transaksi->akun_keuangan_id;
+
+        // Pastikan akun yang diperlukan ada sebelum membuat jurnal
+        if (!$kas || !$pendapatan || !$akunBebanId) {
+            Log::error('Akun tidak ditemukan dalam database', [
+                'kas' => $kas,
+                'pendapatan' => $pendapatan,
+                'akunBebanId' => $akunBebanId,
+            ]);
+            return;
+        }
+
+        // Jika transaksi adalah pemasukan (penerimaan)
+        if ($transaksi->type == 'penerimaan') {
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $kas->id, // Kas bertambah (debit)
+                'debit' => $transaksi->amount,
+                'credit' => 0
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $pendapatan->id, // Pendapatan bertambah (credit)
+                'debit' => 0,
+                'credit' => $transaksi->amount
+            ]);
+        }
+        // Jika transaksi adalah pengeluaran (beban)
+        else if ($transaksi->type == 'pengeluaran') {
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $akunBebanId, // Beban bertambah (debit)
+                'debit' => $transaksi->amount,
+                'credit' => 0
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $kas->id, // Kas berkurang (credit)
+                'debit' => 0,
+                'credit' => $transaksi->amount
+            ]);
+        }
+
+        // Hitung total saldo kas setelah transaksi
+        $totalKas = Ledger::where('akun_keuangan_id', $kas->id)
+            ->sum('debit') - Ledger::where('akun_keuangan_id', $kas->id)->sum('credit');
+
+        // Logging saldo kas terbaru
+        Log::info('Jurnal berhasil dibuat. Saldo kas terbaru: ' . $totalKas, [
+            'id_transaksi' => $transaksi->id,
+            'total_kas' => $totalKas
+        ]);
+    }
+
 }

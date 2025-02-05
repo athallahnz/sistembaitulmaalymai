@@ -11,22 +11,22 @@ class Transaksi extends Model
     protected $table = "transaksis";
     protected $fillable = [
         'bidang_name',
-        'deskripsi',
         'kode_transaksi',
         'tanggal_transaksi',
+        'type',
         'akun_keuangan_id',
         'parent_akun_id',
-        'debit',
-        'kredit',
-        'saldo',
+        'deskripsi',
+        'amount',
     ];
-
-    // Definisikan relasi belongsTo dengan akun_keuangan
+    public function ledgers()
+    {
+        return $this->hasMany(Ledger::class, 'transaksi_id', 'id');
+    }
     public function akunKeuangan()
     {
         return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id');
     }
-    // app/Models/Transaksi.php
     public function user()
     {
         return $this->belongsTo(User::class);

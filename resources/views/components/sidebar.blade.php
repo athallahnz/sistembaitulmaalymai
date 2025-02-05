@@ -61,7 +61,13 @@
                 <li class="sidebar-item {{ request()->routeIs('transaksi.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('transaksi.index') }}">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Transaksi</span>
+                        <span class="align-middle">Transaksi Kas Kecil</span>
+                    </a>
+                </li>
+                <li class="sidebar-item {{ request()->routeIs('ledger.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('ledger.index') }}">
+                        <i class="align-middle" data-feather="book"></i>
+                        <span class="align-middle">Buku Besar Kas Kecil</span>
                     </a>
                 </li>
             @endrole

@@ -7,10 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class AkunKeuangan extends Model
 {
-    // Definisikan relasi hasMany dengan transaksi
+    protected $fillable = ['nama_akun', 'kode_akun', 'tipe_akun', 'parent_id', 'saldo_normal'];
     public function transaksis()
     {
         return $this->hasMany(Transaksi::class);
+    }
+    public function ledgers()
+    {
+        return $this->hasMany(Ledger::class);
     }
 }
 
