@@ -34,7 +34,7 @@
                 <div class="card">
                     <div class="icon bi bi-bank"></div>
                     <h5>Saldo Bank</h5>
-                    <div class="value {{ $jumlahBank >= 0 ? 'positive' : 'negative' }}">{{ number_format($jumlahBank) }}</div>
+                    <div class="value {{ $totalSaldoBank >= 0 ? 'positive' : 'negative' }}">{{ number_format($totalSaldoBank) }}</div>
                     <div class="description">Total s/d Bulan ini</div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 @section('content')
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="card">
+            <div class="card" style="width: 20rem;">
                 <h5>Saldo Kas</h5>
                 <div class="icon bi bi-cash"></div>
                 <div class="value {{ $totalKas >= 0 ? 'positive' : 'negative' }}">Rp. {{ number_format($totalKas, 2, ',', '.') }}</div>

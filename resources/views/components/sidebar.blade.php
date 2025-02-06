@@ -70,6 +70,12 @@
                         <span class="align-middle">Buku Besar Kas Kecil</span>
                     </a>
                 </li>
+                <li class="sidebar-item {{ request()->routeIs('laporan.bank') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('laporan.bank') }}">
+                        <i class="align-middle" data-feather="credit-card"></i>
+                        <span class="align-middle">Konsolidasi Akun Bank</span>
+                    </a>
+                </li>
             @endrole
         </ul>
 

@@ -64,11 +64,16 @@ Route::middleware(['role:Bidang'])->group(function () {
         Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create'); // Form input transaksi
         Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Menyimpan transaksi
         Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
+        Route::get('transaksi/{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
+        Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
+        Route::delete('transaksi/{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
+
     });
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
 
     Route::get('/laporan/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
+    Route::get('/laporan/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
 
 
 

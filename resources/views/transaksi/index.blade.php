@@ -41,14 +41,14 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Tipe Transaksi</label>
-                                <select name="type" class="form-control" required>
+                                <select name="type" class="form-control" id="type-select" required>
                                     <option value="penerimaan">Penerimaan</option>
                                     <option value="pengeluaran">Pengeluaran</option>
                                 </select>
                             </div>
 
                             <div class="mb-3">
-                                <label class="mb-2">Jenis Akun</label>
+                                <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
                                     @foreach ($akunTanpaParent as $akun)
                                         <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
@@ -94,6 +94,7 @@
                         <th>Sub Akun</th>
                         <th>Deskripsi</th>
                         <th>Jumlah</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -102,6 +103,27 @@
 
     </div>
     <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const typeSelect = document.getElementById("type-select");
+            const akunLabel = document.getElementById("akun-label");
+
+            // Fungsi untuk mengubah label berdasarkan tipe transaksi
+            function updateAkunLabel() {
+                const selectedType = typeSelect.value;
+                if (selectedType === "penerimaan") {
+                    akunLabel.textContent = "Asal Akun";
+                } else if (selectedType === "pengeluaran") {
+                    akunLabel.textContent = "Tujuan Akun";
+                }
+            }
+
+            // Event listener untuk mendeteksi perubahan tipe transaksi
+            typeSelect.addEventListener("change", updateAkunLabel);
+
+            // Set label awal sesuai nilai default
+            updateAkunLabel();
+        });
+
         document.addEventListener("DOMContentLoaded", function() {
             let akunKeuangan = document.getElementById("akun_keuangan");
             let parentAkunContainer = document.getElementById("parent-akun-container");
@@ -179,7 +201,12 @@
                             return number_format(data); // Format debit
                         }
                     },
-
+                    {
+                        data: 'actions', // Kolom untuk tombol aksi
+                        name: 'actions',
+                        orderable: false, // Tidak perlu diurutkan
+                        searchable: false // Tidak perlu dicari
+                    }
                 ],
                 error: function(xhr, status, error) {
                     console.log(xhr.responseText); // Debugging error response
@@ -187,7 +214,6 @@
             });
         });
 
-        // Function to format numbers with thousand separators
         function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
             number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
             var n = !isFinite(+number) ? 0 : +number,
@@ -209,7 +235,27 @@
             }
             return s.join(dec);
         }
+
+        $(document).on('click', '.btn-delete', function() {
+            var id = $(this).data('id');
+            var url = "{{ route('transaksi.destroy', ':id') }}".replace(':id', id);
+
+            if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                $.ajax({
+                    url: url,
+                    type: 'DELETE',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        alert(response.success);
+                        $('.yajra-datatable').DataTable().ajax.reload(); // Reload tabel
+                    },
+                    error: function(xhr) {
+                        console.error(xhr.responseText);
+                    }
+                });
+            }
+        });
     </script>
-
-
 @endsection

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Transaksi;
 use App\Models\Ledger;
 use App\Models\AkunKeuangan;
+use App\Services\LaporanService;
+
 
 
 class BidangController extends Controller
@@ -17,6 +19,13 @@ class BidangController extends Controller
     public function index()
     {
         $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+
+        // ID default untuk akun bank
+        // Memanggil service untuk mendapatkan data konsolidasi bank
+        $bankId = 102;
+        $dataKonsolidasi = LaporanService::konsolidasiBank($bankId, $bidangName);
+        $totalSaldoBank = $dataKonsolidasi['saldo']; // Data yang akan diteruskan ke view
+        $transaksiBank = $dataKonsolidasi['transaksi'];
 
         $lastSaldo = Transaksi::where('bidang_name', auth()->user()->bidang_name)
             ->latest()  // Mengambil transaksi terakhir berdasarkan bidang_name
@@ -39,9 +48,6 @@ class BidangController extends Controller
                     $query->where('bidang_name', $bidangName);
                 })
                 ->sum('credit');
-        $jumlahBank = Transaksi::where('akun_keuangan_id', 102)
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
 
         $jumlahPiutang = Transaksi::where('akun_keuangan_id', 103)
             ->where('bidang_name', auth()->user()->bidang_name)
@@ -92,7 +98,7 @@ class BidangController extends Controller
             'lastSaldo',
             'jumlahTransaksi',
             'totalKas',
-            'jumlahBank',
+            'totalSaldoBank',
             'jumlahPiutang',
             'jumlahTanahBangunan',
             'jumlahInventaris',
