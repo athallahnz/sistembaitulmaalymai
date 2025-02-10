@@ -2,7 +2,7 @@
 @section('title', 'Manajemen Pengguna')
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Data Transaksi Kas Kecil Bidang {{ auth()->user()->bidang_name }}</h1>
+        <h1 class="mb-4">Data Transaksi Buku Harian Bidang {{ auth()->user()->bidang_name }}</h1>
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">

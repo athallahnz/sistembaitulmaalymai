@@ -163,4 +163,51 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with(['success' => 'User dihapus permanen!']);
     }
 
+    public function editProfile()
+    {
+        $user = auth()->user(); // Ambil user yang sedang login
+        return view('profile.edit', compact('user'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user(); // Ambil user yang sedang login
+
+        // Validasi umum untuk semua user
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'nomor' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'pin' => ['nullable', 'string', 'min:4', 'max:6'], // Optional, hanya jika ingin mengubah
+        ];
+
+        // Validasi bidang_name hanya untuk role "Bidang", tetapi abaikan perubahan pada server
+        if ($user->role === 'Bidang') {
+            $rules['bidang_name'] = 'required|string|max:255';
+        }
+
+        // Validasi request
+        $request->validate($rules);
+
+        // Data yang akan diupdate
+        $userData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'nomor' => $request->nomor,
+        ];
+
+        // Update PIN jika diberikan
+        if ($request->filled('pin')) {
+            $userData['pin'] = Hash::make($request->pin);
+        }
+
+        // Abaikan perubahan bidang_name pada server
+        // Tidak perlu mengupdate bidang_name karena harus tetap sama seperti sebelumnya
+
+        // Update user data
+        $user->update($userData);
+
+        return redirect()->route('profile.edit')->with('success', 'Profil berhasil diperbarui!');
+    }
+
 }

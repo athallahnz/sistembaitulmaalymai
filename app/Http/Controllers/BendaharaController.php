@@ -13,19 +13,19 @@ class BendaharaController extends Controller
     }
     public function index()
     {
-        // Ambil total saldo dari semua bidang
-        $lastSaldos = Transaksi::select('bidang_name', \DB::raw('MAX(id) as last_id'))
-            ->groupBy('bidang_name');
+        // // Ambil total saldo dari semua bidang
+        // $lastSaldos = Transaksi::select('bidang_name', \DB::raw('MAX(id) as last_id'))
+        //     ->groupBy('bidang_name');
 
-        $totalSaldo = Transaksi::joinSub($lastSaldos, 'last_saldos', function ($join) {
-            $join->on('transaksis.id', '=', 'last_saldos.last_id');
-        })
-            ->sum('transaksis.saldo');
+        // $totalSaldo = Transaksi::joinSub($lastSaldos, 'last_saldos', function ($join) {
+        //     $join->on('transaksis.id', '=', 'last_saldos.last_id');
+        // })
+        //     ->sum('transaksis.saldo');
 
         // Ambil tanggal transaksi terakhir (untuk semua bidang)
         $lastUpdate = Transaksi::latest()->first()->created_at ?? null;
 
-        return view('bendahara.index', compact('totalSaldo','lastUpdate'));
+        return view('bendahara.index', compact('lastUpdate'));
     }
 }
 

@@ -56,7 +56,6 @@ Route::middleware(['role:Bendahara'])->group(function () {
 Route::middleware(['role:Bidang'])->group(function () {
     // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
-    // Route::get('/bidang/{id}', [BidangController::class, 'index'])->name('bidang.index');
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
@@ -67,6 +66,7 @@ Route::middleware(['role:Bidang'])->group(function () {
         Route::get('transaksi/{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
         Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
         Route::delete('transaksi/{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
+
 
     });
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
@@ -95,9 +95,12 @@ Route::get('/', function () {
 Auth::routes();
 
 // Login routes
-// Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
+
+// Route untuk Update Profile Pengguna
+Route::get('/profile/edit', [UserController::class, 'editProfile'])->name('profile.edit');
+Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
 
 // Admin User Management Route
 Route::prefix('admin')->middleware('auth')->group(function () {
