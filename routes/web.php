@@ -13,6 +13,7 @@ use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\Laporan\LaporanController;
 
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -58,26 +59,29 @@ Route::middleware(['role:Bidang'])->group(function () {
     Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');
     Route::get('/bidang/detail', [BidangController::class, 'showDetail'])->name('bidang.detail');
 
-
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
+        // Route untuk CRU Transaksi
         Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');
         Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create');
         Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store');
         Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBankTransaction');
         Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
-        Route::get('transaksi/{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
+        Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
         Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
-        Route::delete('transaksi/{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
+        // Route untuk Cetak Pdf
+        Route::get('nota/{id}', [TransaksiController::class, 'exportPdf'])->name('transaksi.exportPdf');
+        Route::get('transaksi/export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf');
+        Route::get('transaksi/export-excel', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllExcel');
+        // Route untuk ledger
+        Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
+        Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
+        // Route untuk laporan bank
+        Route::get('/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
+        Route::get('/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
     });
 
-    // Route untuk ledger
-    Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
-    Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
 
-    // Route untuk laporan bank
-    Route::get('/laporan/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
-    Route::get('/laporan/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
 });
 
 // Route untuk home setelah login
@@ -96,3 +100,4 @@ Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.
 // Login routes
 Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
+

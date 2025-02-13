@@ -6,8 +6,14 @@
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
-            Tambah Transaksi
+            <i class="bi bi-plus-circle"></i> Tambah Transaksi
         </button>
+        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 ms-2 shadow">
+            <i class="bi bi-filetype-pdf"></i> Unduh PDF
+        </a>
+        <a href="{{ route('transaksi.exportAllExcel') }}" class="btn btn-success mb-3 ms-2 shadow">
+            <i class="bi bi-file-earmark-excel"></i> Export Excel
+        </a>
 
         <!-- Modal -->
         <div class="modal fade" id="transactionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
@@ -68,37 +74,37 @@
                                 <label class="mb-2">Deskripsi Transaksi</label>
                                 <input type="text" name="deskripsi" class="form-control" placeholder="Masukkan Deskripsi"
                                     required>
-                                </div>
+                            </div>
 
-                                <div class="mb-3">
-                                    <label class="form-label mb-2">Jumlah</label>
-                                    <input type="number" name="amount" class="form-control" required>
-                                    <small class="form-text text-muted" id="saldo-akun">
-                                        Saldo Kas: Rp {{ number_format($saldoKas ?? 0, 2) }}
-                                    </small>
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label mb-2">Jumlah</label>
+                                <input type="number" name="amount" class="form-control" required>
+                                <small class="form-text text-muted" id="saldo-akun">
+                                    Saldo Kas: Rp {{ number_format($saldoKas ?? 0, 2) }}
+                                </small>
+                            </div>
 
-                                <button type="submit" class="btn btn-primary">Simpan</button>
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                            </form>
-                        </div>
+                            <button type="submit" class="btn btn-primary">Simpan</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        </form>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="p-3 shadow table-responsive rounded">
-                <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Tanggal</th>
-                            <th>Kode Transaksi</th>
-                            <th>Jenis Transaksi</th>
-                            <th>Akun</th>
-                            <th>Sub Akun</th>
-                            <th>Deskripsi</th>
-                            <th>Jumlah</th>
-                            <th>Actions</th>
-                        </tr>
+        <div class="p-3 shadow table-responsive rounded">
+            <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Kode Transaksi</th>
+                        <th>Jenis Transaksi</th>
+                        <th>Akun</th>
+                        <th>Sub Akun</th>
+                        <th>Deskripsi</th>
+                        <th>Jumlah</th>
+                        <th>Actions</th>
+                    </tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -205,10 +211,10 @@
                         }
                     },
                     {
-                        data: 'actions', // Kolom untuk tombol aksi
+                        data: 'actions',
                         name: 'actions',
-                        orderable: false, // Tidak perlu diurutkan
-                        searchable: false // Tidak perlu dicari
+                        orderable: false,
+                        searchable: false
                     }
                 ],
                 error: function(xhr, status, error) {
@@ -238,27 +244,5 @@
             }
             return s.join(dec);
         }
-
-        $(document).on('click', '.btn-delete', function() {
-            var id = $(this).data('id');
-            var url = "{{ route('transaksi.destroy', ':id') }}".replace(':id', id);
-
-            if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-                $.ajax({
-                    url: url,
-                    type: 'DELETE',
-                    data: {
-                        _token: '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        alert(response.success);
-                        $('.yajra-datatable').DataTable().ajax.reload(); // Reload tabel
-                    },
-                    error: function(xhr) {
-                        console.error(xhr.responseText);
-                    }
-                });
-            }
-        });
     </script>
 @endsection

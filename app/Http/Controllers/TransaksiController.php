@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -423,7 +424,6 @@ class TransaksiController extends Controller
             ->rawColumns(['actions']) // Memberikan raw HTML pada kolom actions
             ->make(true);
     }
-
     private function createJournalEntry($transaksi)
     {
         // Ambil akun Kas (misalnya akun dengan id 101) dan Pendapatan (misalnya akun dengan id 202)
@@ -495,6 +495,57 @@ class TransaksiController extends Controller
         return response()->json([
             'message' => 'Data berhasil dihapus!'
         ]);
+
     }
+
+    public function exportPdf($id)
+    {
+        // Retrieve the transaction data based on ID
+        $transaksi = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])->find($id);
+
+        // Pastikan $transaksi ditemukan sebelum melanjutkan
+        if (!$transaksi) {
+            return redirect()->route('transaksi.index')->with('error', 'Transaksi tidak ditemukan');
+        }
+
+        // Mengambil tanggal_transaksi dari data transaksi yang ada
+        $tanggal_transaksi = $transaksi->tanggal_transaksi;
+        $jenis_transaksi = $transaksi->type;
+        $akun = $transaksi->akunKeuangan;
+        $sub_akun = $transaksi->parent_akun_id;
+
+        // Generate the PDF from a view
+        $pdf = Pdf::loadView('transaksi.nota', compact('transaksi', 'tanggal_transaksi', 'akun', 'sub_akun', 'jenis_transaksi'));
+
+        // Return the PDF as a response for download
+        return $pdf->download('Invoice_' . $transaksi->kode_transaksi . '.pdf');
+    }
+
+    public function exportAllPdf()
+    {
+        // Ambil seluruh data transaksi
+        $transaksi = Transaksi::all();
+
+        // Pastikan ada data transaksi yang tersedia
+        if ($transaksi->isEmpty()) {
+            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diekspor.');
+        }
+
+        // Siapkan data untuk dikirim ke view PDF
+        $data = [
+            'transaksis' => $transaksi
+        ];
+
+        // Ambil bidang_name dari transaksi pertama sebagai nama file PDF (atau bisa pilih transaksi tertentu)
+        $firstTransaksi = $transaksi->first(); // Ambil transaksi pertama
+        $bidangName = $firstTransaksi->bidang_name ?? 'Transaksi'; // Gunakan nilai bidang_name atau default 'Transaksi'
+
+        // Load view untuk PDF, kirimkan data transaksi
+        $pdf = Pdf::loadView('transaksi.export', $data);
+
+        // Kembalikan file PDF untuk di-download
+        return $pdf->download('Laporan_Keuangan_' . $bidangName . '.pdf');
+    }
+
 
 }
