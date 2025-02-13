@@ -1,8 +1,14 @@
 @extends('layouts.app')
-@section('title', 'Manajemen Pengguna')
+@section('title', 'Catatan Buku Harian')
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Data Transaksi Buku Harian <strong>Bidang {{ auth()->user()->bidang_name }}</strong></h1>
+        <h1 class="mb-4">
+            @if(auth()->user()->hasRole('Bidang'))
+                Data Buku Harian <strong>Bidang {{ auth()->user()->bidang_name }}</strong>
+            @elseif(auth()->user()->hasRole('Bendahara'))
+                Seluruh Data Transaksi Buku Harian <strong>Bidang</strong>
+            @endif
+        </h1>
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">

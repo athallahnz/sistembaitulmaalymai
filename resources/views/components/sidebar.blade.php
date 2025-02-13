@@ -49,6 +49,12 @@
                         <span class="align-middle">Dashboard Bendahara</span>
                     </a>
                 </li>
+                <li class="sidebar-item {{ request()->routeIs('transaksi.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('transaksi.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Buku Harian</span>
+                    </a>
+                </li>
             @endrole
 
             @role('Bidang')

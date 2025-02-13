@@ -48,10 +48,10 @@ class TransaksiController extends Controller
             ->groupBy('parent_id')
             ->toArray();
 
-        $role = auth()->user()->role;
-        $bidang_name = auth()->user()->bidang_name;
+        $role = $user->role;
+        $bidang_name = $user->bidang_name;
 
-        // Tentukan prefix berdasarkan bidang_name
+        // Tentukan prefix berdasarkan role dan bidang_name
         $prefix = '';
         if ($role === 'Bidang') {
             switch ($bidang_name) {
@@ -71,6 +71,8 @@ class TransaksiController extends Controller
                     $prefix = 'BGN';
                     break;
             }
+        } elseif ($role === 'Bendahara') {
+            $prefix = 'BDH'; // Prefix untuk Bendahara
         }
 
         // Generate kode transaksi
@@ -78,7 +80,9 @@ class TransaksiController extends Controller
 
         // Ambil transaksi terakhir yang melibatkan akun Kas (ID = 101)
         $lastSaldo = Transaksi::where('akun_keuangan_id', 101) // Cek untuk akun Kas (ID = 101)
-            ->where('bidang_name', $bidang_name)
+            ->when($role === 'Bidang', function ($query) use ($bidang_name) {
+                return $query->where('bidang_name', $bidang_name);
+            })
             ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
             ->get() // Ambil semua data sebagai collection
             ->last(); // Ambil baris terakhir dalam hasil (data terbaru)
@@ -88,6 +92,7 @@ class TransaksiController extends Controller
 
         return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi', 'lastSaldo', 'saldoKas'));
     }
+
     public function create()
     {
         // Ambil akun keuangan dari database

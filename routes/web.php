@@ -52,10 +52,12 @@ Route::middleware(['role:Manajer Keuangan'])->group(function () {
 // Bendahara routes
 Route::middleware(['role:Bendahara'])->group(function () {
     Route::get('/bendahara/dashboard', [BendaharaController::class, 'index'])->name('bendahara.index');
+
 });
 
 // Bidang routes
-Route::middleware(['role:Bidang'])->group(function () {
+Route::middleware(['role:Bendahara|Bidang'])->group(function () {
+    Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
     // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
     Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');

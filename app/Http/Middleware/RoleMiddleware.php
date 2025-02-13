@@ -10,10 +10,12 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, $role)
     {
-        if (!Auth::check() || !Auth::user()->hasRole($role)) {
-            abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
+        // Periksa apakah user memiliki salah satu role yang diperbolehkan
+        if (auth()->user()->hasRole(['Admin','Manajer Keuangan','Ketua Yayasan','Bendahara', 'Bidang'])) {
+            return $next($request);
         }
 
-        return $next($request);
+        // Jika tidak memiliki izin, abort dengan status 403
+        abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
     }
 }

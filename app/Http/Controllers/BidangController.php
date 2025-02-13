@@ -137,8 +137,6 @@ class BidangController extends Controller
         return view('bidang.detail', compact('transaksiData', 'jumlahBiayaOperasional', 'parentAkunId', 'parentAkun'));
     }
 
-
-
     // Menambahkan method untuk mengambil data transaksi berdasarkan parent_akun_id
     public function getDetailData(Request $request)
     {
