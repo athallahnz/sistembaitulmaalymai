@@ -61,7 +61,7 @@
                 <li class="sidebar-item {{ request()->routeIs('transaksi.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('transaksi.index') }}">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Transaksi Buku Harian</span>
+                        <span class="align-middle">Buku Harian</span>
                     </a>
                 </li>
                 <li class="sidebar-item {{ request()->routeIs('ledger.index') ? 'active' : '' }}">
@@ -74,6 +74,12 @@
                     <a class="sidebar-link" href="{{ route('laporan.bank') }}">
                         <i class="align-middle" data-feather="credit-card"></i>
                         <span class="align-middle">Konsolidasi Akun Bank</span>
+                    </a>
+                </li>
+                <li class="sidebar-item">
+                    <a class="sidebar-link" href="#">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Manajemen SPP</span>
                     </a>
                 </li>
             @endrole

@@ -16,5 +16,9 @@ class AkunKeuangan extends Model
     {
         return $this->hasMany(Ledger::class);
     }
+    public function parentAkun()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'parent_id');
+    }
 }
 

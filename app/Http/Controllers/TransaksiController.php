@@ -17,11 +17,6 @@ class TransaksiController extends Controller
     {
         $user = auth()->user();
 
-        // Ambil saldo terakhir berdasarkan bidang_name
-        $lastSaldo = Transaksi::where('bidang_name', $user->bidang_name)
-            ->latest()
-            ->first()->saldo ?? 0;
-
         // Ambil transaksi berdasarkan role
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
 
@@ -76,9 +71,18 @@ class TransaksiController extends Controller
         // Generate kode transaksi
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
-        return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi', 'lastSaldo'));
-    }
+        // Ambil transaksi terakhir yang melibatkan akun Kas (ID = 101)
+        $lastSaldo = Transaksi::where('akun_keuangan_id', 101) // Cek untuk akun Kas (ID = 101)
+            ->where('bidang_name', $bidang_name)
+            ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+            ->get() // Ambil semua data sebagai collection
+            ->last(); // Ambil baris terakhir dalam hasil (data terbaru)
 
+        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
+        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
+
+        return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi', 'lastSaldo', 'saldoKas'));
+    }
     public function create()
     {
         // Ambil akun keuangan dari database
@@ -150,32 +154,138 @@ class TransaksiController extends Controller
             'amount' => 'required|numeric|min:0',
         ]);
 
-        // Hitung saldo berdasarkan debit dan kredit
-        // Ambil saldo terakhir berdasarkan bidang_name
-        $lastSaldo = Transaksi::where('bidang_name', $request->input('bidang_name'))
-            ->latest()
-            ->first()->saldo ?? 0;
+        // Logging data setelah validasi
+        Log::info('Data setelah validasi:', $validatedData);
+
+        $bidang_name = $validatedData['bidang_name']; // Nama bidang dari input
+
+        // Ambil transaksi terakhir yang melibatkan akun Kas (ID = 101)
+        $lastSaldo = Transaksi::where('akun_keuangan_id', 101) // Cek untuk akun Kas (ID = 101)
+            ->where('bidang_name', $bidang_name)
+            ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+            ->get() // Ambil semua data sebagai collection
+            ->last(); // Ambil baris terakhir dalam hasil (data terbaru)
+
+        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
+        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
+
+        Log::info('Saldo akun Kas ID 101:', ['saldo' => $saldoKas]);
+
+        // Logika untuk pengeluaran
+        if ($validatedData['type'] === 'pengeluaran') {
+            // Cek jika pengeluaran melebihi saldo Kas yang ada
+            if ($validatedData['amount'] > $saldoKas) {
+                return back()->withErrors(['amount' => 'Jumlah pengeluaran tidak boleh melebihi saldo akun Kas.']);
+            }
+        }
+
+        // Tentukan saldo baru berdasarkan tipe transaksi
+        $newSaldo = $saldoKas; // Set saldo awal dengan saldo terakhir dari akun Kas
+
+        if ($validatedData['type'] === 'penerimaan') {
+            // Tambah saldo untuk penerimaan
+            $newSaldo += $validatedData['amount'];
+        } else {
+            // Kurangi saldo untuk pengeluaran
+            $newSaldo -= $validatedData['amount'];
+        }
 
         // Simpan transaksi baru
         $transaksi = new Transaksi();
-        $transaksi->bidang_name = $request->input('bidang_name');
-        $transaksi->kode_transaksi = $request->input('kode_transaksi');
-        $transaksi->tanggal_transaksi = $request->input('tanggal_transaksi');
-        $transaksi->type = $request->input('type');
-        $transaksi->akun_keuangan_id = $request->input('akun_keuangan_id');
-        $transaksi->parent_akun_id = $request->input('parent_akun_id') ?? null; // Pastikan jika parent_akun_id tidak ada, diset ke null
-        $transaksi->deskripsi = $request->input('deskripsi');
-        $transaksi->amount = $request->input('amount');
-        $transaksi->save();
+        $transaksi->bidang_name = $validatedData['bidang_name'];
+        $transaksi->kode_transaksi = $validatedData['kode_transaksi'];
+        $transaksi->tanggal_transaksi = $validatedData['tanggal_transaksi'];
+        $transaksi->type = $validatedData['type'];
+        $transaksi->akun_keuangan_id = 101; // Menyimpan transaksi pada akun Kas (ID = 101)
+        $transaksi->parent_akun_id = $validatedData['parent_akun_id'];
+        $transaksi->deskripsi = $validatedData['deskripsi'];
+        $transaksi->amount = $validatedData['amount'];
+        $transaksi->saldo = $newSaldo; // Update saldo dengan nilai baru setelah transaksi
 
-        // Logging hasil penyimpanan
-        if ($transaksi->exists) {
+        // Logging sebelum penyimpanan
+        Log::info('Menyimpan transaksi:', $transaksi->toArray());
+
+        if ($transaksi->save()) {
+            // Logging hasil penyimpanan
             Log::info('Data transaksi berhasil disimpan', ['id' => $transaksi->id]);
 
             // Panggil createJournalEntry untuk mencatat jurnal
             $this->createJournalEntry($transaksi);
         } else {
-            Log::error('Data transaksi gagal disimpan');
+            Log::error('Gagal menyimpan data transaksi');
+        }
+
+        return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil ditambahkan!');
+    }
+
+    public function storeBankTransaction(Request $request)
+    {
+        // Logging untuk debugging
+        Log::info('Memulai proses penyimpanan transaksi bank', $request->all());
+
+        // Validasi data input
+        $validatedData = $request->validate([
+            'bidang_name' => 'required|string',
+            'kode_transaksi' => 'required|string',
+            'tanggal_transaksi' => 'required|date',
+            'type' => 'required|in:penerimaan,pengeluaran',
+            'akun_keuangan_id' => 'required|integer',
+            'parent_akun_id' => 'nullable|integer',
+            'deskripsi' => 'required|string',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        $akun_keuangan_id = $validatedData['akun_keuangan_id']; // ID akun keuangan dari input
+        $bidang_name = $validatedData['bidang_name']; // Nama bidang dari input
+
+        // Ambil saldo terakhir berdasarkan akun_keuangan_id dan bidang_name
+        $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+            ->where('bidang_name', $bidang_name)
+            ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+            ->get() // Ambil semua data sebagai collection
+            ->last() // Ambil baris terakhir dalam hasil (data terbaru)
+                ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+
+        // Menggunakan $lastSaldo
+        $lastSaldo;
+
+        // Periksa logika berdasarkan tipe transaksi
+        if ($validatedData['type'] === 'penerimaan') {
+            // Tambah saldo untuk penerimaan
+            $newSaldo = $lastSaldo + $validatedData['amount'];
+        } else {
+            // Cek jika saldo terakhir = 0
+            if ($lastSaldo == 0) {
+                return back()->withErrors(['amount' => 'Saldo saat ini kosong, tidak dapat melakukan pengurangan.']);
+            }
+
+            // Kurangi saldo untuk pengeluaran
+            $newSaldo = $lastSaldo - $validatedData['amount'];
+
+            // Cek jika saldo menjadi negatif
+            if ($newSaldo < 0) {
+                return back()->withErrors(['amount' => 'Saldo tidak mencukupi untuk pengeluaran ini.']);
+            }
+        }
+
+        // Simpan transaksi baru
+        $transaksi = new Transaksi();
+        $transaksi->bidang_name = $validatedData['bidang_name'];
+        $transaksi->kode_transaksi = $validatedData['kode_transaksi'];
+        $transaksi->tanggal_transaksi = $validatedData['tanggal_transaksi'];
+        $transaksi->type = $validatedData['type'];
+        $transaksi->akun_keuangan_id = $validatedData['akun_keuangan_id'];
+        $transaksi->parent_akun_id = $validatedData['parent_akun_id'] ?? null;
+        $transaksi->deskripsi = $validatedData['deskripsi'];
+        $transaksi->amount = $validatedData['amount'];
+        $transaksi->saldo = $newSaldo;
+        $transaksi->save();
+
+        // Logging hasil penyimpanan
+        if ($transaksi->exists) {
+            Log::info('Data transaksi bank berhasil disimpan', ['id' => $transaksi->id]);
+        } else {
+            Log::error('Data transaksi bank gagal disimpan');
         }
 
         return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil ditambahkan!');
@@ -219,11 +329,70 @@ class TransaksiController extends Controller
             'amount' => 'required|numeric|min:0',
         ]);
 
-        // Cari transaksi berdasarkan ID
+        // Ambil transaksi yang akan diperbarui
         $transaksi = Transaksi::findOrFail($id);
 
+        $bidang_name = $validatedData['bidang_name']; // Nama bidang dari input
+
+        // Ambil transaksi terakhir kedua yang melibatkan akun Kas (ID = 101)
+        $lastTwoTransactions = Transaksi::where('akun_keuangan_id', 101)
+            ->where('bidang_name', 'Pendidikan')
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->reverse()  // Balikkan urutan data
+            ->slice(0, 2) // Ambil dua transaksi terakhir
+            ->last(); // Ambil transaksi kedua terakhir (setelah reverse)
+
+        // Ambil transaksi terakhir kedua, jika ada
+        $lastSaldo = $lastTwoTransactions;
+
+        // Saldo dari transaksi terakhir kedua, jika tidak ada maka default ke 0
+        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0;
+
+        Log::info('Saldo akun Kas ID 101 dari transaksi terakhir kedua:', ['saldo' => $saldoKas]);
+
+        // Logika untuk pengeluaran
+        if ($validatedData['type'] === 'pengeluaran') {
+            // Cek jika pengeluaran melebihi saldo Kas yang ada
+            if ($validatedData['amount'] > $saldoKas) {
+                return back()->withErrors(['amount' => 'Jumlah pengeluaran tidak boleh melebihi saldo akun Kas.']);
+            }
+        }
+
+        // Tentukan saldo baru berdasarkan tipe transaksi
+        $newSaldo = $saldoKas; // Set saldo awal dengan saldo terakhir dari akun Kas
+
+        if ($validatedData['type'] === 'penerimaan') {
+            // Tambah saldo untuk penerimaan
+            $newSaldo += $validatedData['amount'];
+        } else {
+            // Kurangi saldo untuk pengeluaran
+            $newSaldo -= $validatedData['amount'];
+        }
+
         // Update data transaksi
-        $transaksi->update($validatedData);
+        $transaksi->bidang_name = $validatedData['bidang_name'];
+        $transaksi->kode_transaksi = $validatedData['kode_transaksi'];
+        $transaksi->tanggal_transaksi = $validatedData['tanggal_transaksi'];
+        $transaksi->type = $validatedData['type'];
+        $transaksi->akun_keuangan_id = 101; // Update pada akun Kas (ID = 101)
+        $transaksi->parent_akun_id = $validatedData['parent_akun_id'];
+        $transaksi->deskripsi = $validatedData['deskripsi'];
+        $transaksi->amount = $validatedData['amount'];
+        $transaksi->saldo = $newSaldo; // Update saldo dengan nilai baru setelah transaksi
+
+        // Logging sebelum update
+        Log::info('Data transaksi sebelum update:', $transaksi->toArray());
+
+        if ($transaksi->save()) {
+            // Logging hasil update
+            Log::info('Data transaksi berhasil diperbarui', ['id' => $transaksi->id]);
+
+            // Panggil createJournalEntry untuk mencatat jurnal
+            $this->createJournalEntry($transaksi);
+        } else {
+            Log::error('Gagal memperbarui data transaksi');
+        }
 
         return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil diperbarui!');
     }
@@ -327,7 +496,5 @@ class TransaksiController extends Controller
             'message' => 'Data berhasil dihapus!'
         ]);
     }
-
-
 
 }

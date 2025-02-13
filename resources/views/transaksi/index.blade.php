@@ -68,34 +68,37 @@
                                 <label class="mb-2">Deskripsi Transaksi</label>
                                 <input type="text" name="deskripsi" class="form-control" placeholder="Masukkan Deskripsi"
                                     required>
-                            </div>
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label mb-2">Jumlah</label>
-                                <input type="number" name="amount" class="form-control" required>
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label mb-2">Jumlah</label>
+                                    <input type="number" name="amount" class="form-control" required>
+                                    <small class="form-text text-muted" id="saldo-akun">
+                                        Saldo Kas: Rp {{ number_format($saldoKas ?? 0, 2) }}
+                                    </small>
+                                </div>
 
-                            <button type="submit" class="btn btn-primary">Simpan</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        </form>
+                                <button type="submit" class="btn btn-primary">Simpan</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="p-3 shadow table-responsive rounded">
-            <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
-                <thead class="table-light">
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Kode Transaksi</th>
-                        <th>Jenis Transaksi</th>
-                        <th>Akun</th>
-                        <th>Sub Akun</th>
-                        <th>Deskripsi</th>
-                        <th>Jumlah</th>
-                        <th>Actions</th>
-                    </tr>
+            <div class="p-3 shadow table-responsive rounded">
+                <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Kode Transaksi</th>
+                            <th>Jenis Transaksi</th>
+                            <th>Akun</th>
+                            <th>Sub Akun</th>
+                            <th>Deskripsi</th>
+                            <th>Jumlah</th>
+                            <th>Actions</th>
+                        </tr>
                 </thead>
                 <tbody></tbody>
             </table>

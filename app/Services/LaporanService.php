@@ -21,8 +21,8 @@ class LaporanService
         // Menghitung total penerimaan dan pengeluaran berdasarkan bidang_name (jika ada)
         $saldoQuery = Transaksi::where('akun_keuangan_id', $bankId)
             ->selectRaw("
-                SUM(CASE WHEN type = 'penerimaan' THEN amount ELSE 0 END) as total_pengeluaran,
-                SUM(CASE WHEN type = 'pengeluaran' THEN amount ELSE 0 END) as total_penerimaan
+                SUM(CASE WHEN type = 'penerimaan' THEN amount ELSE 0 END) as total_penerimaan,
+                SUM(CASE WHEN type = 'pengeluaran' THEN amount ELSE 0 END) as total_pengeluaran
             ");
 
         if ($bidangName) {

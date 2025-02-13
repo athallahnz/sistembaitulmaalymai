@@ -18,6 +18,7 @@ class Transaksi extends Model
         'parent_akun_id',
         'deskripsi',
         'amount',
+        'saldo',
     ];
     public function ledgers()
     {

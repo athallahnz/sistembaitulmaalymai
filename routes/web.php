@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminController;
@@ -11,30 +10,30 @@ use App\Http\Controllers\ManajerController;
 use App\Http\Controllers\BidangController;
 use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
-use App\Http\Controllers\SaldoKeuanganController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\Laporan\LaporanController;
-
-
-use App\Http\Controllers\TransactionController;
-
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
 */
+
+// Autentikasi Routes (Login & Logout)
+Auth::routes();
+
+// Route untuk welcome page
+Route::get('/', function () {
+    return redirect()->route('login');
+});
 
 // Admin routes
 Route::middleware(['role:Admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.index');
     Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
-    Route::get('admin/admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
+    Route::get('admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
+    Route::put('admin/users/restore/{id}', [UserController::class, 'restore'])->name('admin.users.restore');
+    Route::delete('admin/users/force-delete/{id}', [UserController::class, 'forceDelete'])->name('admin.users.forceDelete');
 });
 
 // Ketua routes
@@ -56,64 +55,44 @@ Route::middleware(['role:Bendahara'])->group(function () {
 Route::middleware(['role:Bidang'])->group(function () {
     // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
+    Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');
+    Route::get('/bidang/detail', [BidangController::class, 'showDetail'])->name('bidang.detail');
+
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
-        Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');  // Menampilkan daftar transaksi
-        Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create'); // Form input transaksi
-        Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Menyimpan transaksi
+        Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');
+        Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create');
+        Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store');
+        Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBankTransaction');
         Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
         Route::get('transaksi/{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
         Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
         Route::delete('transaksi/{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
-
-
     });
+
+    // Route untuk ledger
     Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
     Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
 
+    // Route untuk laporan bank
     Route::get('/laporan/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
     Route::get('/laporan/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
-
-
-
-
-
-    // Route untuk saldo keuangan
-    Route::get('/saldo-keuangan', [SaldoKeuanganController::class, 'index'])->name('saldo-keuangan.index');
 });
-
-
-
-
-// Route untuk welcome page
-Route::get('/', function () {
-    return redirect()->route('login');
-});
-
-// Autentikasi Routes (Login & Logout)
-Auth::routes();
-
-// Login routes
-Route::post('login', [LoginController::class, 'login']);
-Route::post('logout', [LoginController::class, 'logout'])->name('logout');
-
-// Route untuk Update Profile Pengguna
-Route::get('/profile/edit', [UserController::class, 'editProfile'])->name('profile.edit');
-Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
-
-// Admin User Management Route
-Route::prefix('admin')->middleware('auth')->group(function () {
-    Route::get('admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
-    Route::put('admin/users/restore/{id}', [UserController::class, 'restore'])->name('admin.users.restore');
-    Route::delete('admin/users/force-delete/{id}', [UserController::class, 'forceDelete'])->name('admin.users.forceDelete');
-});
-
-// Route User Manajemen
-Route::resource('users', UserController::class)->middleware('auth');
-Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
-Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
 
 // Route untuk home setelah login
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
+// Route untuk Update Profile Pengguna
+Route::middleware('auth')->group(function () {
+    Route::get('/profile/edit', [UserController::class, 'editProfile'])->name('profile.edit');
+    Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
+});
+
+// Route User Manajemen
+Route::resource('users', UserController::class)->middleware('auth');
+Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+
+// Login routes
+Route::post('login', [LoginController::class, 'login']);
+Route::post('logout', [LoginController::class, 'logout'])->name('logout');
