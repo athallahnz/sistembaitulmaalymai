@@ -2,8 +2,8 @@
 
 @section('content')
     <div class="container">
+        <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang_name }}!</strong></h1>
         <div class="container-fluid p-4">
-            <h1 class="mb-4">Selamat Datang, di Dashboard {{ auth()->user()->bidang_name }}!</h1>
             <h4 class="mb-4">Nilai Asset, Bidang {{ auth()->user()->bidang_name }}!</h4>
             <div class="row">
                 <div class="col-md-3 mb-4">

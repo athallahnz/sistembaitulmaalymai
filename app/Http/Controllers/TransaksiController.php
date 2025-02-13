@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\TransaksisExport;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
@@ -10,6 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\TransaksisExpors;
+
 
 
 class TransaksiController extends Controller
@@ -498,7 +502,7 @@ class TransaksiController extends Controller
 
     }
 
-    public function exportPdf($id)
+    public function exportNota($id)
     {
         // Retrieve the transaction data based on ID
         $transaksi = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])->find($id);
@@ -508,11 +512,11 @@ class TransaksiController extends Controller
             return redirect()->route('transaksi.index')->with('error', 'Transaksi tidak ditemukan');
         }
 
-        // Mengambil tanggal_transaksi dari data transaksi yang ada
+        // Mengambil data yang diperlukan dari transaksi
         $tanggal_transaksi = $transaksi->tanggal_transaksi;
         $jenis_transaksi = $transaksi->type;
-        $akun = $transaksi->akunKeuangan;
-        $sub_akun = $transaksi->parent_akun_id;
+        $akun = $transaksi->akunKeuangan ? $transaksi->akunKeuangan->nama_akun : 'N/A';
+        $sub_akun = $transaksi->parentAkunKeuangan ? $transaksi->parentAkunKeuangan->nama_akun : 'N/A';
 
         // Generate the PDF from a view
         $pdf = Pdf::loadView('transaksi.nota', compact('transaksi', 'tanggal_transaksi', 'akun', 'sub_akun', 'jenis_transaksi'));
@@ -521,14 +525,26 @@ class TransaksiController extends Controller
         return $pdf->download('Invoice_' . $transaksi->kode_transaksi . '.pdf');
     }
 
+
     public function exportAllPdf()
     {
-        // Ambil seluruh data transaksi
-        $transaksi = Transaksi::all();
+        // Ambil user yang sedang login
+        $user = auth()->user();
+
+        // Query transaksi berdasarkan role dan bidang_name
+        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan', 'user');
+
+        // Filter berdasarkan role 'Bidang'
+        if ($user->role === 'Bidang') {
+            $transaksiQuery->where('bidang_name', $user->bidang_name);
+        }
+
+        // Ambil hasil query
+        $transaksi = $transaksiQuery->get();
 
         // Pastikan ada data transaksi yang tersedia
         if ($transaksi->isEmpty()) {
-            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diekspor.');
+            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diunduh!.');
         }
 
         // Siapkan data untuk dikirim ke view PDF
@@ -536,9 +552,8 @@ class TransaksiController extends Controller
             'transaksis' => $transaksi
         ];
 
-        // Ambil bidang_name dari transaksi pertama sebagai nama file PDF (atau bisa pilih transaksi tertentu)
-        $firstTransaksi = $transaksi->first(); // Ambil transaksi pertama
-        $bidangName = $firstTransaksi->bidang_name ?? 'Transaksi'; // Gunakan nilai bidang_name atau default 'Transaksi'
+        // Ambil bidang_name dari user login sebagai nama file PDF
+        $bidangName = $user->bidang_name ?? 'Transaksi'; // Gunakan bidang_name user atau default 'Transaksi'
 
         // Load view untuk PDF, kirimkan data transaksi
         $pdf = Pdf::loadView('transaksi.export', $data);
@@ -547,5 +562,31 @@ class TransaksiController extends Controller
         return $pdf->download('Laporan_Keuangan_' . $bidangName . '.pdf');
     }
 
+    public function exportExcel(Request $request)
+    {
+        $user = auth()->user();
+
+        // Ambil filter bidang_name dari form
+        $bidangName = $request->input('bidang_name', $user->bidang_name);
+
+        // Ambil data transaksi berdasarkan filter bidang_name
+        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan');
+
+        // Filter berdasarkan role 'Bidang' dan bidang_name
+        if ($user->role === 'Bidang') {
+            $transaksiQuery->where('bidang_name', $bidangName);
+        }
+
+        // Ambil data transaksi
+        $transaksi = $transaksiQuery->get();
+
+        // Pastikan ada data transaksi yang tersedia
+        if ($transaksi->isEmpty()) {
+            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diekspor!.');
+        }
+
+        // Jika data tersedia, lanjutkan ekspor ke Excel
+        return Excel::download(new TransaksisExport($bidangName), 'Laporan_Keuangan_' . $bidangName . '.xlsx');
+    }
 
 }

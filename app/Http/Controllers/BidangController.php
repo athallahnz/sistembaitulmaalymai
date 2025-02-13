@@ -56,7 +56,7 @@ class BidangController extends Controller
             ->whereYear('tanggal_transaksi', now()->year)    // Filter berdasarkan tahun ini
             ->count();  // Menghitung jumlah transaksi
 
-        $jumlahPiutang = Transaksi::whereIn('parent_akun_id', [1031,1032,1033,1034,1035,1036])
+        $jumlahPiutang = Transaksi::whereIn('parent_akun_id', [1031, 1032, 1033, 1034, 1035, 1036])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
@@ -142,6 +142,8 @@ class BidangController extends Controller
     // Menambahkan method untuk mengambil data transaksi berdasarkan parent_akun_id
     public function getDetailData(Request $request)
     {
+        $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+
         $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL
 
         // Ambil semua ID anak (sub-akun) dari tabel akun_keuangans berdasarkan parent_id
@@ -149,11 +151,13 @@ class BidangController extends Controller
 
         // Ambil data transaksi terkait sub-akun (parent_akun_id = sub-akun)
         $transaksiData = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']) // Include relasi
+            ->where('bidang_name', auth()->user()->bidang_name)
             ->whereIn('parent_akun_id', $subAkunIds) // Filter berdasarkan sub-akun
             ->get();
 
         return DataTables::of($transaksiData)
-            ->addColumn('akun_keuangan', function ($row) {
+            ->addColumn('akun_keuangan',
+            function ($row) {
                 return $row->akunKeuangan ? $row->akunKeuangan->nama_akun : 'N/A';
             })
             ->addColumn('parent_akun_keuangan', function ($row) {

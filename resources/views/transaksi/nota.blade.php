@@ -39,15 +39,15 @@
         </tr>
         <tr>
             <th>Jenis Transaksi</th>
-            <td>{{ ucfirst($jenis_transaksi) }}</td>
+            <td>{{ ucfirst($transaksi->type) }}</td>
         </tr>
         <tr>
             <th>Akun</th>
-            <td>{{ $akun ? $akun->nama_akun : 'N/A' }}</td>
+            <td>{{ $transaksi->akunKeuangan ? $transaksi->akunKeuangan->nama_akun : 'N/A' }}</td>
         </tr>
         <tr>
             <th>Sub Akun</th>
-            <td>{{ $sub_akun ? $sub_akun->parent_akun_id : 'N/A' }}</td>
+            <td>{{ $transaksi->parentAkunKeuangan ? $transaksi->parentAkunKeuangan->nama_akun : 'N/A' }}</td>
         </tr>
         <tr>
             <th>Deskripsi</th>

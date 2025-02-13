@@ -12,6 +12,8 @@ use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\Laporan\LaporanController;
+use App\Exports\TransaksisExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 /*
@@ -70,9 +72,9 @@ Route::middleware(['role:Bidang'])->group(function () {
         Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
         Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
         // Route untuk Cetak Pdf
-        Route::get('nota/{id}', [TransaksiController::class, 'exportPdf'])->name('transaksi.exportPdf');
+        Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf');
         Route::get('transaksi/export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf');
-        Route::get('transaksi/export-excel', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllExcel');
+        Route::get('transaksi/export-excel', [TransaksiController::class, 'exportExcel'])->name('transaksi.exportExcel');
         // Route untuk ledger
         Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
         Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');

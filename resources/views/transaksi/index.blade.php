@@ -2,16 +2,16 @@
 @section('title', 'Manajemen Pengguna')
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Data Transaksi Buku Harian Bidang {{ auth()->user()->bidang_name }}</h1>
+        <h1 class="mb-4">Data Transaksi Buku Harian <strong>Bidang {{ auth()->user()->bidang_name }}</strong></h1>
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
             <i class="bi bi-plus-circle"></i> Tambah Transaksi
         </button>
-        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 ms-2 shadow">
+        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 mx-2 shadow">
             <i class="bi bi-filetype-pdf"></i> Unduh PDF
         </a>
-        <a href="{{ route('transaksi.exportAllExcel') }}" class="btn btn-success mb-3 ms-2 shadow">
+        <a href="{{ route('transaksi.exportExcel') }}" class="btn btn-success mb-3 shadow">
             <i class="bi bi-file-earmark-excel"></i> Export Excel
         </a>
 

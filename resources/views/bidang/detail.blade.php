@@ -2,7 +2,14 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Detail Transaksi <strong>{{ $parentAkun->nama_akun ?? 'Tidak Ditemukan' }}</strong></h1>
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url()->previous() }}" class="me-1 text-decoration-none">
+                <i class="bi bi-arrow-left-short fs-1"></i>
+            </a>
+            <h1 class="mb-0">
+                Detail Transaksi <strong>{{ $parentAkun->nama_akun ?? 'Tidak Ditemukan' }}</strong>
+            </h1>
+        </div>
         <div class="p-3 shadow table-responsive rounded">
             <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
                 <thead class="table-light">

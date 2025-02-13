@@ -76,12 +76,14 @@
                         <span class="align-middle">Konsolidasi Akun Bank</span>
                     </a>
                 </li>
-                <li class="sidebar-item">
-                    <a class="sidebar-link" href="#">
-                        <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Manajemen SPP</span>
-                    </a>
-                </li>
+                @if (auth()->user()->bidang_name === 'Pendidikan')
+                    <li class="sidebar-item">
+                        <a class="sidebar-link" href="#">
+                            <i class="align-middle" data-feather="dollar-sign"></i>
+                            <span class="align-middle">Manajemen SPP</span>
+                        </a>
+                    </li>
+                @endif
             @endrole
         </ul>
 
