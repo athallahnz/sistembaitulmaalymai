@@ -96,13 +96,12 @@
 
         <div class="sidebar-cta">
             <div class="sidebar-cta-content">
-            <strong class="d-inline-block mb-2">Upgrade to Pro</strong>
+            <strong class="d-inline-block mb-2">Sudah bersyukur hari ini?</strong>
             <div class="mb-3 text-sm">
-                Are you looking for more components? Check out our premium
-                version.
+                Are you looking for more happiness? Check out your heart now!
             </div>
             <div class="d-grid">
-                <a href="upgrade-to-pro.html" class="btn btn-primary">Upgrade to Pro</a>
+                <a href="upgrade-to-pro.html" class="btn btn-primary">Bersyukurlah!</a>
             </div>
         </div>
         </div>

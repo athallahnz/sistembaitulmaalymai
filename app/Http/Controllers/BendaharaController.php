@@ -20,14 +20,14 @@ class BendaharaController extends Controller
         $bankId = 102; // ID default akun bank
 
         // Konsolidasi bank untuk bidang saat ini
-        $dataKonsolidasi = LaporanService::konsolidasiBank($bankId, $bidangName);
+        $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
         $totalSaldoBank = $dataKonsolidasi['saldo'];
         $transaksiBank = $dataKonsolidasi['transaksi'];
 
         // **Akumulasi total seluruh bank dari semua bidang**
         $allFields = Transaksi::distinct()->pluck('bidang_name');
         $totalSeluruhBank = $allFields->reduce(function ($carry, $field) use ($bankId) {
-            $dataKonsolidasiField = LaporanService::konsolidasiBank($bankId, $field);
+            $dataKonsolidasiField = LaporanService::index($bankId, $field);
             return $carry + $dataKonsolidasiField['saldo'];
         }, 0);
 

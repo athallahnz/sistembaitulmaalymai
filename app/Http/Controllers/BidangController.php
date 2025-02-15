@@ -76,7 +76,7 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035]) // Menggunakan whereIn untuk mengecek beberapa nilai
+        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312]) // Menggunakan whereIn untuk mengecek beberapa nilai
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount'); // Menjumlahkan kolom 'amount'
 
