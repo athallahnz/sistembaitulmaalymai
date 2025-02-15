@@ -7,13 +7,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
+use App\Models\Ledger;
 use App\Services\LaporanService;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Log;
+
 
 class LaporanController extends Controller
 {
-    public function konsolidasiBank()
+    public function index()
     {
         $user = auth()->user();
 
@@ -73,23 +76,6 @@ class LaporanController extends Controller
         // Ambil akun-akun tanpa parent
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')->get();
 
-        // Ambil saldo terakhir untuk setiap akun_keuangan_id berdasarkan bidang_name yang sesuai dengan pengguna yang sedang login
-        $lastSaldos = [];
-        foreach ($akunTanpaParent as $akun) {
-            // Ambil bidang_name dari pengguna yang sedang login
-            $bidang_name = Auth::user()->bidang_name; // Mengambil bidang_name dari kolom 'bidang_name' di tabel 'users'
-
-            // Ambil transaksi terakhir untuk akun_keuangan_id dan bidang_name yang sesuai
-            $lastTransaksi = DB::table('transaksis')
-                ->where('akun_keuangan_id', $akun->id)
-                ->where('bidang_name', $bidang_name) // Filter berdasarkan bidang_name yang sesuai dengan user
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last(); // Ambil baris terakhir dalam hasil (data terbaru)
-
-            // Simpan saldo terakhir untuk akun tersebut jika ada, atau 0 jika tidak ada transaksi
-            $lastSaldos[$akun->id] = $lastTransaksi ? $lastTransaksi->saldo : 0;
-        }
         // Menentukan bidang_name berdasarkan role user
         $bidangName = null;
         if ($user->hasRole('Bidang')) {
@@ -99,7 +85,13 @@ class LaporanController extends Controller
 
         // Mendapatkan data transaksi dan saldo melalui service
         $bankId = 102; // ID default akun bank
-        $dataBank = LaporanService::konsolidasiBank($bankId, $bidangName);
+        $dataBank = LaporanService::index($bankId, $bidangName);
+
+        Log::info('Data Bank:', $dataBank);
+
+        if (!isset($dataBank['saldo'])) {
+            $dataBank['saldo'] = 0;
+        }
 
         // Return view dengan data
         return view('laporan.bank', [
@@ -111,46 +103,34 @@ class LaporanController extends Controller
             'bidang_name' => $bidang_name,
             'akunKeuangan' => $akunKeuangan,
             'kodeTransaksi' => $kodeTransaksi,
-            'lastSaldo' => $lastSaldo,
-            'lastSaldos' => $lastSaldos, // Saldo per akun_keuangan_id
+            'lastSaldo' => $lastSaldo
         ]);
     }
 
 
-    public function getData(Request $request)
+    public function getData()
     {
-        $bankId = 102; // ID default akun bank
-        $user = Auth::user();
+        $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
 
-        // Menentukan bidang_name berdasarkan role user
-        $bidangName = null;
-        if ($user->hasRole('Bidang')) {
-            $bidangName = $user->bidang_name;
-        }
+        $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
+            ->whereHas('transaksi', function ($query) use ($bidangName) {
+                $query->where('bidang_name', $bidangName);
+            })
+            ->whereIn('transaksi_id', function ($query) {
+                $query->select('transaksi_id')
+                    ->from('ledgers')
+                    ->where('akun_keuangan_id', 102);
+            })
+            ->get();
 
-        // Ambil data transaksi bank melalui service
-        $dataBank = LaporanService::konsolidasiBank($bankId, $bidangName);
-        $transaksiBank = collect($dataBank['transaksi']); // Pastikan data dikonversi ke koleksi
-
-        // Gunakan DataTables untuk memproses data
-        return DataTables::of($transaksiBank)
-            ->addColumn('created_at', function ($row) {
-                return $row['tanggal_transaksi']; // Pastikan key sesuai dengan data yang tersedia
+        return DataTables::of($ledgers)
+            ->addColumn('kode_transaksi', function ($item) {
+                return $item->transaksi ? $item->transaksi->kode_transaksi : 'N/A';
             })
-            ->addColumn('kode_transaksi', function ($row) {
-                return $row['kode_transaksi'];
+            ->addColumn('akun_nama', function ($item) {
+                return $item->akun_keuangan ? $item->akun_keuangan->nama_akun : 'N/A';
             })
-            ->addColumn('akun_nama', function ($row) {
-                return $row['deskripsi']; // Ubah sesuai kolom yang benar
-            })
-            ->addColumn('debit', function ($row) {
-                // Tampilkan hanya jika type = 'pengeluaran'
-                return $row['type'] === 'penerimaan' ? number_format($row['amount'], 2) : '-';
-            })
-            ->addColumn('credit', function ($row) {
-                // Tampilkan hanya jika type = 'penerimaan'
-                return $row['type'] === 'pengeluaran' ? number_format($row['amount'], 2) : '-';
-            })
+            ->rawColumns(['saldo', 'kode_transaksi', 'akun_nama'])
             ->make(true);
     }
 

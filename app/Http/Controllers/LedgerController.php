@@ -41,20 +41,18 @@ class LedgerController extends Controller
     {
         $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
 
-        // Ambil data ledger dengan filter bidang_name
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
             ->whereHas('transaksi', function ($query) use ($bidangName) {
                 $query->where('bidang_name', $bidangName);
             })
-            ->orderBy('created_at', 'asc')
+            ->whereIn('transaksi_id', function ($query) {
+                $query->select('transaksi_id')
+                    ->from('ledgers')
+                    ->where('akun_keuangan_id', 101);
+            })
             ->get();
 
         return DataTables::of($ledgers)
-            // ->addColumn('saldo', function ($item) {
-            //     static $saldo = 0;
-            //     $saldo += $item->debit - $item->credit;
-            //     return $saldo;
-            // })
             ->addColumn('kode_transaksi', function ($item) {
                 return $item->transaksi ? $item->transaksi->kode_transaksi : 'N/A';
             })

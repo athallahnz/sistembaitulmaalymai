@@ -12,7 +12,8 @@
         </div>
 
         <!-- Button untuk membuka modal -->
-        <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
+        <button type="button" class="btn btn-primary mb-3 shadow open-modal" data-saldo="{{ $totalSaldoBank }}"
+            data-bs-toggle="modal" data-bs-target="#transactionModal">
             Tambah Transaksi
         </button>
 
@@ -55,15 +56,14 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label mb-2" id="akun-label">Asal Akun</label>
-                                <!-- Menampilkan nama akun secara statis -->
-                                <input type="hidden" name="akun_keuangan_id" value="102"> <!-- Nilai tetap untuk akun keuangan -->
-                                <div class="form-control bg-light" readonly>
-                                    Bank
-                                </div>
-                                <small class="form-text text-muted" id="saldo-akun">
-                                    Saldo Akun: Rp {{ number_format($lastSaldos[102] ?? 0, 2) }}
-                                </small>
+                                <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
+                                <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" value="102"
+                                    required>
+                                    @foreach ($akunTanpaParent as $akun)
+                                        <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
+                                            {{ $akun->nama_akun }}</option>
+                                    @endforeach
+                                </select>
                             </div>
 
                             <div class="mb-3" id="parent-akun-container" style="display: none;">
@@ -84,6 +84,9 @@
                                 <input type="number" name="amount" class="form-control" id="amount" required>
                                 <small class="form-text text-danger" id="amount-error" style="display: none;">Jumlah
                                     pengeluaran tidak boleh melebihi saldo akun.</small>
+                                <small class="form-text text-muted" id="saldo-bank">
+                                    Saldo Akun: Rp {{ number_format($totalSaldoBank, 2, ',', '.') }}
+                                </small>
                             </div>
 
                             <button type="submit" class="btn btn-primary" id="submit-btn">Simpan</button>
@@ -100,9 +103,9 @@
                     <tr>
                         <th>Tanggal</th>
                         <th>Kode Transaksi</th>
-                        <th>Deskripsi</th>
+                        <th>Akun</th>
                         <th>Debit</th>
-                        <th>Credit</th>
+                        <th>Kredit</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -113,81 +116,130 @@
 
 @push('scripts')
     <script>
-        document.getElementById('akun_keuangan').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const saldo = parseFloat(selectedOption.getAttribute('data-saldo-normal')) || 0;
-            document.getElementById('saldo-akun').textContent = `Saldo Akun: Rp ${saldo.toFixed(2)}`;
-            checkAmountValidity(saldo);
-        });
+        const saldoBank = {{ $totalSaldoBank }};
 
-        document.getElementById('amount').addEventListener('input', function() {
-            const selectedOption = document.getElementById('akun_keuangan').options[document.getElementById(
-                'akun_keuangan').selectedIndex];
-            const saldo = parseFloat(selectedOption.getAttribute('data-saldo-normal')) || 0;
-            const amount = parseFloat(this.value) || 0;
-            checkAmountValidity(saldo, amount);
-        });
+        document.addEventListener("DOMContentLoaded", function() {
+            const typeSelect = document.getElementById("type-select");
+            const akunLabel = document.getElementById("akun-label");
 
-        function checkAmountValidity(saldo, amount) {
-            const errorMessage = document.getElementById('amount-error');
-            const submitButton = document.getElementById('submit-btn');
-            const type = document.getElementById('type-select').value; // Mendapatkan nilai type transaksi
-
-            // Menyembunyikan error message jika tipe transaksi adalah 'penerimaan'
-            if (type === 'penerimaan') {
-                errorMessage.style.display = 'none';
-                submitButton.disabled = false; // Tetap aktifkan tombol simpan
-            } else {
-                // Menampilkan error message hanya untuk tipe 'pengeluaran'
-                if (amount > saldo) {
-                    errorMessage.style.display = 'block';
-                    submitButton.disabled = true; // Nonaktifkan tombol simpan
-                } else {
-                    errorMessage.style.display = 'none';
-                    submitButton.disabled = false; // Aktifkan tombol simpan
+            // Fungsi untuk mengubah label berdasarkan tipe transaksi
+            function updateAkunLabel() {
+                const selectedType = typeSelect.value;
+                if (selectedType === "penerimaan") {
+                    akunLabel.textContent = "Asal Akun";
+                } else if (selectedType === "pengeluaran") {
+                    akunLabel.textContent = "Tujuan Akun";
                 }
             }
-        }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const selectedOption = document.getElementById('akun_keuangan').options[document.getElementById(
-                'akun_keuangan').selectedIndex];
-            const saldo = parseFloat(selectedOption.getAttribute('data-saldo-normal')) || 0;
-            document.getElementById('saldo-akun').textContent = `Saldo Akun: Rp ${saldo.toFixed(2)}`;
-            checkAmountValidity(saldo);
+            // Event listener untuk mendeteksi perubahan tipe transaksi
+            typeSelect.addEventListener("change", updateAkunLabel);
+
+            // Set label awal sesuai nilai default
+            updateAkunLabel();
         });
-    </script>
-    <script>
+
+        document.addEventListener("DOMContentLoaded", function() {
+            let akunKeuangan = document.getElementById("akun_keuangan");
+            let parentAkunContainer = document.getElementById("parent-akun-container");
+            let parentAkunSelect = document.getElementById("parent_akun_id");
+
+            let akunDenganParent = @json($akunDenganParent);
+
+            akunKeuangan.addEventListener("change", function() {
+                let selectedAkunId = this.value;
+                parentAkunSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+
+                if (selectedAkunId && akunDenganParent[selectedAkunId]) {
+                    akunDenganParent[selectedAkunId].forEach(akun => {
+                        let newOption = document.createElement("option");
+                        newOption.value = akun.id;
+                        newOption.textContent = akun.nama_akun;
+                        parentAkunSelect.appendChild(newOption);
+                    });
+                    parentAkunContainer.style.display = "block";
+                } else {
+                    parentAkunContainer.style.display = "none";
+                }
+
+                // Menyesuaikan nilai debit atau kredit berdasarkan saldo_normal
+                updateFormByAkun(akunKeuangan);
+            });
+        });
+
         $(document).ready(function() {
-            $('.yajra-datatable').DataTable({
+            var table = $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('laporan.bank.data') }}",
+                ajax: "{{ route('laporan.bank.data') }}", // Sesuaikan dengan route untuk mengambil data ledger
                 columns: [{
                         data: 'created_at',
                         name: 'created_at'
                     },
                     {
                         data: 'kode_transaksi',
-                        name: 'kode_transaksi'
+                        name: 'kode_transaksi',
+                        render: function(data, type, row) {
+                            return row.transaksi ? row.transaksi.kode_transaksi : 'N/A';
+                        }
                     },
                     {
                         data: 'akun_nama',
-                        name: 'akun_nama'
+                        name: 'akun_nama',
+                        render: function(data, type, row) {
+                            return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
+                        }
                     },
                     {
                         data: 'debit',
-                        name: 'debit'
+                        name: 'debit',
+                        render: function(data, type, row) {
+                            return number_format(data, 2); // Format angka untuk debit
+                        }
                     },
                     {
                         data: 'credit',
-                        name: 'credit'
+                        name: 'credit',
+                        render: function(data, type, row) {
+                            return number_format(data, 2); // Format angka untuk kredit
+                        }
                     },
+                    // {
+                    //     data: 'saldo',
+                    //     name: 'saldo',
+                    //     render: function(data, type, row) {
+                    //         return 'Rp ' + number_format(data, 2, ',',
+                    //             '.'); // Format angka untuk saldo
+                    //     }
+                    // }
                 ],
-                error: function(xhr) {
-                    console.error(xhr.responseText);
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText); // Debugging error response
                 }
             });
         });
+
+        // Function to format numbers with thousand separators
+        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+            var n = !isFinite(+number) ? 0 : +number,
+                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+                s = '',
+                toFixedFix = function(n, prec) {
+                    var k = Math.pow(10, prec);
+                    return '' + Math.round(n * k) / k;
+                };
+            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+            if (s[0].length > 3) {
+                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            }
+            if ((s[1] || '').length < prec) {
+                s[1] = s[1] || '';
+                s[1] += new Array(prec - s[1].length + 1).join('0');
+            }
+            return s.join(dec);
+        }
     </script>
 @endpush

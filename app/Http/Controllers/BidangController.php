@@ -47,7 +47,7 @@ class BidangController extends Controller
         // ID default untuk akun bank
         // Memanggil service untuk mendapatkan data konsolidasi bank
         $bankId = 102;
-        $dataKonsolidasi = LaporanService::konsolidasiBank($bankId, $bidangName);
+        $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
         $totalSaldoBank = $dataKonsolidasi['saldo']; // Data yang akan diteruskan ke view
         $transaksiBank = $dataKonsolidasi['transaksi'];
 

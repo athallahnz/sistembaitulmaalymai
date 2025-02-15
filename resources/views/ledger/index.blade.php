@@ -9,6 +9,7 @@
                 <div class="value {{ $totalKas >= 0 ? 'positive' : 'negative' }}">Rp. {{ number_format($totalKas, 2, ',', '.') }}</div>
             </div>
         </div>
+
         <div class="p-3 shadow table-responsive rounded">
             <table class="p-2 table table-striped table-bordered rounded yajra-datatable">
                 <thead class="table-light">
@@ -18,7 +19,6 @@
                         <th>Akun</th>
                         <th>Debit</th>
                         <th>Kredit</th>
-                        {{-- <th>Saldo</th> --}}
                     </tr>
                 </thead>
             </table>
@@ -26,7 +26,6 @@
     </div>
 @endsection
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script>
     $(document).ready(function() {
         var table = $('.yajra-datatable').DataTable({

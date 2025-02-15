@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TransaksisExpors;
+use App\Services\LaporanService;
 
 
 
@@ -231,7 +232,7 @@ class TransaksiController extends Controller
     public function storeBankTransaction(Request $request)
     {
         // Logging untuk debugging
-        Log::info('Memulai proses penyimpanan transaksi bank', $request->all());
+        Log::info('Memulai proses penyimpanan transaksi', $request->all());
 
         // Validasi data input
         $validatedData = $request->validate([
@@ -245,37 +246,40 @@ class TransaksiController extends Controller
             'amount' => 'required|numeric|min:0',
         ]);
 
-        $akun_keuangan_id = $validatedData['akun_keuangan_id']; // ID akun keuangan dari input
+        // Logging data setelah validasi
+        Log::info('Data setelah validasi:', $validatedData);
+
         $bidang_name = $validatedData['bidang_name']; // Nama bidang dari input
 
-        // Ambil saldo terakhir berdasarkan akun_keuangan_id dan bidang_name
-        $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+        // Ambil transaksi terakhir yang melibatkan akun Bank (ID = 102)
+        $lastSaldo = Transaksi::where('akun_keuangan_id', 102) // Cek untuk akun Bank (ID = 102)
             ->where('bidang_name', $bidang_name)
             ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
             ->get() // Ambil semua data sebagai collection
-            ->last() // Ambil baris terakhir dalam hasil (data terbaru)
-                ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+            ->last(); // Ambil baris terakhir dalam hasil (data terbaru)
 
-        // Menggunakan $lastSaldo
-        $lastSaldo;
+        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
+        $saldoBank = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Bank dianggap 0
 
-        // Periksa logika berdasarkan tipe transaksi
+        Log::info('Saldo akun Bank ID 102:', ['saldo' => $saldoBank]);
+
+        // Logika untuk pengeluaran
+        if ($validatedData['type'] === 'pengeluaran') {
+            // Cek jika pengeluaran melebihi saldo Bank yang ada
+            if ($validatedData['amount'] > $saldoBank) {
+                return back()->withErrors(['amount' => 'Jumlah pengeluaran tidak boleh melebihi saldo akun Bank.']);
+            }
+        }
+
+        // Tentukan saldo baru berdasarkan tipe transaksi
+        $newSaldo = $saldoBank; // Set saldo awal dengan saldo terakhir dari akun Bank
+
         if ($validatedData['type'] === 'penerimaan') {
             // Tambah saldo untuk penerimaan
-            $newSaldo = $lastSaldo + $validatedData['amount'];
+            $newSaldo += $validatedData['amount'];
         } else {
-            // Cek jika saldo terakhir = 0
-            if ($lastSaldo == 0) {
-                return back()->withErrors(['amount' => 'Saldo saat ini kosong, tidak dapat melakukan pengurangan.']);
-            }
-
             // Kurangi saldo untuk pengeluaran
-            $newSaldo = $lastSaldo - $validatedData['amount'];
-
-            // Cek jika saldo menjadi negatif
-            if ($newSaldo < 0) {
-                return back()->withErrors(['amount' => 'Saldo tidak mencukupi untuk pengeluaran ini.']);
-            }
+            $newSaldo -= $validatedData['amount'];
         }
 
         // Simpan transaksi baru
@@ -284,18 +288,23 @@ class TransaksiController extends Controller
         $transaksi->kode_transaksi = $validatedData['kode_transaksi'];
         $transaksi->tanggal_transaksi = $validatedData['tanggal_transaksi'];
         $transaksi->type = $validatedData['type'];
-        $transaksi->akun_keuangan_id = $validatedData['akun_keuangan_id'];
-        $transaksi->parent_akun_id = $validatedData['parent_akun_id'] ?? null;
+        $transaksi->akun_keuangan_id = 102; // Menyimpan transaksi pada akun Bank (ID = 102)
+        $transaksi->parent_akun_id = $validatedData['parent_akun_id'];
         $transaksi->deskripsi = $validatedData['deskripsi'];
         $transaksi->amount = $validatedData['amount'];
-        $transaksi->saldo = $newSaldo;
-        $transaksi->save();
+        $transaksi->saldo = $newSaldo; // Update saldo dengan nilai baru setelah transaksi
 
-        // Logging hasil penyimpanan
-        if ($transaksi->exists) {
-            Log::info('Data transaksi bank berhasil disimpan', ['id' => $transaksi->id]);
+        // Logging sebelum penyimpanan
+        Log::info('Menyimpan transaksi:', $transaksi->toArray());
+
+        if ($transaksi->save()) {
+            // Logging hasil penyimpanan
+            Log::info('Data transaksi berhasil disimpan', ['id' => $transaksi->id]);
+
+            // Panggil createJournalEntry untuk mencatat jurnal
+            $this->createBankJournalEntry($transaksi);
         } else {
-            Log::error('Data transaksi bank gagal disimpan');
+            Log::error('Gagal menyimpan data transaksi');
         }
 
         return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil ditambahkan!');
@@ -493,6 +502,68 @@ class TransaksiController extends Controller
         Log::info('Jurnal berhasil dibuat. Saldo kas terbaru: ' . $totalKas, [
             'id_transaksi' => $transaksi->id,
             'total_kas' => $totalKas
+        ]);
+    }
+    private function createBankJournalEntry($transaksi)
+    {
+        // Ambil akun Bank (id 102) dan Pendapatan (id 202)
+        $bank = AkunKeuangan::where('id', 102)->first(); // Akun Bank
+        $pendapatan = AkunKeuangan::where('id', 202)->first(); // Akun Pendapatan
+
+        // Tentukan akun beban berdasarkan parent_akun_id
+        $akunBebanId = $transaksi->parent_akun_id ?? $transaksi->akun_keuangan_id;
+
+        // Pastikan akun yang diperlukan ada sebelum membuat jurnal
+        if (!$bank || !$pendapatan || !$akunBebanId) {
+            Log::error('Akun tidak ditemukan dalam database', [
+                'bank' => $bank,
+                'pendapatan' => $pendapatan,
+                'akunBebanId' => $akunBebanId,
+            ]);
+            return;
+        }
+
+        // Jika transaksi adalah pemasukan (penerimaan)
+        if ($transaksi->type == 'penerimaan') {
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $bank->id, // Bank bertambah (debit)
+                'debit' => $transaksi->amount,
+                'credit' => 0
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $pendapatan->id, // Pendapatan bertambah (credit)
+                'debit' => 0,
+                'credit' => $transaksi->amount
+            ]);
+        }
+        // Jika transaksi adalah pengeluaran (beban)
+        else if ($transaksi->type == 'pengeluaran') {
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $akunBebanId, // Beban bertambah (debit)
+                'debit' => $transaksi->amount,
+                'credit' => 0
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $bank->id, // Bank berkurang (credit)
+                'debit' => 0,
+                'credit' => $transaksi->amount
+            ]);
+        }
+
+        // Hitung total saldo bank setelah transaksi
+        $totalBank = Ledger::where('akun_keuangan_id', $bank->id)
+            ->sum('debit') - Ledger::where('akun_keuangan_id', $bank->id)->sum('credit');
+
+        // Logging saldo bank terbaru
+        Log::info('Jurnal berhasil dibuat. Saldo bank terbaru: ' . $totalBank, [
+            'id_transaksi' => $transaksi->id,
+            'total_bank' => $totalBank
         ]);
     }
 

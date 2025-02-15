@@ -81,7 +81,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
         Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
         // Route untuk laporan bank
-        Route::get('/bank', [LaporanController::class, 'konsolidasiBank'])->name('laporan.bank');
+        Route::get('/bank', [LaporanController::class, 'index'])->name('laporan.bank');
         Route::get('/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
     });
 
