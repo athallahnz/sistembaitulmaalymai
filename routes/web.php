@@ -12,6 +12,7 @@ use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\Laporan\LaporanController;
+use App\Http\Controllers\Laporan\LaporanKeuanganController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -62,6 +63,11 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
     Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');
     Route::get('/bidang/detail', [BidangController::class, 'showDetail'])->name('bidang.detail');
+    Route::get('/laporan/arus-kas', [LaporanKeuanganController::class, 'arusKas'])->name('laporan.arus-kas');
+    Route::get('/laporan/arus-kas/pdf', [LaporanKeuanganController::class, 'exportArusKasPDF'])->name('laporan.arus-kas.pdf');
+    Route::get('/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
+    Route::get('/laporan/laba-rugi', [LaporanKeuanganController::class, 'labaRugi'])->name('laporan.laba-rugi');
+    Route::get('/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
@@ -83,6 +89,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         // Route untuk laporan bank
         Route::get('/bank', [LaporanController::class, 'index'])->name('laporan.bank');
         Route::get('/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
+
     });
 
 

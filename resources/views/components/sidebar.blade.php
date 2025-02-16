@@ -82,6 +82,38 @@
                         <span class="align-middle">Buku Besar Bank</span>
                     </a>
                 </li>
+                <li class="sidebar-item">
+                    <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
+                        <i class="align-middle" data-feather="clipboard"></i>
+                        <span class="align-middle">Laporan Keuangan</span>
+                    </a>
+                    <ul id="laporanKeuangan"
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo') ? 'show' : '' }}">
+                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
+                                <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                <span class="align-middle">Arus kas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.posisi-keuangan') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.posisi-keuangan') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart"></i>
+                                <span class="align-middle">Posisi Keuangan</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.laba-rugi') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.laba-rugi') }}">
+                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
+                                <span class="align-middle">Laba Rugi</span>
+                            </a>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 @if (auth()->user()->bidang_name === 'Pendidikan')
                     <li class="sidebar-item">
                         <a class="sidebar-link" href="#">
@@ -96,14 +128,14 @@
 
         <div class="sidebar-cta">
             <div class="sidebar-cta-content">
-            <strong class="d-inline-block mb-2">Sudah bersyukur hari ini?</strong>
-            <div class="mb-3 text-sm">
-                Are you looking for more happiness? Check out your heart now!
+                <strong class="d-inline-block mb-2">Sudah bersyukur hari ini?</strong>
+                <div class="mb-3 text-sm">
+                    Are you looking for more happiness? Check out your heart now!
+                </div>
+                <div class="d-grid">
+                    <a href="upgrade-to-pro.html" class="btn btn-primary">Bersyukurlah!</a>
+                </div>
             </div>
-            <div class="d-grid">
-                <a href="upgrade-to-pro.html" class="btn btn-primary">Bersyukurlah!</a>
-            </div>
-        </div>
         </div>
     </div>
 </nav>
