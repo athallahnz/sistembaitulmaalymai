@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('title', 'Dashboard Bidang')
 @section('content')
     <div class="container">
         <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang_name }}!</strong></h1>
@@ -70,14 +70,31 @@
                         </div>
                     </a>
                 </div>
-                {{-- <div class="col-md-3 mb-4">
-                <div class="card">
-                    <div class="icon bi bi-bank"></div>
-                    <h5>Bank</h5>
-                    <div class="value">{{ number_format($jumlahBank) }}</div>
-                    <div class="description">Total s/d Bulan ini</div>
+            </div>
+            <h4 class="mb-4">Liability, Bidang {{ auth()->user()->bidang_name }}!</h4>
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-cash"></div>
+                            <h5>Hutang</h5>
+                            <div class="value {{ $jumlahHutang >= 0 ? 'positive' : 'negative' }}">
+                                {{ number_format($jumlahHutang) }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
                 </div>
-            </div> --}}
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-cash"></div>
+                            <h5>Donasi (Pendapatan)</h5>
+                            <div class="value {{ $jumlahDonasi >= 0 ? 'positive' : 'negative' }}">
+                                {{ number_format($jumlahDonasi) }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
             </div>
             <h4 class="mb-4">Beban & Biaya, Bidang {{ auth()->user()->bidang_name }}!</h4>
             <div class="row">

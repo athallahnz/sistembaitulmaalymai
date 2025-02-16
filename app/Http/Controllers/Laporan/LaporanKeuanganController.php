@@ -92,28 +92,86 @@ class LaporanKeuanganController extends Controller
     public function neracaSaldo(Request $request)
     {
         $user = auth()->user();
+        $bidangName = $user->bidang_name;
 
         // Konversi input ke Carbon
         $startDate = $request->has('start_date') ? Carbon::parse($request->input('start_date')) : now()->startOfMonth();
         $endDate = $request->has('end_date') ? Carbon::parse($request->input('end_date')) : now()->endOfMonth();
 
-        // Ambil akun keuangan yang parent_id-nya NULL
-        $akunKeuangan = AkunKeuangan::whereIn('tipe_akun', ['asset', 'liability', 'expense'])
-            ->whereNull('parent_id')
-            ->with([
-                'transaksis' => function ($query) use ($user, $startDate, $endDate) {
-                    // Filter transaksi berdasarkan bidang pengguna & tanggal
-                    $query->whereBetween('tanggal_transaksi', [$startDate->toDateString(), $endDate->toDateString()]);
-
-                    if ($user->role === 'Bidang') {
-                        $query->where('bidang_name', $user->bidang_name);
-                    }
-                }
-            ])
+        // Ambil akun keuangan utama (tanpa parent_id)
+        $akunKeuangan = AkunKeuangan::whereNull('parent_id')
+            ->whereIn('tipe_akun', ['asset', 'liability', 'expense'])
             ->get();
 
-        return view('laporan.neraca_saldo', compact('akunKeuangan', 'startDate', 'endDate'));
+        // Ambil saldo terakhir untuk akun Kas (101) & Bank (102)
+        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
+            ->where('bidang_name', $bidangName)
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->last()?->saldo ?? 0;
+
+        $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
+            ->where('bidang_name', $bidangName)
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->last()?->saldo ?? 0;
+
+        // Ambil saldo untuk Piutang
+        $jumlahPiutang = Transaksi::whereIn('parent_akun_id', [1031, 1032, 1033, 1034, 1035, 1036])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+
+        // Ambil saldo untuk Beban Gaji
+        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+
+        $jumlahHutang = Transaksi::whereIn('parent_akun_id', [2011, 2012, 2013, 2014])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
+        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
+        // Ambil saldo untuk Biaya Operasional
+        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
+            3031,
+            3032,
+            3033,
+            3034,
+            3035,
+            3036,
+            3037,
+            3038,
+            3039,
+            30310,
+            30311,
+            30312
+        ])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+
+        // Ambil saldo untuk Biaya Kegiatan
+        $jumlahBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+
+        return view('laporan.neraca_saldo', compact(
+            'akunKeuangan',
+            'startDate',
+            'endDate',
+            'lastSaldo101',
+            'lastSaldo102',
+            'jumlahHutang',
+            'jumlahDonasi',
+            'jumlahPiutang',
+            'jumlahBebanGaji',
+            'jumlahBiayaOperasional',
+            'jumlahBiayaKegiatan'
+        ));
     }
+
 
 
 

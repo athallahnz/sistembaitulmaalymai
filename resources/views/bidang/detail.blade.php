@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('title', 'Catatan Buku Harian')
 @section('content')
     <div class="container">
         <div class="d-flex align-items-center mb-4">

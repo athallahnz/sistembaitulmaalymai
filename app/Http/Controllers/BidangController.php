@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\DB;
 use App\Services\LaporanService;
 use Yajra\DataTables\Facades\DataTables;
 
-
-
 class BidangController extends Controller
 {
     public function __construct()
@@ -68,6 +66,14 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
+        $jumlahHutang = Transaksi::whereIn('parent_akun_id', [2011, 2012, 2013, 2014])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
+        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
         $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
@@ -111,6 +117,8 @@ class BidangController extends Controller
             'jumlahPiutang',
             'jumlahTanahBangunan',
             'jumlahInventaris',
+            'jumlahHutang',
+            'jumlahDonasi',
             'jumlahPenyusutanAsset',
             'jumlahBebanGaji',
             'jumlahBiayaKegiatan',
@@ -154,10 +162,12 @@ class BidangController extends Controller
             ->get();
 
         return DataTables::of($transaksiData)
-            ->addColumn('akun_keuangan',
-            function ($row) {
-                return $row->akunKeuangan ? $row->akunKeuangan->nama_akun : 'N/A';
-            })
+            ->addColumn(
+                'akun_keuangan',
+                function ($row) {
+                    return $row->akunKeuangan ? $row->akunKeuangan->nama_akun : 'N/A';
+                }
+            )
             ->addColumn('parent_akun_keuangan', function ($row) {
                 return $row->parentAkunKeuangan ? $row->parentAkunKeuangan->nama_akun : 'N/A';
             })

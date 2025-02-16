@@ -26,39 +26,87 @@
         <div class="card">
             <div class="card-body">
                 <table class="table table-bordered">
-                    <thead class="table-dark">
+                    <thead class="table-light">
                         <tr>
-                            <th>Kode Akun</th>
-                            <th>Nama Akun</th>
-                            <th>Saldo Debit</th>
-                            <th>Saldo Kredit</th>
+                            <th>ID</th>
+                            <th>Akun</th>
+                            <th>Debit</th>
+                            <th>Kredit</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($akunKeuangan as $akun)
-                            <tr>
-                                <td>{{ $akun->kode_akun }}</td>
-                                <td>{{ $akun->nama_akun }}</td>
-                                <td>
-                                    @if ($akun->saldo_normal == 'debit')
-                                        {{ number_format($akun->transaksis->sum('amount'), 2) }}
-                                    @else
-                                        --
-                                    @endif
-                                </td>
-                                <td>
-                                    @if ($akun->saldo_normal == 'kredit')
-                                        {{ number_format($akun->transaksis->sum('amount'), 2) }}
-                                    @else
-                                        --
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4" class="text-center">Tidak ada data tersedia</td>
-                            </tr>
-                        @endforelse
+                        <tr>
+                            <td>101</td>
+                            <td>Kas</td>
+                            <td>Rp {{ number_format($lastSaldo101, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>102</td>
+                            <td>Bank</td>
+                            <td>Rp {{ number_format($lastSaldo102, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>103</td>
+                            <td>Piutang</td>
+                            <td>Rp {{ number_format($jumlahPiutang, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>104</td>
+                            <td>Tanah Bangunan</td>
+                            <td>Rp.0,-</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>105</td>
+                            <td>Inventaris</td>
+                            <td>Rp.0,-</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>201</td>
+                            <td>Hutang</td>
+                            <td>-</td>
+                            <td>Rp {{ number_format($jumlahHutang, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td>202</td>
+                            <td>Donasi</td>
+                            <td>-</td>
+                            <td>Rp {{ number_format($jumlahDonasi, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td>301</td>
+                            <td>Beban Penyusutan</td>
+                            <td>Rp.0,-</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>302</td>
+                            <td>Beban Gaji dan Upah</td>
+                            <td>Rp {{ number_format($jumlahBebanGaji, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>303</td>
+                            <td>Biaya Operasional</td>
+                            <td>Rp {{ number_format($jumlahBiayaOperasional, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>304</td>
+                            <td>Biaya Kegiatan Siswa</td>
+                            <td>Rp {{ number_format($jumlahBiayaKegiatan, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
+                        <tr class="fw-bold">
+                            <td></td>
+                            <td>Total</td>
+                            <td>Rp {{ number_format($lastSaldo101 + $lastSaldo102 + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatan, 0, ',', '.') }}</td>
+                            <td>-</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
