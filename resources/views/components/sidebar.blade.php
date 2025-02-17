@@ -7,7 +7,6 @@
 
         <ul class="sidebar-nav">
             <li class="sidebar-header">Manajemen</li>
-
             @role('Admin')
                 <li class="sidebar-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('admin.index') }}">
@@ -82,10 +81,17 @@
                         <span class="align-middle">Buku Besar Bank</span>
                     </a>
                 </li>
+                <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Piutang</span>
+                    </a>
+                </li>
+            <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="clipboard"></i>
-                        <span class="align-middle">Laporan Keuangan</span>
+                        <span class="align-middle">Keuangan Bidang</span>
                     </a>
                     <ul id="laporanKeuangan"
                         class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo') ? 'show' : '' }}">

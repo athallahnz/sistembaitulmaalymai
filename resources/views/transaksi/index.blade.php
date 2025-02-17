@@ -12,7 +12,7 @@
 
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
-            <i class="bi bi-plus-circle"></i> Tambah Transaksi
+            <i class="bi bi-plus-circle"></i> Tambah Transaksi Kas
         </button>
         <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 mx-2 shadow">
             <i class="bi bi-filetype-pdf"></i> Unduh PDF

@@ -13,6 +13,8 @@ use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\Laporan\LaporanController;
 use App\Http\Controllers\Laporan\LaporanKeuanganController;
+use App\Http\Controllers\PiutangController;
+use App\Http\Controllers\HutangController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -112,3 +114,6 @@ Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.
 Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
+
+Route::resource('piutangs', PiutangController::class);
+Route::resource('hutangs', HutangController::class);

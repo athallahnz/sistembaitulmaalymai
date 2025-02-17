@@ -14,7 +14,7 @@
         <!-- Button untuk membuka modal -->
         <button type="button" class="btn btn-primary mb-3 shadow open-modal" data-saldo="{{ $totalSaldoBank }}"
             data-bs-toggle="modal" data-bs-target="#transactionModal">
-            Tambah Transaksi
+            <i class="bi bi-plus-circle"></i> Tambah Transaksi Bank
         </button>
 
         <!-- Modal -->
