@@ -3,7 +3,7 @@
 @section('content')
     <div class="container">
         <h1>Edit Transaksi</h1>
-        <form action="{{ route('transaksi.update', $transaksi->id) }}" method="POST">
+        <form action="{{ route($transaksi->akun_keuangan_id == 101 ? 'transaksi.update' : 'transaksi.updateBankTransaction', $transaksi->id) }}" method="POST">
             @csrf
             @method('PUT')
 

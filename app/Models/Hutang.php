@@ -9,7 +9,7 @@ class Hutang extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'akun_keuangan_id', 'jumlah', 'tanggal_jatuh_tempo', 'deskripsi', 'status'];
+    protected $fillable = ['user_id', 'akun_keuangan_id', 'parent_id', 'jumlah', 'tanggal_jatuh_tempo', 'deskripsi', 'status'];
 
     public function user()
     {
@@ -19,5 +19,10 @@ class Hutang extends Model
     public function akunKeuangan()
     {
         return $this->belongsTo(AkunKeuangan::class);
+    }
+
+    public function parentAkunKeuangan()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'parent_id', 'id');
     }
 }

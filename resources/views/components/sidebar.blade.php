@@ -87,6 +87,20 @@
                         <span class="align-middle">Piutang</span>
                     </a>
                 </li>
+                <li class="sidebar-item {{ request()->routeIs('hutangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('hutangs.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Hutang</span>
+                    </a>
+                </li>
+                @if (auth()->user()->bidang_name === 'Pendidikan')
+                    <li class="sidebar-item">
+                        <a class="sidebar-link" href="#">
+                            <i class="align-middle" data-feather="dollar-sign"></i>
+                            <span class="align-middle">Pembayaran SPP</span>
+                        </a>
+                    </li>
+                @endif
             <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
@@ -120,14 +134,6 @@
                         </li>
                     </ul>
                 </li>
-                @if (auth()->user()->bidang_name === 'Pendidikan')
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="#">
-                            <i class="align-middle" data-feather="dollar-sign"></i>
-                            <span class="align-middle">Manajemen SPP</span>
-                        </a>
-                    </li>
-                @endif
             @endrole
         </ul>
 

@@ -80,7 +80,9 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBankTransaction');
         Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
         Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
-        Route::put('transaksi/{id}', [TransaksiController::class, 'update'])->name('transaksi.update');
+        Route::put('/transaksi/{id}/update', [TransaksiController::class, 'update'])->name('transaksi.update');
+        Route::put('/transaksi/{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBankTransaction');
+
         // Route untuk Cetak Pdf
         Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf');
         Route::get('transaksi/export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf');

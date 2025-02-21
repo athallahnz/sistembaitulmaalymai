@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ledger;
+use App\Models\Transaksi;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
 
@@ -13,17 +14,13 @@ class LedgerController extends Controller
         $user = auth()->user();
         $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
 
-        $totalKas = Ledger::where('akun_keuangan_id', 101)
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
-            })
-            ->sum('debit')
-            -
-            Ledger::where('akun_keuangan_id', 101)
-                ->whereHas('transaksi', function ($query) use ($bidangName) {
-                    $query->where('bidang_name', $bidangName);
-                })
-                ->sum('credit');
+        // Ambil saldo terakhir untuk akun 101
+        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
+            ->where('bidang_name', $bidangName)
+            ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+            ->get() // Ambil semua data sebagai collection
+            ->last() // Ambil baris terakhir (data terbaru)
+                ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
 
 
         // Ambil data ledger dengan filter bidang_name
@@ -34,7 +31,7 @@ class LedgerController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('ledger.index', compact('ledgers', 'totalKas'));
+        return view('ledger.index', compact('ledgers', 'lastSaldo101'));
     }
 
     public function getData()
@@ -62,7 +59,5 @@ class LedgerController extends Controller
             ->rawColumns(['saldo', 'kode_transaksi', 'akun_nama'])
             ->make(true);
     }
-
-
 }
 
