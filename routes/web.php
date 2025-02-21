@@ -70,6 +70,8 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
     Route::get('/laporan/laba-rugi', [LaporanKeuanganController::class, 'labaRugi'])->name('laporan.laba-rugi');
     Route::get('/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
+    Route::get('/piutangs/data', [PiutangController::class, 'getData'])->name('piutangs.data');
+    Route::get('/hutangs/data', [HutangController::class, 'getData'])->name('hutangs.data');
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
@@ -119,3 +121,4 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
+

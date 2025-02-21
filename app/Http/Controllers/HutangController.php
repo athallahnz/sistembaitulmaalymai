@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Hutang;
 use App\Models\User;
 use App\Models\AkunKeuangan;
+use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 
 class HutangController extends Controller
@@ -78,6 +79,28 @@ class HutangController extends Controller
         return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil ditambahkan.');
     }
 
+    public function getData(Request $request)
+    {
+        $hutangs = Hutang::with('user'); // Pastikan relasi 'user' ada
+
+        return DataTables::of($hutangs)
+            ->addColumn('user_name', function ($hutang) {
+                return $hutang->user->name ?? 'N/A';
+            })
+            ->addColumn('jumlah_formatted', function ($hutang) {
+                return 'Rp ' . number_format($hutang->jumlah, 2, ',', '.');
+            })
+            ->addColumn('status_badge', function ($hutang) {
+                $class = $hutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
+                return '<span class="badge ' . $class . '">' . ucfirst($hutang->status) . '</span>';
+            })
+            ->addColumn('actions', function ($hutang) {
+                return view('hutang.actions', compact('hutang'))->render();
+            })
+            ->rawColumns(['status_badge', 'actions'])
+            ->make(true);
+    }
+
     /**
      * Display the specified resource.
      */
@@ -89,8 +112,12 @@ class HutangController extends Controller
     public function edit(Hutang $hutang)
     {
         $users = User::all();
+
+        $akunHutang = AkunKeuangan::where('id', 201)->first();
+        $parentAkunHutang = AkunKeuangan::where('parent_id', 201)->get();
+
         $akunKeuangans = AkunKeuangan::where('parent_id', 103)->get(); // Hanya akun hutang
-        return view('hutang.edit', compact('hutang', 'users', 'akunKeuangans'));
+        return view('hutang.edit', compact('hutang', 'users', 'akunKeuangans', 'akunHutang', 'parentAkunHutang'));
     }
 
     public function update(Request $request, Hutang $hutang)

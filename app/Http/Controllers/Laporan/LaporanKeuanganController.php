@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Laporan;
 use App\Http\Controllers\Controller;
 use App\Models\Transaksi;
 use App\Models\AkunKeuangan;
+use App\Models\Ledger;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -130,9 +131,12 @@ class LaporanKeuanganController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $jumlahDonasi = Ledger::where('akun_keuangan_id', 202)
+            ->whereHas('transaksi', function ($query) {
+                $query->where('bidang_name', auth()->user()->bidang_name);
+            })
+            ->sum('credit');
+
 
         // Ambil saldo untuk Biaya Operasional
         $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [

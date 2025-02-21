@@ -87,6 +87,7 @@
             </div>
 
             <button type="submit" class="btn btn-primary">Simpan</button>
+            <a href="{{ route('hutangs.index') }}" class="btn btn-secondary">Cancel</a>
         </form>
 
     </div>

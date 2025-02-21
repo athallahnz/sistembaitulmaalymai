@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Piutang;
 use App\Models\User;
 use App\Models\AkunKeuangan;
+use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 
 class PiutangController extends Controller
@@ -69,6 +70,28 @@ class PiutangController extends Controller
         return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil ditambahkan.');
     }
 
+    public function getData(Request $request)
+    {
+        $piutangs = Piutang::with('user'); // Pastikan relasi 'user' ada
+
+        return DataTables::of($piutangs)
+            ->addColumn('user_name', function ($piutang) {
+                return $piutang->user->name ?? 'N/A';
+            })
+            ->addColumn('jumlah_formatted', function ($piutang) {
+                return 'Rp ' . number_format($piutang->jumlah, 2, ',', '.');
+            })
+            ->addColumn('status_badge', function ($piutang) {
+                $class = $piutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
+                return '<span class="badge ' . $class . '">' . ucfirst($piutang->status) . '</span>';
+            })
+            ->addColumn('actions', function ($piutang) {
+                return view('piutang.actions', compact('piutang'))->render();
+            })
+            ->rawColumns(['status_badge', 'actions'])
+            ->make(true);
+    }
+
     public function show(Piutang $piutang)
     {
         return view('piutang.show', compact('piutang'));
@@ -77,8 +100,12 @@ class PiutangController extends Controller
     public function edit(Piutang $piutang)
     {
         $users = User::all();
-        $akunKeuangans = AkunKeuangan::where('parent_id', 103)->get(); // Hanya akun piutang
-        return view('piutang.edit', compact('piutang', 'users', 'akunKeuangans'));
+
+        $akunPiutang = AkunKeuangan::where('id', 103)->first();
+        $parentAkunPiutang = AkunKeuangan::where('parent_id', 103)->get();
+
+        $akunKeuangans = AkunKeuangan::where('parent_id', 103)->get();
+        return view('piutang.edit', compact('piutang', 'users', 'akunKeuangans', 'akunPiutang', 'parentAkunPiutang'));
     }
 
     public function update(Request $request, Piutang $piutang)
