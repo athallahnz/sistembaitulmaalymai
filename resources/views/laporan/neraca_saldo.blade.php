@@ -105,7 +105,7 @@
                             <td></td>
                             <td>Total</td>
                             <td>Rp {{ number_format($lastSaldo101 + $lastSaldo102 + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatan, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($jumlahDonasi, 0, ',', '.') }}</td>
+                            <td>Rp {{ number_format($jumlahDonasi + $jumlahHutang, 0, ',', '.') }}</td>
                         </tr>
                     </tbody>
                 </table>

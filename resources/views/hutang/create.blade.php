@@ -10,8 +10,7 @@
             <!-- Bidang Name (Teks readonly) -->
             <div class="mb-3 d-none">
                 <label class="mb-2">Bidang</label>
-                <input type="text" name="bidang_name" class="form-control" value="{{ auth()->user()->bidang_name }}"
-                    readonly>
+                <input type="hidden" name="bidang_name" value="{{ auth()->user()->bidang_name }}">
             </div>
 
             <!-- Field untuk memilih user yang memiliki role "Bendahara" & "Bidang" serta bidang yang sama -->

@@ -10,13 +10,12 @@
             <!-- Bidang Name (Teks readonly) -->
             <div class="mb-3 d-none">
                 <label class="mb-2">Bidang</label>
-                <input type="text" name="bidang_name" class="form-control" value="{{ auth()->user()->bidang_name }}"
-                    readonly>
+                <input type="hidden" name="bidang_name" value="{{ auth()->user()->bidang_name }}">
             </div>
 
             <!-- Field untuk memilih user yang memiliki role "Bendahara" & "Bidang" serta bidang yang sama -->
             <div class="mb-3">
-                <label for="user_id" class="form-label mb-2">Piutang ke</label>
+                <label for="user_id" class="form-label mb-2">Piutang di</label>
                 <select name="user_id" id="user_id" class="form-control">
                     <option value="">Pilih Tujuan</option>
                     @foreach ($users as $user)

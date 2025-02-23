@@ -9,7 +9,7 @@ class Piutang extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'akun_keuangan_id', 'parent_id', 'jumlah', 'tanggal_jatuh_tempo', 'deskripsi', 'status'];
+    protected $fillable = ['user_id', 'akun_keuangan_id', 'parent_id', 'jumlah', 'tanggal_jatuh_tempo', 'deskripsi', 'status','bidang_name'];
 
     public function user()
     {

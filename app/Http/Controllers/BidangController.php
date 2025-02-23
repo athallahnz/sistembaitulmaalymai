@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Transaksi;
 use App\Models\Ledger;
 use App\Models\AkunKeuangan;
+use App\Models\Piutang;
+use App\Models\Hutang;
 use Illuminate\Support\Facades\DB;
 use App\Services\LaporanService;
 use Yajra\DataTables\Facades\DataTables;
@@ -54,9 +56,9 @@ class BidangController extends Controller
             ->whereYear('tanggal_transaksi', now()->year)    // Filter berdasarkan tahun ini
             ->count();  // Menghitung jumlah transaksi
 
-        $jumlahPiutang = Transaksi::whereIn('parent_akun_id', [1031, 1032, 1033, 1034, 1035, 1036])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $jumlahPiutang = Piutang::where('bidang_name', $bidangName)
+            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->sum('jumlah');
 
         $jumlahTanahBangunan = Transaksi::where('akun_keuangan_id', 104)
             ->where('bidang_name', auth()->user()->bidang_name)
@@ -66,13 +68,19 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahHutang = Transaksi::whereIn('parent_akun_id', [2011, 2012, 2013, 2014])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $jumlahHutang = Hutang::where('bidang_name', $bidangName)
+            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->sum('jumlah');
 
-        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $jumlahDonasi = Ledger::whereHas('transaksi', function ($query) use ($bidangName) {
+            $query->where('bidang_name', $bidangName);
+        })
+            ->whereIn('transaksi_id', function ($query) {
+                $query->select('transaksi_id')
+                    ->from('ledgers')
+                    ->where('akun_keuangan_id', 202);
+            })
+            ->sum('credit');
 
         $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
             ->where('bidang_name', auth()->user()->bidang_name)

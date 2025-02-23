@@ -8,102 +8,113 @@ use App\Models\User;
 use App\Models\AkunKeuangan;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class HutangController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        $hutangs = Hutang::with('user', 'akunKeuangan')->get();
+        $user = auth()->user(); // Ambil user yang sedang login
+        $bidangName = $user->bidang_name; // Ambil bidang dari user
+
+        $hutangs = Hutang::with('user', 'akunKeuangan')
+            ->where('bidang_name', $bidangName) // Filter berdasarkan bidang
+            ->where('user_id', $user->id) // Filter berdasarkan user yang login
+            ->get();
+
         return view('hutang.index', compact('hutangs'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        // Ambil akun keuangan dari database
         $akunKeuangan = AkunKeuangan::all();
-
-        // Ambil akun piutang dengan ID 103
         $akunHutang = AkunKeuangan::where('id', 201)->first();
-
-        // Ambil akun yang memiliki parent_id = 103
         $parentAkunHutang = AkunKeuangan::where('parent_id', 201)->get();
-
-        // Ambil bidang_name selain yang login
-        // Ambil bidang_name selain yang login
         $bidang_name = auth()->user()->bidang_name;
 
-        // Ambil user yang memiliki bidang berbeda dari user yang login & memiliki role "Bendahara" atau "Bidang"
-        $users = User::where('bidang_name', '!=', $bidang_name) // Hanya user dengan bidang berbeda
+        $users = User::where('bidang_name', '!=', $bidang_name)
             ->orWhereHas('roles', function ($query) {
-                $query->where('name', 'Bendahara'); // User dengan role Bendahara
+                $query->where('name', 'Bendahara');
             })
             ->get();
 
         return view('hutang.create', compact('akunKeuangan', 'akunHutang', 'parentAkunHutang', 'users'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-            'parent_akun_id' => 'nullable|exists:akun_keuangans,id', // Validasi akun parent (nullable)
-            'jumlah' => 'required|numeric|min:0',
-            'tanggal_jatuh_tempo' => 'required|date',
-            'deskripsi' => 'nullable|string',
-            'status' => 'required|in:belum_lunas,lunas',
-        ]);
+        Log::info('Menerima request untuk menyimpan Hutang', ['data' => $request->all()]);
 
-        // Cek apakah parent_akun_id ada dalam input
-        $parentAkunId = $request->parent_akun_id ? $request->parent_akun_id : null;
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+                'parent_akun_id' => 'nullable|exists:akun_keuangans,id',
+                'jumlah' => 'required|numeric|min:0',
+                'tanggal_jatuh_tempo' => 'required|date',
+                'deskripsi' => 'nullable|string',
+                'status' => 'required|in:belum_lunas,lunas',
+            ]);
 
-        Hutang::create([
-            'user_id' => $validated['user_id'],
-            'akun_keuangan_id' => $validated['akun_keuangan_id'],
-            'parent_id' => $parentAkunId, // Menyimpan parent_akun_id ke database
-            'jumlah' => $validated['jumlah'],
-            'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'],
-            'deskripsi' => $validated['deskripsi'],
-            'status' => $validated['status'],
-        ]);
+            $bidangName = auth()->user()->bidang_name;
 
-        return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil ditambahkan.');
+            $hutang = Hutang::create([
+                'user_id' => $validated['user_id'],
+                'akun_keuangan_id' => $validated['akun_keuangan_id'],
+                'parent_id' => $request->parent_akun_id ?? null,
+                'jumlah' => $validated['jumlah'],
+                'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'],
+                'deskripsi' => $validated['deskripsi'],
+                'status' => $validated['status'],
+                'bidang_name' => $bidangName,
+            ]);
+
+            Log::info('Hutang berhasil disimpan', ['hutang' => $hutang]);
+
+            return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil ditambahkan.');
+        } catch (\Exception $e) {
+            Log::error('Gagal menyimpan Hutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan hutang.');
+        }
     }
 
     public function getData(Request $request)
     {
-        $hutangs = Hutang::with('user'); // Pastikan relasi 'user' ada
+        Log::info('Fetching data hutang untuk DataTables');
 
-        return DataTables::of($hutangs)
-            ->addColumn('user_name', function ($hutang) {
-                return $hutang->user->name ?? 'N/A';
-            })
-            ->addColumn('jumlah_formatted', function ($hutang) {
-                return 'Rp ' . number_format($hutang->jumlah, 2, ',', '.');
-            })
-            ->addColumn('status_badge', function ($hutang) {
-                $class = $hutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
-                return '<span class="badge ' . $class . '">' . ucfirst($hutang->status) . '</span>';
-            })
-            ->addColumn('actions', function ($hutang) {
-                return view('hutang.actions', compact('hutang'))->render();
-            })
-            ->rawColumns(['status_badge', 'actions'])
-            ->make(true);
+        try {
+            $user = auth()->user(); // Ambil user yang login
+            Log::info('User login:', ['id' => $user->id, 'bidang' => $user->bidang_name]);
+
+            // Ambil semua hutang yang memiliki bidang_name sesuai dengan user login
+            $hutangs = Hutang::with('user')
+                ->where('bidang_name', $user->bidang_name);
+
+            Log::info('Query hutang:', ['sql' => $hutangs->toSql(), 'bindings' => $hutangs->getBindings()]);
+
+            return DataTables::of($hutangs)
+                ->addIndexColumn()
+                ->addColumn('user_name', function ($hutang) {
+                    return optional($hutang->user)->name ?? 'N/A';
+                })
+                ->addColumn('jumlah_formatted', function ($hutang) {
+                    return 'Rp ' . number_format($hutang->jumlah, 2, ',', '.');
+                })
+                ->addColumn('status_badge', function ($hutang) {
+                    $class = $hutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
+                    return '<span class="badge ' . $class . '">' . ucfirst($hutang->status) . '</span>';
+                })
+                ->addColumn('actions', function ($hutang) {
+                    return view('hutang.actions', compact('hutang'))->render();
+                })
+                ->rawColumns(['status_badge', 'actions'])
+                ->make(true);
+        } catch (\Exception $e) {
+            Log::error('Gagal mengambil data hutang', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Gagal mengambil data'], 500);
+        }
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Hutang $hutang)
     {
         return view('hutang.show', compact('hutang'));
@@ -112,32 +123,52 @@ class HutangController extends Controller
     public function edit(Hutang $hutang)
     {
         $users = User::all();
-
         $akunHutang = AkunKeuangan::where('id', 201)->first();
         $parentAkunHutang = AkunKeuangan::where('parent_id', 201)->get();
-
-        $akunKeuangans = AkunKeuangan::where('parent_id', 103)->get(); // Hanya akun hutang
+        $akunKeuangans = AkunKeuangan::where('parent_id', 201)->get();
         return view('hutang.edit', compact('hutang', 'users', 'akunKeuangans', 'akunHutang', 'parentAkunHutang'));
     }
 
     public function update(Request $request, Hutang $hutang)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-            'jumlah' => 'required|numeric',
-            'tanggal_jatuh_tempo' => 'required|date',
-            'deskripsi' => 'nullable|string',
-            'status' => 'required|in:belum_lunas,lunas',
+        Log::info('Menerima request untuk update Hutang', [
+            'hutang_id' => $hutang->id,
+            'data_baru' => $request->all()
         ]);
 
-        $hutang->update($request->all());
-        return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil diperbarui.');
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+                'jumlah' => 'required|numeric|min:0',
+                'tanggal_jatuh_tempo' => 'required|date',
+                'deskripsi' => 'nullable|string',
+                'status' => 'required|in:belum_lunas,lunas',
+            ]);
+
+            $hutang->update($validated);
+
+            Log::info('Hutang berhasil diperbarui', ['hutang' => $hutang]);
+
+            return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil diperbarui.');
+        } catch (\Exception $e) {
+            Log::error('Gagal memperbarui Hutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui hutang.');
+        }
     }
 
     public function destroy(Hutang $hutang)
     {
-        $hutang->delete();
-        return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil dihapus.');
+        Log::info('Menerima request untuk menghapus Hutang', ['hutang_id' => $hutang->id]);
+
+        try {
+            $hutang->delete();
+            Log::info('Hutang berhasil dihapus', ['hutang_id' => $hutang->id]);
+
+            return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil dihapus.');
+        } catch (\Exception $e) {
+            Log::error('Gagal menghapus Hutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menghapus hutang.');
+        }
     }
 }

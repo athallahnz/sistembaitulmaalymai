@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Transaksi;
 use App\Models\AkunKeuangan;
 use App\Models\Ledger;
+use App\Models\Piutang;
+use App\Models\Hutang;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -117,19 +119,18 @@ class LaporanKeuanganController extends Controller
             ->get()
             ->last()?->saldo ?? 0;
 
-        // Ambil saldo untuk Piutang
-        $jumlahPiutang = Transaksi::whereIn('parent_akun_id', [1031, 1032, 1033, 1034, 1035, 1036])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
+        $jumlahPiutang = Piutang::where('bidang_name', $bidangName)
+            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->sum('jumlah');
 
         // Ambil saldo untuk Beban Gaji
         $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        $jumlahHutang = Transaksi::whereIn('parent_akun_id', [2011, 2012, 2013, 2014])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+            $jumlahHutang = Hutang::where('bidang_name', $bidangName)
+            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->sum('jumlah');
 
         $jumlahDonasi = Ledger::where('akun_keuangan_id', 202)
             ->whereHas('transaksi', function ($query) {

@@ -7,11 +7,11 @@
         <form method="GET" action="{{ route('laporan.arus-kas') }}" class="mb-3">
             <div class="row">
                 <div class="col-md-4">
-                    <label>Dari Tanggal</label>
+                    <label>Dari Tanggal:</label>
                     <input type="date" name="start_date" class="form-control mt-2 " value="{{ request('start_date') }}">
                 </div>
                 <div class="col-md-4">
-                    <label>Sampai Tanggal</label>
+                    <label>Sampai Tanggal:</label>
                     <input type="date" name="end_date" class="form-control mt-2" value="{{ request('end_date') }}">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">

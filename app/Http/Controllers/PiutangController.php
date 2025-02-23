@@ -8,14 +8,21 @@ use App\Models\User;
 use App\Models\AkunKeuangan;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PiutangController extends Controller
 {
     public function index()
     {
-        $piutangs = Piutang::with('user', 'akunKeuangan')->get();
+        $bidangName = auth()->user()->bidang_name; // Ambil bidang dari user yang login
+
+        $piutangs = Piutang::with('user', 'akunKeuangan')
+            ->where('bidang_name', $bidangName) // Filter berdasarkan bidang
+            ->get();
+
         return view('piutang.index', compact('piutangs'));
     }
+
 
     public function create()
     {
@@ -44,52 +51,76 @@ class PiutangController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-            'parent_akun_id' => 'nullable|exists:akun_keuangans,id', // Validasi akun parent (nullable)
-            'jumlah' => 'required|numeric|min:0',
-            'tanggal_jatuh_tempo' => 'required|date',
-            'deskripsi' => 'nullable|string',
-            'status' => 'required|in:belum_lunas,lunas',
-        ]);
+        Log::info('Menerima request untuk menyimpan Piutang', ['data' => $request->all()]);
 
-        // Cek apakah parent_akun_id ada dalam input
-        $parentAkunId = $request->parent_akun_id ? $request->parent_akun_id : null;
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+                'parent_akun_id' => 'nullable|exists:akun_keuangans,id',
+                'jumlah' => 'required|numeric|min:0',
+                'tanggal_jatuh_tempo' => 'required|date',
+                'deskripsi' => 'nullable|string',
+                'status' => 'required|in:belum_lunas,lunas',
+            ]);
 
-        Piutang::create([
-            'user_id' => $validated['user_id'],
-            'akun_keuangan_id' => $validated['akun_keuangan_id'],
-            'parent_id' => $parentAkunId, // Menyimpan parent_akun_id ke database
-            'jumlah' => $validated['jumlah'],
-            'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'],
-            'deskripsi' => $validated['deskripsi'],
-            'status' => $validated['status'],
-        ]);
+            $bidangName = auth()->user()->bidang_name;
 
-        return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil ditambahkan.');
+            $piutang = Piutang::create([
+                'user_id' => $validated['user_id'],
+                'akun_keuangan_id' => $validated['akun_keuangan_id'],
+                'parent_id' => $request->parent_akun_id ?? null,
+                'jumlah' => $validated['jumlah'],
+                'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'],
+                'deskripsi' => $validated['deskripsi'],
+                'status' => $validated['status'],
+                'bidang_name' => $bidangName,
+            ]);
+
+            Log::info('Piutang berhasil disimpan', ['piutang' => $piutang]);
+
+            return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil ditambahkan.');
+        } catch (\Exception $e) {
+            Log::error('Gagal menyimpan Piutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan piutang.');
+        }
     }
 
     public function getData(Request $request)
     {
-        $piutangs = Piutang::with('user'); // Pastikan relasi 'user' ada
+        Log::info('Fetching data piutang untuk DataTables');
 
-        return DataTables::of($piutangs)
-            ->addColumn('user_name', function ($piutang) {
-                return $piutang->user->name ?? 'N/A';
-            })
-            ->addColumn('jumlah_formatted', function ($piutang) {
-                return 'Rp ' . number_format($piutang->jumlah, 2, ',', '.');
-            })
-            ->addColumn('status_badge', function ($piutang) {
-                $class = $piutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
-                return '<span class="badge ' . $class . '">' . ucfirst($piutang->status) . '</span>';
-            })
-            ->addColumn('actions', function ($piutang) {
-                return view('piutang.actions', compact('piutang'))->render();
-            })
-            ->rawColumns(['status_badge', 'actions'])
-            ->make(true);
+        try {
+            $user = auth()->user(); // Ambil user yang login
+            Log::info('User login:', ['id' => $user->id, 'bidang' => $user->bidang_name]);
+
+            // Ambil semua piutang yang memiliki bidang_name sesuai dengan user login
+            $piutangs = Piutang::with('user')
+                ->where('bidang_name', $user->bidang_name);
+
+            Log::info('Query piutang:', ['sql' => $piutangs->toSql(), 'bindings' => $piutangs->getBindings()]);
+
+            return DataTables::of($piutangs)
+                ->addIndexColumn()
+                ->addColumn('user_name', function ($piutang) {
+                    return optional($piutang->user)->name ?? 'N/A';
+                })
+                ->addColumn('jumlah_formatted', function ($piutang) {
+                    return 'Rp ' . number_format($piutang->jumlah, 2, ',', '.');
+                })
+                ->addColumn('status_badge', function ($piutang) {
+                    $class = $piutang->status == 'lunas' ? 'bg-success' : 'bg-danger';
+                    return '<span class="badge ' . $class . '">' . ucfirst($piutang->status) . '</span>';
+                })
+                ->addColumn('actions', function ($piutang) {
+                    return view('piutang.actions', compact('piutang'))->render();
+                })
+                ->rawColumns(['status_badge', 'actions'])
+                ->make(true);
+        } catch (\Exception $e) {
+            Log::error('Gagal mengambil data piutang', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Gagal mengambil data'], 500);
+        }
     }
 
     public function show(Piutang $piutang)
@@ -110,22 +141,45 @@ class PiutangController extends Controller
 
     public function update(Request $request, Piutang $piutang)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-            'jumlah' => 'required|numeric',
-            'tanggal_jatuh_tempo' => 'required|date',
-            'deskripsi' => 'nullable|string',
-            'status' => 'required|in:belum_lunas,lunas',
+        Log::info('Menerima request untuk update Piutang', [
+            'piutang_id' => $piutang->id,
+            'data_baru' => $request->all()
         ]);
 
-        $piutang->update($request->all());
-        return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil diperbarui.');
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+                'jumlah' => 'required|numeric|min:0',
+                'tanggal_jatuh_tempo' => 'required|date',
+                'deskripsi' => 'nullable|string',
+                'status' => 'required|in:belum_lunas,lunas',
+            ]);
+
+            $piutang->update($validated);
+
+            Log::info('Piutang berhasil diperbarui', ['piutang' => $piutang]);
+
+            return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil diperbarui.');
+        } catch (\Exception $e) {
+            Log::error('Gagal memperbarui Piutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui piutang.');
+        }
     }
 
     public function destroy(Piutang $piutang)
     {
-        $piutang->delete();
-        return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil dihapus.');
+        Log::info('Menerima request untuk menghapus Piutang', ['piutang_id' => $piutang->id]);
+
+        try {
+            $piutang->delete();
+            Log::info('Piutang berhasil dihapus', ['piutang_id' => $piutang->id]);
+
+            return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil dihapus.');
+        } catch (\Exception $e) {
+            Log::error('Gagal menghapus Piutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menghapus piutang.');
+        }
     }
+
 }
