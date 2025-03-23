@@ -27,8 +27,8 @@
                     <div class="card">
                         <div class="icon bi bi-cash"></div>
                         <h5>Saldo Kas</h5>
-                        <div class="value {{ $lastSaldo101 >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($lastSaldo101) }}</div>
+                        <div class="value {{ $saldoKas >= 0 ? 'positive' : 'negative' }}">
+                            {{ number_format($saldoKas) }}</div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -36,8 +36,8 @@
                     <div class="card">
                         <div class="icon bi bi-bank"></div>
                         <h5>Saldo Bank</h5>
-                        <div class="value {{ $totalSaldoBank >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($totalSaldoBank) }}</div>
+                        <div class="value {{ $saldoBank >= 0 ? 'positive' : 'negative' }}">
+                            {{ number_format($saldoBank) }}</div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -60,7 +60,7 @@
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 103]) }}" class="text-decoration-none">
+                    <a href="#" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-wallet"></div>
                             <h5>Piutang</h5>
@@ -73,8 +73,8 @@
             </div>
             <h4 class="mb-4">Liability, Bidang {{ auth()->user()->bidang_name }}!</h4>
             <div class="row">
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
+                <div class="col-md-4 mb-5">
+                    <a href="#" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Hutang</h5>
@@ -84,13 +84,24 @@
                         </div>
                     </a>
                 </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
+                <div class="col-md-4 mb-5">
+                    <a href="#" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Donasi (Pendapatan)</h5>
                             <div class="value {{ $jumlahDonasi >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahDonasi) }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-4 mb-5">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-cash"></div>
+                            <h5>Pendapatan Belum Diterima</h5>
+                            <div class="value {{ $jumlahPendapatanBelumDiterima >= 0 ? 'positive' : 'negative' }}">
+                                {{ number_format($jumlahPendapatanBelumDiterima) }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>

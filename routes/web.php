@@ -56,6 +56,9 @@ Route::middleware(['role:Manajer Keuangan'])->group(function () {
 Route::middleware(['role:Bendahara'])->group(function () {
     Route::get('/bendahara/dashboard', [BendaharaController::class, 'index'])->name('bendahara.index');
 
+    Route::get('/bendahara/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldoBendahara'])->name('laporan.neraca-saldo-bendahara');
+    Route::get('/bendahara/detail', [BendaharaController::class, 'showDetailBendahara'])->name('bendahara.detail');
+    Route::get('/bendahara/detail/data', [BendaharaController::class, 'getDetailDataBendahara'])->name('bendahara.detail.data');
 });
 
 // Bidang routes
@@ -65,11 +68,10 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
     Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');
     Route::get('/bidang/detail', [BidangController::class, 'showDetail'])->name('bidang.detail');
-    Route::get('/laporan/arus-kas', [LaporanKeuanganController::class, 'arusKas'])->name('laporan.arus-kas');
-    Route::get('/laporan/arus-kas/pdf', [LaporanKeuanganController::class, 'exportArusKasPDF'])->name('laporan.arus-kas.pdf');
-    Route::get('/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
-    Route::get('/laporan/laba-rugi', [LaporanKeuanganController::class, 'labaRugi'])->name('laporan.laba-rugi');
-    Route::get('/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
+    Route::get('/bidang/laporan/arus-kas', [LaporanKeuanganController::class, 'arusKas'])->name('laporan.arus-kas');
+    Route::get('/bidang/laporan/arus-kas/pdf', [LaporanKeuanganController::class, 'exportArusKasPDF'])->name('laporan.arus-kas.pdf');
+    Route::get('/bidang/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
+    Route::get('/bidang/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
     Route::get('/piutangs/data', [PiutangController::class, 'getData'])->name('piutangs.data');
     Route::get('/hutangs/data', [HutangController::class, 'getData'])->name('hutangs.data');
 
@@ -122,3 +124,9 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
 
+Route::get('/notifications/read', function () {
+    if (Auth::check()) {
+        Auth::user()->unreadNotifications->markAsRead();
+    }
+    return redirect()->back();
+})->name('notifications.markAsRead');

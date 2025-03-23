@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Laporan;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
 use App\Services\LaporanService;
-use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
-use Illuminate\Support\Facades\Log;
 
 
 class LaporanController extends Controller
@@ -19,11 +19,31 @@ class LaporanController extends Controller
     public function index()
     {
         $user = auth()->user();
+        $bidang_name = auth()->user()->bidang_name;
 
-        // Ambil saldo terakhir berdasarkan bidang_name
-        $lastSaldo = Transaksi::where('bidang_name', $user->bidang_name)
-            ->latest()
-            ->first()->saldo ?? 0;
+        // Daftar akun Bank berdasarkan bidang_name
+        $akunBank = [
+            'Bendahara' => 1021,
+            'Kemasjidan' => 1022,
+            'Pendidikan' => 1023,
+            'Sosial' => 1024,
+            'Usaha' => 1025,
+        ];
+
+        // Pastikan bidang_name yang diberikan ada dalam daftar
+        if (isset($akunBank[$bidang_name])) {
+            $akun_keuangan_id = $akunBank [$bidang_name];
+
+            $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang_name)
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
+        } else {
+            $lastTransaksi = null; // Jika bidang_name tidak ditemukan, return null
+        }
+
+        $lastSaldo = $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
 
         // Ambil transaksi berdasarkan role
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
@@ -39,14 +59,15 @@ class LaporanController extends Controller
         // Ambil semua data akun keuangan
         $akunKeuangan = AkunKeuangan::all();
 
-        // Ambil akun tanpa parent (parent_id = null)
-        $akunTanpaParent = AkunKeuangan::whereNull('parent_id')->get();
+        // // Ambil akun tanpa parent (parent_id = null)
+        $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
+            ->whereNotIn('id', [103, 104, 105, 201]) // Kecualikan ID tertentu
+            ->get();
 
         // Ambil semua akun sebagai referensi untuk child dan konversi ke array
         $akunDenganParent = AkunKeuangan::whereNotNull('parent_id')->get()->groupBy('parent_id');
 
         $role = auth()->user()->role;
-        $bidang_name = auth()->user()->bidang_name;
 
         // Tentukan prefix berdasarkan bidang_name
         $prefix = '';
@@ -68,13 +89,15 @@ class LaporanController extends Controller
                     $prefix = 'BGN';
                     break;
             }
+        } elseif ($role === 'Bendahara') {
+            $prefix = 'BDH'; // Prefix untuk Bendahara
         }
 
         // Generate kode transaksi
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // Ambil akun-akun tanpa parent
-        $akunTanpaParent = AkunKeuangan::whereNull('parent_id')->get();
+        // $akunTanpaParent = AkunKeuangan::whereNull('parent_id')->get();
 
         // Menentukan bidang_name berdasarkan role user
         $bidangName = null;
@@ -103,23 +126,38 @@ class LaporanController extends Controller
             'bidang_name' => $bidang_name,
             'akunKeuangan' => $akunKeuangan,
             'kodeTransaksi' => $kodeTransaksi,
-            'lastSaldo' => $lastSaldo
+            'lastSaldo' => $lastSaldo,
         ]);
     }
 
 
     public function getData()
     {
-        $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+        $user = auth()->user();
+        $bidang_name = $user->bidang_name; // Ambil bidang dari user
 
+        // Mapping bidang ke akun_keuangan_id
+        $akunBank = [
+            'Bendahara' => 1021,
+            'Kemasjidan' => 1022,
+            'Pendidikan' => 1023,
+            'Sosial' => 1024,
+            'Usaha' => 1025,
+        ];
+
+        // Pastikan bidang user ada dalam mapping
+        $akun_keuangan_id = $akunBank[$bidang_name] ?? null;
+
+        if (!$akun_keuangan_id) {
+            return response()->json(['error' => 'Bidang tidak valid'], 400);
+        }
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
-            })
-            ->whereIn('transaksi_id', function ($query) {
-                $query->select('transaksi_id')
-                    ->from('ledgers')
-                    ->where('akun_keuangan_id', 102);
+            ->whereHas('transaksi', function ($query) use ($bidang_name, $akun_keuangan_id) {
+                $query->where('bidang_name', $bidang_name)
+                    ->where(function ($q) use ($akun_keuangan_id) {
+                        $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
+                            ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis
+                    });
             })
             ->get();
 
@@ -130,7 +168,7 @@ class LaporanController extends Controller
             ->addColumn('akun_nama', function ($item) {
                 return $item->akun_keuangan ? $item->akun_keuangan->nama_akun : 'N/A';
             })
-            ->rawColumns(['saldo', 'kode_transaksi', 'akun_nama'])
+            ->rawColumns(['kode_transaksi', 'akun_nama'])
             ->make(true);
     }
 

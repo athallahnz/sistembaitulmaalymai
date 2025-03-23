@@ -9,6 +9,7 @@ use App\Models\AkunKeuangan;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Notifications\HutangReminder; // Sesuaikan dengan notifikasi yang dibuat
 
 class HutangController extends Controller
 {
@@ -71,10 +72,82 @@ class HutangController extends Controller
 
             Log::info('Hutang berhasil disimpan', ['hutang' => $hutang]);
 
+            // Coba ambil user yang membuat hutang
+            $pembuatHutang = User::find(auth()->id());
+
+            if ($pembuatHutang) {
+                Log::info('Mengirim notifikasi ke pembuat hutang', ['user_id' => $pembuatHutang->id]);
+                $pembuatHutang->notify(new HutangReminder($hutang));
+            } else {
+                Log::error('User tidak ditemukan saat mengirim notifikasi.');
+            }
+
             return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil ditambahkan.');
         } catch (\Exception $e) {
             Log::error('Gagal menyimpan Hutang', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan hutang.');
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan hutang. ' . $e->getMessage());
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        Log::info('Menerima request untuk memperbarui Hutang', ['data' => $request->all()]);
+
+        try {
+            $validated = $request->validate([
+                'jumlah' => 'required|numeric|min:0',
+                'tanggal_jatuh_tempo' => 'required|date',
+                'deskripsi' => 'nullable|string',
+                'status' => 'required|in:belum_lunas,lunas',
+            ]);
+
+            $hutang = Hutang::findOrFail($id);
+            $hutang->update([
+                'jumlah' => $validated['jumlah'],
+                'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'],
+                'deskripsi' => $validated['deskripsi'],
+                'status' => $validated['status'],
+            ]);
+
+            Log::info('Hutang berhasil diperbarui', ['hutang' => $hutang]);
+
+            $bidangName = $hutang->user->bidang_name ?? 'Tidak Diketahui';
+
+            // **1. Perbarui notifikasi jika hutang masih belum lunas**
+            $existingNotification = DB::table('notifications')
+                ->where('notifiable_id', auth()->id())
+                ->whereJsonContains('data->hutang_id', $hutang->id)
+                ->first();
+
+            $notificationData = [
+                'message' => 'Anda memiliki hutang sebesar Rp' . number_format($hutang->jumlah, 2) . ' kepada: ' . $bidangName . ' yang jatuh tempo pada ' . $hutang->tanggal_jatuh_tempo,
+                'url' => url('/hutang/' . $hutang->id),
+                'hutang_id' => $hutang->id,
+            ];
+
+            if ($existingNotification) {
+                DB::table('notifications')
+                    ->where('id', $existingNotification->id)
+                    ->update([
+                        'data' => json_encode($notificationData),
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                auth()->user()->notify(new HutangReminder($hutang));
+            }
+
+            // **2. Tandai notifikasi sebagai dibaca jika hutang sudah lunas**
+            if ($hutang->status === 'lunas') {
+                DB::table('notifications')
+                    ->where('notifiable_id', auth()->id())
+                    ->whereJsonContains('data->hutang_id', $hutang->id)
+                    ->update(['read_at' => now()]);
+            }
+
+            return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil diperbarui.');
+        } catch (\Exception $e) {
+            Log::error('Gagal memperbarui Hutang', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui hutang.');
         }
     }
 
@@ -127,34 +200,6 @@ class HutangController extends Controller
         $parentAkunHutang = AkunKeuangan::where('parent_id', 201)->get();
         $akunKeuangans = AkunKeuangan::where('parent_id', 201)->get();
         return view('hutang.edit', compact('hutang', 'users', 'akunKeuangans', 'akunHutang', 'parentAkunHutang'));
-    }
-
-    public function update(Request $request, Hutang $hutang)
-    {
-        Log::info('Menerima request untuk update Hutang', [
-            'hutang_id' => $hutang->id,
-            'data_baru' => $request->all()
-        ]);
-
-        try {
-            $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
-                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-                'jumlah' => 'required|numeric|min:0',
-                'tanggal_jatuh_tempo' => 'required|date',
-                'deskripsi' => 'nullable|string',
-                'status' => 'required|in:belum_lunas,lunas',
-            ]);
-
-            $hutang->update($validated);
-
-            Log::info('Hutang berhasil diperbarui', ['hutang' => $hutang]);
-
-            return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil diperbarui.');
-        } catch (\Exception $e) {
-            Log::error('Gagal memperbarui Hutang', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui hutang.');
-        }
     }
 
     public function destroy(Hutang $hutang)

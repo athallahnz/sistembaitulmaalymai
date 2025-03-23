@@ -6,7 +6,7 @@
             <div class="card" style="width: 20rem;">
                 <h5>Saldo Kas</h5>
                 <div class="icon bi bi-cash"></div>
-                <div class="value {{ $lastSaldo101 >= 0 ? 'positive' : 'negative' }}">Rp. {{ number_format($lastSaldo101, 2, ',', '.') }}</div>
+                <div class="value {{ $saldoKas >= 0 ? 'positive' : 'negative' }}">Rp. {{ number_format($saldoKas, 2, ',', '.') }}</div>
             </div>
         </div>
 

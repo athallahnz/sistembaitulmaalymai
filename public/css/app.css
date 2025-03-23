@@ -11934,7 +11934,7 @@ footer.footer ul {
 .sidebar-toggle:hover .hamburger,
 .sidebar-toggle:hover .hamburger:after,
 .sidebar-toggle:hover .hamburger:before {
-    background: #3b7ddd;
+    background: #793715;
 }
 .hamburger-right,
 .hamburger-right:after,
@@ -12099,7 +12099,7 @@ body {
 }
 .sidebar,
 .sidebar-content {
-    background: #222e3c;
+    background: #793715 ;
     transition: margin-left 0.35s ease-in-out, left 0.35s ease-in-out,
         margin-right 0.35s ease-in-out, right 0.35s ease-in-out;
 }
@@ -12116,7 +12116,7 @@ body {
 }
 .sidebar-link,
 a.sidebar-link {
-    background: #222e3c;
+    background: #793715 ;
     border-left: 3px solid transparent;
     color: rgba(233, 236, 239, 0.5);
     cursor: pointer;
@@ -12138,7 +12138,7 @@ a.sidebar-link svg {
     outline: 0;
 }
 .sidebar-link:hover {
-    background: #222e3c;
+    background: #793715 ;
     border-left-color: transparent;
 }
 .sidebar-link:hover,
@@ -12149,12 +12149,12 @@ a.sidebar-link svg {
 .sidebar-item.active .sidebar-link:hover,
 .sidebar-item.active > .sidebar-link {
     background: linear-gradient(
-        90deg,
-        rgba(59, 125, 221, 0.1),
-        rgba(59, 125, 221, 0.088) 50%,
-        transparent
+    90deg,
+    rgba(255, 204, 153, 0.2),  /* Warna emas muda */
+    rgba(255, 170, 102, 0.15) 50%, /* Warna oranye lembut */
+    transparent
     );
-    border-left-color: #3b7ddd;
+    border-left-color: white;
     color: #e9ecef;
 }
 .sidebar-item.active .sidebar-link:hover i,
@@ -12210,9 +12210,14 @@ a.sidebar-link svg {
     z-index: 1;
 }
 .sidebar-cta-content {
-    background: #2b3947;
+    background: linear-gradient(
+    180deg,
+    rgba(255, 204, 153, 0.2),  /* Warna emas muda */
+    rgba(255, 170, 102, 0.15) 50%, /* Warna oranye lembut */
+    transparent
+    );
     border-radius: 0.3rem;
-    color: #e9ecef;
+    color: #fff5e1; /* Putih krem agar tetap terbaca */
     margin: 1.75rem;
     padding: 1.5rem;
 }
@@ -12275,7 +12280,7 @@ a {
 }
 .wrapper {
     align-items: stretch;
-    background: #222e3c;
+    background: #793715 ;
     display: flex;
     width: 100%;
 }
@@ -13424,3 +13429,4 @@ span.flatpickr-weekday {
 .negative {
     color: red;
 }
+

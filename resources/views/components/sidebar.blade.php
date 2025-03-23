@@ -54,6 +54,59 @@
                         <span class="align-middle">Buku Harian</span>
                     </a>
                 </li>
+                <li class="sidebar-item {{ request()->routeIs('ledger.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('ledger.index') }}">
+                        <i class="align-middle" data-feather="book"></i>
+                        <span class="align-middle">Buku Besar Kas</span>
+                    </a>
+                </li>
+                <li class="sidebar-item {{ request()->routeIs('laporan.bank') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('laporan.bank') }}">
+                        <i class="align-middle" data-feather="book"></i>
+                        <span class="align-middle">Buku Besar Bank</span>
+                    </a>
+                </li>
+                <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Piutang</span>
+                    </a>
+                </li>
+                <li class="sidebar-item {{ request()->routeIs('hutangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('hutangs.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Hutang</span>
+                    </a>
+                </li>
+                <li class="sidebar-header">Pelaporan</li>
+                <li class="sidebar-item">
+                    <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
+                        <i class="align-middle" data-feather="clipboard"></i>
+                        <span class="align-middle">Keuangan Yayasan</span>
+                    </a>
+                    <ul id="laporanKeuangan"
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo') ? 'show' : '' }}">
+                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
+                                <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                <span class="align-middle">Arus kas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.posisi-keuangan') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.posisi-keuangan') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart"></i>
+                                <span class="align-middle">Posisi Keuangan</span>
+                            </a>
+                        </li>
+                        <li
+                            class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo-bendahara') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo-bendahara') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
             @endrole
 
             @role('Bidang')
@@ -101,7 +154,7 @@
                         </a>
                     </li>
                 @endif
-            <li class="sidebar-header">Pelaporan</li>
+                <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="clipboard"></i>
@@ -121,11 +174,6 @@
                                 <span class="align-middle">Posisi Keuangan</span>
                             </a>
                         </li>
-                        <li class="sidebar-item {{ request()->routeIs('laporan.laba-rugi') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.laba-rugi') }}">
-                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
-                                <span class="align-middle">Laba Rugi</span>
-                            </a>
                         <li class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.neraca-saldo') }}">
                                 <i class="align-middle ms-3" data-feather="file-text"></i>
@@ -145,7 +193,12 @@
                     Are you looking for more happiness? Check out your heart now!
                 </div>
                 <div class="d-grid">
-                    <a href="upgrade-to-pro.html" class="btn btn-primary">Bersyukurlah!</a>
+                    <a class="btn"
+                        style="background-color: #81431E; color: #fff5e1; padding: 0.5rem 1rem; border-radius: 0.25rem; text-decoration: none; display: inline-block;"
+                        onmouseover="this.style.backgroundColor='#984F23';"
+                        onmouseout="this.style.backgroundColor='#81431E';">
+                        Bersyukurlah!
+                    </a>
                 </div>
             </div>
         </div>

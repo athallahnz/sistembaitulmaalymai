@@ -10,7 +10,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>No.</th>
-                        <th>Nama Penghutang</th>
+                        <th>Nama Peminjam</th>
                         <th>Jumlah</th>
                         <th>Jatuh Tempo</th>
                         <th>Status</th>

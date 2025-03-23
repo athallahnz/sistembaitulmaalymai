@@ -11,10 +11,10 @@
         </h1>
 
         <!-- Button untuk membuka modal -->
-        <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
+        <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
             <i class="bi bi-plus-circle"></i> Tambah Transaksi Kas
         </button>
-        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 mx-2 shadow">
+        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 me-2 shadow">
             <i class="bi bi-filetype-pdf"></i> Unduh PDF
         </a>
         <a href="{{ route('transaksi.exportExcel') }}" class="btn btn-success mb-3 shadow">
@@ -62,6 +62,7 @@
                             <div class="mb-3">
                                 <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
+                                    <option value="">Pilih Akun</option>
                                     @foreach ($akunTanpaParent as $akun)
                                         <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
                                             {{ $akun->nama_akun }}</option>
@@ -173,10 +174,6 @@
                 serverSide: true,
                 ajax: "{{ route('transaksi.data') }}", // Sesuaikan dengan route yang sesuai untuk mengambil data transaksi
                 columns: [
-                    // {
-                    //     data: 'bidang_name', // Ambil bidang_name dari data transaksi
-                    //     name: 'bidang_name'
-                    // },
                     {
                         data: 'tanggal_transaksi', // Ambil tanggal transaksi
                         name: 'tanggal_transaksi'

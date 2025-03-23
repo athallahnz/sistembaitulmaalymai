@@ -12,40 +12,71 @@ class LedgerController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+        $bidang_name = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
 
-        // Ambil saldo terakhir untuk akun 101
-        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
-            ->where('bidang_name', $bidangName)
-            ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
-            ->get() // Ambil semua data sebagai collection
-            ->last() // Ambil baris terakhir (data terbaru)
-                ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+        // Daftar akun kas berdasarkan bidang_name
+        $akunKas = [
+            'Bendahara' => 1011,
+            'Kemasjidan' => 1012,
+            'Pendidikan' => 1013,
+            'Sosial' => 1014,
+            'Usaha' => 1015,
+        ];
 
+        // Pastikan bidang_name yang diberikan ada dalam daftar
+        if (isset($akunKas[$bidang_name])) {
+            $akun_keuangan_id = $akunKas[$bidang_name];
+
+            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang_name)
+                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke terbaru
+                ->get() // Ambil semua data sebagai collection
+                ->last(); // Ambil saldo terakhir (data terbaru)
+        } else {
+            $lastSaldo = null; // Jika bidang_name tidak ditemukan, return null
+        }
+
+        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
+        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
 
         // Ambil data ledger dengan filter bidang_name
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
+            ->whereHas('transaksi', function ($query) use ($bidang_name) {
+                $query->where('bidang_name', $bidang_name);
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('ledger.index', compact('ledgers', 'lastSaldo101'));
+        return view('ledger.index', compact('ledgers', 'saldoKas'));
     }
 
     public function getData()
     {
-        $bidangName = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+        $user = auth()->user();
+        $bidang_name = $user->bidang_name; // Ambil bidang dari user
 
+        // Mapping bidang ke akun_keuangan_id
+        $akunKas = [
+            'Bendahara' => 1011,
+            'Kemasjidan' => 1012,
+            'Pendidikan' => 1013,
+            'Sosial' => 1014,
+            'Usaha' => 1015,
+        ];
+
+        // Pastikan bidang user ada dalam mapping
+        $akun_keuangan_id = $akunKas[$bidang_name] ?? null;
+
+        if (!$akun_keuangan_id) {
+            return response()->json(['error' => 'Bidang tidak valid'], 400);
+        }
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
-            })
-            ->whereIn('transaksi_id', function ($query) {
-                $query->select('transaksi_id')
-                    ->from('ledgers')
-                    ->where('akun_keuangan_id', 101);
+            ->whereHas('transaksi', function ($query) use ($bidang_name, $akun_keuangan_id) {
+                $query->where('bidang_name', $bidang_name)
+                    ->where(function ($q) use ($akun_keuangan_id) {
+                        $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
+                            ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis
+                    }); 
             })
             ->get();
 
@@ -56,7 +87,7 @@ class LedgerController extends Controller
             ->addColumn('akun_nama', function ($item) {
                 return $item->akun_keuangan ? $item->akun_keuangan->nama_akun : 'N/A';
             })
-            ->rawColumns(['saldo', 'kode_transaksi', 'akun_nama'])
+            ->rawColumns(['kode_transaksi', 'akun_nama'])
             ->make(true);
     }
 }

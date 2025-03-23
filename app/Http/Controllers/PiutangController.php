@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use App\Models\Piutang;
 use App\Models\User;
 use App\Models\AkunKeuangan;
+use App\Models\PendapatanBelumDiterima;
+use App\Notifications\HutangJatuhTempo; // Sesuaikan dengan notifikasi yang dibuat
+use Illuminate\Notifications\DatabaseNotification;
 use Yajra\DataTables\Facades\DataTables;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class PiutangController extends Controller
 {
@@ -78,6 +82,23 @@ class PiutangController extends Controller
             ]);
 
             Log::info('Piutang berhasil disimpan', ['piutang' => $piutang]);
+
+            // Simpan Pendapatan yang Belum Diterima (kredit)
+            PendapatanBelumDiterima::create([
+                'user_id' => $validated['user_id'],
+                'jumlah' => $validated['jumlah'],
+                'tanggal_pencatatan' => now(),
+                'deskripsi' => 'Pendapatan yang belum diterima dari piutang' . $piutang->id,
+                'bidang_name' => $bidangName,
+            ]);
+
+            $user = $piutang->user;
+            if ($user) {
+                Notification::send($user, new HutangJatuhTempo($piutang));
+            } else {
+                Log::error('User tidak ditemukan untuk Piutang.', ['piutang' => $piutang]);
+            }
+
 
             return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil ditambahkan.');
         } catch (\Exception $e) {
@@ -156,9 +177,47 @@ class PiutangController extends Controller
                 'status' => 'required|in:belum_lunas,lunas',
             ]);
 
-            $piutang->update($validated);
+            $bidangName = auth()->user()->bidang_name;
+            $statusSebelumnya = $piutang->status;
+
+            $piutang->update(array_merge($validated, ['bidang_name' => $bidangName]));
+
+            if ($validated['status'] === 'lunas') {
+                PendapatanBelumDiterima::where('user_id', $piutang->user_id)
+                    ->where('jumlah', $piutang->jumlah)
+                    ->where('bidang_name', $bidangName)
+                    ->delete();
+            }
 
             Log::info('Piutang berhasil diperbarui', ['piutang' => $piutang]);
+
+            $user = User::find($validated['user_id']);
+            if ($user) {
+                $existingNotification = DatabaseNotification::whereJsonContains('data->piutang_id', $piutang->id)->first();
+
+                if ($existingNotification) {
+                    if ($statusSebelumnya === 'belum_lunas' && $validated['status'] === 'lunas') {
+                        $existingNotification->update([
+                            'read_at' => now(),
+                        ]);
+                        Log::info('Notifikasi ditandai sebagai dibaca untuk user ' . $user->id);
+                    } else {
+                        // **PERBAIKAN DI SINI: Gunakan $piutang, bukan $this->piutang**
+                        $existingNotification->update([
+                            'data' => [
+                                'message' => 'Hutang sebesar Rp' . number_format($piutang->jumlah, 2, ',', '.') .
+                                    ' jatuh tempo pada ' . \Carbon\Carbon::parse($piutang->tanggal_jatuh_tempo)->format('d M Y'),
+                                'url' => url('/hutang'),
+                                'piutang_id' => $piutang->id,
+                            ]
+                        ]);
+                        Log::info('Notifikasi diperbarui untuk user ' . $user->id);
+                    }
+                } else {
+                    Notification::send($user, new HutangJatuhTempo($piutang));
+                    Log::info('Notifikasi baru dikirim untuk user ' . $user->id);
+                }
+            }
 
             return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil diperbarui.');
         } catch (\Exception $e) {
@@ -166,6 +225,7 @@ class PiutangController extends Controller
             return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui piutang.');
         }
     }
+
 
     public function destroy(Piutang $piutang)
     {

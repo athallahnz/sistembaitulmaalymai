@@ -6,8 +6,8 @@
             <div class="card" style="width: 20rem;">
                 <h5>Konsolidasi Saldo Bank</h5>
                 <div class="icon bi bi-bank"></div>
-                <div class="value {{ $totalSaldoBank >= 0 ? 'positive' : 'negative' }}">
-                    Rp.{{ number_format($totalSaldoBank, 2, ',', '.') }}</div>
+                <div class="value {{ $lastSaldo>= 0 ? 'positive' : 'negative' }}">
+                    Rp.{{ number_format($lastSaldo, 2, ',', '.') }}</div>
             </div>
         </div>
 
@@ -59,6 +59,7 @@
                                 <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" value="102"
                                     required>
+                                    <option value="">Pilih Akun</option>
                                     @foreach ($akunTanpaParent as $akun)
                                         <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
                                             {{ $akun->nama_akun }}</option>
@@ -85,7 +86,7 @@
                                 <small class="form-text text-danger" id="amount-error" style="display: none;">Jumlah
                                     pengeluaran tidak boleh melebihi saldo akun.</small>
                                 <small class="form-text text-muted" id="saldo-bank">
-                                    Saldo Akun: Rp {{ number_format($totalSaldoBank, 2, ',', '.') }}
+                                    Saldo Akun: Rp {{ number_format($lastSaldo, 2, ',', '.') }}
                                 </small>
                             </div>
 
@@ -116,8 +117,6 @@
 
 @push('scripts')
     <script>
-        const saldoBank = {{ $totalSaldoBank }};
-
         document.addEventListener("DOMContentLoaded", function() {
             const typeSelect = document.getElementById("type-select");
             const akunLabel = document.getElementById("akun-label");
@@ -161,9 +160,6 @@
                 } else {
                     parentAkunContainer.style.display = "none";
                 }
-
-                // Menyesuaikan nilai debit atau kredit berdasarkan saldo_normal
-                updateFormByAkun(akunKeuangan);
             });
         });
 

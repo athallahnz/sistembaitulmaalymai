@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Laporan;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\Transaksi;
 use App\Models\AkunKeuangan;
 use App\Models\Ledger;
 use App\Models\Piutang;
 use App\Models\Hutang;
+use App\Models\PendapatanBelumDiterima;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\LaporanService;
+
 
 
 class LaporanKeuanganController extends Controller
@@ -97,9 +101,8 @@ class LaporanKeuanganController extends Controller
         $user = auth()->user();
         $bidangName = $user->bidang_name;
 
-        // Konversi input ke Carbon
-        $startDate = $request->has('start_date') ? Carbon::parse($request->input('start_date')) : now()->startOfMonth();
-        $endDate = $request->has('end_date') ? Carbon::parse($request->input('end_date')) : now()->endOfMonth();
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
+        $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
 
         // Ambil akun keuangan utama (tanpa parent_id)
         $akunKeuangan = AkunKeuangan::whereNull('parent_id')
@@ -123,12 +126,13 @@ class LaporanKeuanganController extends Controller
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
+        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
         // Ambil saldo untuk Beban Gaji
         $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-            $jumlahHutang = Hutang::where('bidang_name', $bidangName)
+        $jumlahHutang = Hutang::where('bidang_name', $bidangName)
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
@@ -171,15 +175,145 @@ class LaporanKeuanganController extends Controller
             'jumlahHutang',
             'jumlahDonasi',
             'jumlahPiutang',
+            'jumlahPendapatanBelumDiterima',
             'jumlahBebanGaji',
             'jumlahBiayaOperasional',
             'jumlahBiayaKegiatan'
         ));
     }
 
+    public function neracaSaldoBendahara(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
+        $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
 
+        // Ambil akun keuangan utama (tanpa parent_id)
+        $akunKeuangan = AkunKeuangan::whereNull('parent_id')
+            ->whereIn('tipe_akun', ['asset', 'liability', 'expense'])
+            ->get();
 
+        $bidangName = auth()->user()->bidang_name; // Bidang name dari user saat ini
 
+        // Konsolidasi bank untuk bidang saat ini
+        $bankId = 102; // ID default akun bank
+        $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
+        $totalSaldoBank = $dataKonsolidasi['saldo'];
+        $transaksiBank = $dataKonsolidasi['transaksi'];
+
+        // **Akumulasi total kas seluruh bidang**
+        $totalseluruhKas = $this->calculateTotalKas();
+
+        // **Akumulasi total seluruh bank dari semua bidang**
+        $allFields = Transaksi::distinct()->pluck('bidang_name');
+        $totalSeluruhBank = $allFields->reduce(function ($carry, $field) use ($bankId) {
+            $dataKonsolidasiField = LaporanService::index($bankId, $field);
+            return $carry + $dataKonsolidasiField['saldo'];
+        }, 0);
+
+        // Ambil saldo terakhir untuk akun Kas (101) & Bank (102)
+        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->last()?->saldo ?? 0;
+
+        $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->last()?->saldo ?? 0;
+
+        $jumlahPiutang = Piutang::where('status', 'belum_lunas')->sum('jumlah');
+
+        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
+
+        // Ambil saldo untuk Beban Gaji
+        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
+            ->sum('amount');
+
+        $jumlahHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
+
+        $jumlahDonasi = Ledger::where('akun_keuangan_id', 202)
+            ->sum('credit');
+
+        // Ambil saldo untuk Biaya Operasional
+        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
+            3031,
+            3032,
+            3033,
+            3034,
+            3035,
+            3036,
+            3037,
+            3038,
+            3039,
+            30310,
+            30311,
+            30312
+        ])->sum('amount');
+
+        // Ambil saldo untuk Biaya Kegiatan
+        $jumlahBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+            ->sum('amount');
+
+        return view('laporan.neraca_saldo', compact(
+            'akunKeuangan',
+            'startDate',
+            'endDate',
+            'lastSaldo101',
+            'lastSaldo102',
+            'totalseluruhKas',
+            'totalSeluruhBank',
+            'jumlahHutang',
+            'jumlahDonasi',
+            'jumlahPiutang',
+            'jumlahPendapatanBelumDiterima',
+            'jumlahBebanGaji',
+            'jumlahBiayaOperasional',
+            'jumlahBiayaKegiatan'
+        ));
+    }
+
+    private function calculateTotalKas()
+    {
+        $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
+
+        $totalKas = $bidangNames->sum(function ($bidangName) {
+            return Transaksi::where('akun_keuangan_id', 101)
+                ->where('bidang_name', $bidangName)
+                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+                ->get() // Ambil semua data sebagai collection
+                ->last()?->saldo ?? 0; // Ambil nilai saldo terakhir atau 0 jika tidak ada data
+        });
+
+        return $totalKas;
+    }
+
+    private function calculateTotalKeuanganBidang()
+    {
+        $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
+        $totalKeuangan = 0;
+
+        foreach ($bidangNames as $bidangName) {
+            // Ambil saldo terakhir untuk akun 101
+            $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
+                ->where('bidang_name', $bidangName)
+                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+                ->get() // Ambil semua data sebagai collection
+                ->last() // Ambil baris terakhir (data terbaru)
+                    ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+
+            // Ambil saldo terakhir untuk akun 102
+            $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
+                ->where('bidang_name', $bidangName)
+                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
+                ->get() // Ambil semua data sebagai collection
+                ->last() // Ambil baris terakhir (data terbaru)
+                    ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+
+            $totalKeuangan += $lastSaldo101 + $lastSaldo102;
+        }
+
+        return $totalKeuangan;
+    }
 
     /**
      * Show the form for creating a new resource.

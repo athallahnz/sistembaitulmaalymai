@@ -2,22 +2,28 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Neraca Saldo <strong>Bidang {{ auth()->user()->bidang_name }}</strong></h1>
+        <h1 class="mb-2">
+            @if (auth()->user()->hasRole('Bidang'))
+                Neraca Saldo <strong>Bidang {{ auth()->user()->bidang_name }}</strong>
+            @elseif(auth()->user()->hasRole('Bendahara'))
+                Neraca Saldo <strong>Yayasan</strong>
+            @endif
+        </h1>
 
         <!-- Filter Form -->
         <form method="GET" action="{{ route('laporan.neraca-saldo') }}" class="mb-4">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-4 mt-3">
                     <label for="start_date">Dari Tanggal:</label>
                     <input type="date" id="start_date" name="start_date" class="form-control mt-2"
-                        value="{{ old('start_date', $startDate->format('Y-m-d')) }}">
+                        value="{{ request('start_date') }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 mt-3">
                     <label for="end_date">Sampai Tanggal:</label>
                     <input type="date" id="end_date" name="end_date" class="form-control mt-2"
-                        value="{{ old('end_date', $endDate->format('Y-m-d')) }}">
+                        value="{{ request('end_date') }}">
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
+                <div class="col-md-4 mt-3 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
                 </div>
             </div>
@@ -35,18 +41,33 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>101</td>
-                            <td>Kas</td>
-                            <td>Rp {{ number_format($lastSaldo101, 0, ',', '.') }}</td>
-                            <td>-</td>
-                        </tr>
-                        <tr>
-                            <td>102</td>
-                            <td>Bank</td>
-                            <td>Rp {{ number_format($lastSaldo102, 0, ',', '.') }}</td>
-                            <td>-</td>
-                        </tr>
+                        @if (Auth::user()->hasRole('Bidang'))
+                            <tr>
+                                <td>101</td>
+                                <td>Kas</td>
+                                <td>Rp {{ number_format($lastSaldo101, 0, ',', '.') }}</td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td>102</td>
+                                <td>Bank</td>
+                                <td>Rp {{ number_format($lastSaldo102, 0, ',', '.') }}</td>
+                                <td>-</td>
+                            </tr>
+                        @elseif(Auth::user()->hasRole('Bendahara'))
+                            <tr>
+                                <td>101</td>
+                                <td>Kas</td>
+                                <td>Rp {{ number_format($totalseluruhKas, 0, ',', '.') }}</td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td>102</td>
+                                <td>Bank</td>
+                                <td>Rp {{ number_format($totalSeluruhBank, 0, ',', '.') }}</td>
+                                <td>-</td>
+                            </tr>
+                        @endif
                         <tr>
                             <td>103</td>
                             <td>Piutang</td>
@@ -56,13 +77,13 @@
                         <tr>
                             <td>104</td>
                             <td>Tanah Bangunan</td>
-                            <td>Rp.0,-</td>
+                            <td>Rp 0,-</td>
                             <td>-</td>
                         </tr>
                         <tr>
                             <td>105</td>
                             <td>Inventaris</td>
-                            <td>Rp.0,-</td>
+                            <td>Rp 0,-</td>
                             <td>-</td>
                         </tr>
                         <tr>
@@ -78,9 +99,15 @@
                             <td>Rp {{ number_format($jumlahDonasi, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
+                            <td>203</td>
+                            <td>Pendapatan Belum Diterima</td>
+                            <td>-</td>
+                            <td>Rp {{ number_format($jumlahPendapatanBelumDiterima, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
                             <td>301</td>
                             <td>Beban Penyusutan</td>
-                            <td>Rp.0,-</td>
+                            <td>Rp 0,-</td>
                             <td>-</td>
                         </tr>
                         <tr>
@@ -101,13 +128,24 @@
                             <td>Rp {{ number_format($jumlahBiayaKegiatan, 0, ',', '.') }}</td>
                             <td>-</td>
                         </tr>
-                        <tr class="fw-bold">
-                            <td></td>
-                            <td>Total</td>
-                            <td>Rp {{ number_format($lastSaldo101 + $lastSaldo102 + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatan, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($jumlahDonasi + $jumlahHutang, 0, ',', '.') }}</td>
-                        </tr>
                     </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td colspan="2" class="text-center">Total</td>
+                            @if (Auth::user()->hasRole('Bidang'))
+                                <td>Rp
+                                    {{ number_format($lastSaldo101 + $lastSaldo102 + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatan, 0, ',', '.') }}
+                                </td>
+                            @elseif(Auth::user()->hasRole('Bendahara'))
+                                <td>Rp
+                                    {{ number_format($totalseluruhKas + $totalSeluruhBank + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatan, 0, ',', '.') }}
+                                </td>
+                            @endif
+                            <td>Rp
+                                {{ number_format($jumlahDonasi + $jumlahPendapatanBelumDiterima + $jumlahHutang, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
