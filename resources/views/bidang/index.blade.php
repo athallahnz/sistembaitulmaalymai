@@ -2,17 +2,23 @@
 @section('title', 'Dashboard Bidang')
 @section('content')
     <div class="container">
-        <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang_name }}!</strong></h1>
+        <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</strong>
+        </h1>
         <div class="container-fluid p-4">
-            <h4 class="mb-4">Nilai Asset, Bidang {{ auth()->user()->bidang_name }}!</h4>
+            <h4 class="mb-4">Nilai Asset, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
                 <div class="col-md-3 mb-4">
                     <div class="card">
                         <div class="icon bi bi-cash-coin"></div>
                         <h5>Nilai Kekayaan</h5>
                         <div class="value {{ $totalKeuanganBidang >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($totalKeuanganBidang) }}</div>
-                        <div class="description">untuk bidang {{ auth()->user()->bidang_name }}!</div>
+                            Rp <span class="hidden-value"
+                                style="display: none;">{{ number_format($totalKeuanganBidang, 0, ',', '.') }}</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
+                        <div class="description">untuk bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</div>
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
@@ -28,7 +34,11 @@
                         <div class="icon bi bi-cash"></div>
                         <h5>Saldo Kas</h5>
                         <div class="value {{ $saldoKas >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($saldoKas) }}</div>
+                            Rp <span class="hidden-value"
+                                style="display: none;">{{ number_format($saldoKas, 0, ',', '.') }}</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i></div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -37,7 +47,11 @@
                         <div class="icon bi bi-bank"></div>
                         <h5>Saldo Bank</h5>
                         <div class="value {{ $saldoBank >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($saldoBank) }}</div>
+                            Rp <span class="hidden-value"
+                                style="display: none;">{{ number_format($saldoBank, 0, ',', '.') }}</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i></div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -46,7 +60,7 @@
                         <div class="icon bi bi-building"></div>
                         <h5>Tanah Bangunan</h5>
                         <div class="value {{ $jumlahTanahBangunan >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($jumlahTanahBangunan) }}</div>
+                            {{ number_format($jumlahTanahBangunan, 0, ',', '.') }}</div>
                         <div class="description">Total Nilai Asset</div>
                     </div>
                 </div>
@@ -55,7 +69,7 @@
                         <div class="icon bi bi-truck"></div>
                         <h5>Inventaris</h5>
                         <div class="value {{ $jumlahInventaris >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($jumlahInventaris) }}</div>
+                            {{ number_format($jumlahInventaris, 0, ',', '.') }}</div>
                         <div class="description">Total Nilai Inventaris</div>
                     </div>
                 </div>
@@ -65,13 +79,13 @@
                             <div class="icon bi bi-wallet"></div>
                             <h5>Piutang</h5>
                             <div class="value {{ $jumlahPiutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPiutang) }}</div>
+                                {{ number_format($jumlahPiutang, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
             </div>
-            <h4 class="mb-4">Liability, Bidang {{ auth()->user()->bidang_name }}!</h4>
+            <h4 class="mb-4">Liability, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
                 <div class="col-md-4 mb-5">
                     <a href="#" class="text-decoration-none">
@@ -79,7 +93,7 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Hutang</h5>
                             <div class="value {{ $jumlahHutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahHutang) }}</div>
+                                {{ number_format($jumlahHutang, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -90,7 +104,7 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Donasi (Pendapatan)</h5>
                             <div class="value {{ $jumlahDonasi >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahDonasi) }}</div>
+                                {{ number_format($jumlahDonasi, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -101,20 +115,20 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Pendapatan Belum Diterima</h5>
                             <div class="value {{ $jumlahPendapatanBelumDiterima >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPendapatanBelumDiterima) }}</div>
+                                {{ number_format($jumlahPendapatanBelumDiterima, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
             </div>
-            <h4 class="mb-4">Beban & Biaya, Bidang {{ auth()->user()->bidang_name }}!</h4>
+            <h4 class="mb-4">Beban & Biaya, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
                 <div class="col-md-3 mb-4">
                     <div class="card">
                         <div class="icon bi bi-percent"></div>
                         <h5>Nilai Penyusutan Asset</h5>
-                        <div class="value negative">{{ number_format($jumlahPenyusutanAsset) }}</div>
-                        <div class="description">untuk bidang {{ auth()->user()->bidang_name }}!</div>
+                        <div class="value negative">{{ number_format($jumlahPenyusutanAsset, 0, ',', '.') }}</div>
+                        <div class="description">untuk bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</div>
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
@@ -122,7 +136,7 @@
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Beban Gaji dan Upah</h5>
-                            <div class="value negative">{{ number_format($jumlahBebanGaji) }}</div>
+                            <div class="value negative">{{ number_format($jumlahBebanGaji, 0, ',', '.') }}</div>
                             <div class="description">Jumlah Transaksi bulan ini</div>
                         </div>
                     </a>
@@ -142,7 +156,7 @@
                         <div class="card">
                             <div class="icon bi bi-calendar-check"></div>
                             <h5>Biaya Kegiatan Siswa</h5>
-                            <div class="value negative">{{ number_format($jumlahBiayaKegiatan) }}</div>
+                            <div class="value negative">{{ number_format($jumlahBiayaKegiatan, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -172,7 +186,7 @@
                         <div class="card">
                             <div class="icon bi bi-gear"></div>
                             <h5>Biaya Operasional</h5>
-                            <div class="value negative">{{ number_format($jumlahBiayaOperasional) }}</div>
+                            <div class="value negative">{{ number_format($jumlahBiayaOperasional, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -198,3 +212,22 @@
     </form> --}}
     </div>
 @endsection
+<script>
+    function toggleVisibility(icon) {
+        let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+        let hiddenValue = parent.querySelector('.hidden-value');
+        let maskedValue = parent.querySelector('.masked-value');
+
+        if (hiddenValue.style.display === 'none') {
+            hiddenValue.style.display = 'inline';
+            maskedValue.style.display = 'none';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            hiddenValue.style.display = 'none';
+            maskedValue.style.display = 'inline';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>

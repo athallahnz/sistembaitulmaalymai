@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Ledger;
 use App\Models\Transaksi;
+use App\Models\Bidang;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
 
@@ -13,27 +14,37 @@ class LedgerController extends Controller
     {
         $user = auth()->user();
         $bidang_name = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
 
-        // Daftar akun kas berdasarkan bidang_name
-        $akunKas = [
-            'Bendahara' => 1011,
-            'Kemasjidan' => 1012,
-            'Pendidikan' => 1013,
-            'Sosial' => 1014,
-            'Usaha' => 1015,
-        ];
-
-        // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunKas[$bidang_name])) {
-            $akun_keuangan_id = $akunKas[$bidang_name];
+        // Cek apakah pengguna adalah Bendahara
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1011; // Akun Bank untuk Bendahara
 
             $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_name)
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last(); // Ambil saldo terakhir (data terbaru)
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
         } else {
-            $lastSaldo = null; // Jika bidang_name tidak ditemukan, return null
+            // Daftar akun Bank berdasarkan bidang_id
+            $akunBank = [
+                1 => 1012, // Kemasjidan
+                2 => 1013, // Pendidikan
+                3 => 1014, // Sosial
+                4 => 1015, // Usaha
+            ];
+
+            // Pastikan bidang_id yang diberikan ada dalam daftar
+            if (isset($akunBank[$bidang_id])) {
+                $akun_keuangan_id = $akunBank[$bidang_id];
+
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                    ->where('bidang_name', $bidang_name) // Gunakan bidang_id sebagai referensi
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            } else {
+                $lastSaldo = null; // Jika bidang_id tidak ditemukan, return null
+            }
         }
 
         // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
@@ -53,30 +64,42 @@ class LedgerController extends Controller
     public function getData()
     {
         $user = auth()->user();
-        $bidang_name = $user->bidang_name; // Ambil bidang dari user
+        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
 
-        // Mapping bidang ke akun_keuangan_id
-        $akunKas = [
-            'Bendahara' => 1011,
-            'Kemasjidan' => 1012,
-            'Pendidikan' => 1013,
-            'Sosial' => 1014,
-            'Usaha' => 1015,
-        ];
+        // Cek apakah pengguna adalah Bendahara
+        if ($user->role == 'Bendahara') {
+            $akun_keuangan_id = 1011; // Akun Kas Bendahara
+        } else {
+            // Pastikan bidang ada dalam database
+            $bidang = Bidang::find($bidang_id);
 
-        // Pastikan bidang user ada dalam mapping
-        $akun_keuangan_id = $akunKas[$bidang_name] ?? null;
+            if (!$bidang) {
+                return response()->json(['error' => 'Bidang tidak ditemukan'], 400);
+            }
 
+            // Mapping bidang_id ke akun_keuangan_id
+            $akunKas = [
+                1 => 1012, // Kemasjidan
+                2 => 1013, // Pendidikan
+                3 => 1014, // Sosial
+                4 => 1015, // Usaha
+            ];
+
+            // Ambil akun_keuangan_id berdasarkan bidang_id
+            $akun_keuangan_id = $akunKas[$bidang_id] ?? null;
+        }
         if (!$akun_keuangan_id) {
             return response()->json(['error' => 'Bidang tidak valid'], 400);
         }
+
+        // Ambil data ledger berdasarkan bidang_id
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidang_name, $akun_keuangan_id) {
-                $query->where('bidang_name', $bidang_name)
+            ->whereHas('transaksi', function ($query) use ($bidang_id, $akun_keuangan_id) {
+                $query->where('bidang_name', $bidang_id) // bidang_name sekarang adalah INTEGER ID
                     ->where(function ($q) use ($akun_keuangan_id) {
                         $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
                             ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis
-                    }); 
+                    });
             })
             ->get();
 
@@ -90,5 +113,6 @@ class LedgerController extends Controller
             ->rawColumns(['kode_transaksi', 'akun_nama'])
             ->make(true);
     }
+
 }
 

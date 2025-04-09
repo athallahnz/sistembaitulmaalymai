@@ -23,7 +23,7 @@ class UserController extends Controller
 
             $data = DataTables::of($users)
                 ->addColumn('bidang_name', function ($user) {
-                    return $user->role == 'Bidang' ? $user->bidang_name : '-';
+                    return $user->bidang->name ?? '-';
                 })
                 ->addColumn('actions', function ($user) {
                     return view('admin.users.actions', compact('user'))->render();

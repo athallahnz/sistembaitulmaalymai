@@ -7,30 +7,39 @@
             <div class="col-md-4 mb-5">
                 <div class="card">
                     <div class="icon bi bi-gem"></div>
-                    <h5>Total Nilai Kekayaan</h5>
-                    <h5>Yayasan</h5>
+                    <h5 class="w-50">Total Nilai Kekayaan Yayasan</h5>
                     <h3 class="value {{ $totalKeuanganSemuaBidang >= 0 ? 'positive' : 'negative' }}">
-                        Rp {{ number_format($totalKeuanganSemuaBidang) }}
+                        Rp <span class="hidden-value"
+                            style="display: none;">{{ number_format($totalKeuanganSemuaBidang, 0, ',', '.') }}</span>
+                        <span class="masked-value">***</span>
+                        <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                            onclick="toggleVisibility(this)"></i>
                     </h3>
                 </div>
             </div>
             <div class="col-md-4 mb-5">
                 <div class="card">
                     <div class="icon bi bi-cash-coin"></div>
-                    <h5>Total Saldo Kas</h5>
-                    <h5>Seluruh Bidang</h5>
+                    <h5 class="w-50">Total Saldo Kas Seluruh Bidang</h5>
                     <h3 class="value {{ $saldoKasTotal >= 0 ? 'positive' : 'negative' }}">
-                        Rp {{ number_format($saldoKasTotal) }}
+                        Rp <span class="hidden-value"
+                            style="display: none;">{{ number_format($saldoKasTotal, 0, ',', '.') }}</span>
+                        <span class="masked-value">***</span>
+                        <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                            onclick="toggleVisibility(this)"></i>
                     </h3>
                 </div>
             </div>
             <div class="col-md-4 mb-5">
                 <div class="card">
                     <div class="icon bi bi-bank"></div>
-                    <h5>Total Saldo Bank</h5>
-                    <h5>Seluruh Bidang</h5>
+                    <h5 class="w-50">Total Saldo Bank Seluruh Bidang</h5>
                     <h3 class="value {{ $saldoBankTotal >= 0 ? 'positive' : 'negative' }}">
-                        Rp {{ number_format($saldoBankTotal) }}
+                        Rp <span class="hidden-value"
+                            style="display: none;">{{ number_format($saldoBankTotal, 0, ',', '.') }}</span>
+                        <span class="masked-value">***</span>
+                        <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                            onclick="toggleVisibility(this)"></i>
                     </h3>
                 </div>
             </div>
@@ -43,7 +52,7 @@
                         <div class="icon bi bi-building"></div>
                         <h5>Tanah Bangunan</h5>
                         <div class="value {{ $totalTanahBangunan >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($totalTanahBangunan) }}</div>
+                            {{ number_format($totalTanahBangunan, 0, ',', '.') }}</div>
                         <div class="description">Total Nilai Asset</div>
                     </div>
                 </div>
@@ -52,7 +61,7 @@
                         <div class="icon bi bi-truck"></div>
                         <h5>Inventaris</h5>
                         <div class="value {{ $totalInventaris >= 0 ? 'positive' : 'negative' }}">
-                            {{ number_format($totalInventaris) }}</div>
+                            {{ number_format($totalInventaris, 0, ',', '.') }}</div>
                         <div class="description">Total Nilai Inventaris</div>
                     </div>
                 </div>
@@ -62,7 +71,7 @@
                             <div class="icon bi bi-wallet"></div>
                             <h5>Piutang</h5>
                             <div class="value {{ $totalPiutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($totalPiutang) }}</div>
+                                {{ number_format($totalPiutang, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -76,7 +85,7 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Hutang</h5>
                             <div class="value {{ $totalHutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($totalHutang) }}</div>
+                                {{ number_format($totalHutang, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -87,7 +96,7 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Donasi (Pendapatan)</h5>
                             <div class="value {{ $totalDonasi >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($totalDonasi) }}</div>
+                                {{ number_format($totalDonasi, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -98,7 +107,7 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Pendapatan Belum Diterima</h5>
                             <div class="value {{ $totalPendapatanBelumDiterima >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($totalPendapatanBelumDiterima) }}</div>
+                                {{ number_format($totalPendapatanBelumDiterima, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -110,7 +119,7 @@
                     <div class="card">
                         <div class="icon bi bi-percent"></div>
                         <h5>Nilai Penyusutan Asset</h5>
-                        <div class="value negative">{{ number_format($totalPenyusutanAsset) }}</div>
+                        <div class="value negative">{{ number_format($totalPenyusutanAsset, 0, ',', '.') }}</div>
                         <div class="description">untuk bidang {{ auth()->user()->bidang_name }}!</div>
                     </div>
                 </div>
@@ -119,7 +128,7 @@
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Beban Gaji dan Upah</h5>
-                            <div class="value negative">{{ number_format($totalBebanGaji) }}</div>
+                            <div class="value negative">{{ number_format($totalBebanGaji, 0, ',', '.') }}</div>
                             <div class="description">total Transaksi bulan ini</div>
                         </div>
                     </a>
@@ -188,3 +197,22 @@
         </div>
     </div>
 @endsection
+<script>
+    function toggleVisibility(icon) {
+        let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+        let hiddenValue = parent.querySelector('.hidden-value');
+        let maskedValue = parent.querySelector('.masked-value');
+
+        if (hiddenValue.style.display === 'none') {
+            hiddenValue.style.display = 'inline';
+            maskedValue.style.display = 'none';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            hiddenValue.style.display = 'none';
+            maskedValue.style.display = 'inline';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>

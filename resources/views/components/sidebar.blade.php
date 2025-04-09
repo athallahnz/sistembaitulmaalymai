@@ -21,7 +21,14 @@
                         <span class="align-middle">Users</span>
                     </a>
                 </li>
-            @endrole
+
+                <li class="sidebar-item {{ request()->routeIs('admin.akun_keuangan.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('admin.akun_keuangan.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle">Akun Keuangan</span>
+                    </a>
+                </li>
+                @endrole
 
             @role('Ketua Yayasan')
                 <li class="sidebar-item {{ request()->routeIs('ketua.index') ? 'active' : '' }}">

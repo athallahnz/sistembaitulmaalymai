@@ -88,12 +88,17 @@
                     <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="help-circle"></i>
                         Help Center</a>
                     <div class="dropdown-divider"></div>
-                    <form action="{{ route('logout') }}" method="POST" id="logout-form">
+                    <form action="{{ route('logout') }}" onclick="logoutClear()" method="POST" id="logout-form">
                         @csrf
                         <button type="submit" class="dropdown-item" style="border: none; background: none;">
                             <i class="align-middle me-1" data-feather="log-out"></i> Log Out
                         </button>
                     </form>
+                    <script>
+                        function logoutClear() {
+                            localStorage.removeItem('savedNumber'); // Hapus nomor sebelum logout
+                        }
+                    </script>
                 </div>
             </li>
         </ul>

@@ -58,6 +58,24 @@
             /* Warna coklat saat hover */
             color: white;
         }
+
+        .pin-dots {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            background-color: rgb(181, 181, 181);
+            border-radius: 50%;
+        }
+
+        .dot.active {
+            background-color: #622200;
+        }
     </style>
 </head>
 
@@ -77,14 +95,25 @@
                                         <!-- Nomor -->
                                         <div class="mb-3">
                                             <input type="tel" class="form-control" name="nomor" id="nomor"
-                                                placeholder="Masukkan Nomor" required>
+                                                placeholder="Masukkan Nomor Handphone" value="{{ old('nomor') }}"
+                                                required>
                                         </div>
 
-                                        <!-- PIN -->
-                                        <div class="mb-4">
-                                            <input type="hidden" class="form-control" name="pin" id="pin"
-                                                placeholder="Masukkan PIN" required readonly>
+                                        <h6 class="mb-3">Masukkan PIN Anda</h6>
+
+                                        <!-- PIN Dots -->
+                                        <div class="pin-dots">
+                                            <div class="dot" id="dot1"></div>
+                                            <div class="dot" id="dot2"></div>
+                                            <div class="dot" id="dot3"></div>
+                                            <div class="dot" id="dot4"></div>
+                                            <div class="dot" id="dot5"></div>
+                                            <div class="dot" id="dot6"></div>
                                         </div>
+
+                                        <!-- Input PIN (Hidden) -->
+                                        <input type="password" class="form-control text-center" name="pin"
+                                            id="pin" readonly hidden>
 
                                         <!-- Tombol Angka -->
                                         <div class="text-center">
@@ -151,13 +180,48 @@
 
     <!-- JavaScript -->
     <script>
-        function appendPin(digit) {
-            const pinField = document.getElementById('pin');
-            pinField.value += digit;
+        // Simpan nomor ke localStorage setiap kali diubah
+        document.getElementById('nomor').addEventListener('input', function() {
+            localStorage.setItem('savedNumber', this.value);
+        });
+
+        // Ambil nomor dari localStorage saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            let savedNumber = localStorage.getItem('savedNumber');
+            if (savedNumber) {
+                document.getElementById('nomor').value = savedNumber;
+            }
+        });
+
+        let pin = '';
+
+        function appendPin(num) {
+            if (pin.length < 6) {
+                pin += num;
+                document.getElementById('pin').value = pin;
+                updateDots();
+                checkSubmit();
+            }
         }
 
         function clearPin() {
-            document.getElementById('pin').value = '';
+            pin = pin.slice(0, -1);
+            document.getElementById('pin').value = pin;
+            updateDots();
+            checkSubmit();
+        }
+
+        function updateDots() {
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById('dot' + i).classList.remove('active');
+            }
+            for (let i = 1; i <= pin.length; i++) {
+                document.getElementById('dot' + i).classList.add('active');
+            }
+        }
+
+        function checkSubmit() {
+            document.getElementById('submitBtn').disabled = pin.length !== 6;
         }
     </script>
 

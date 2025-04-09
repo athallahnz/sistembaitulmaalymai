@@ -22,23 +22,33 @@ class BidangController extends Controller
     }
     public function index()
     {
-        $bidang_name = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
+        $user = auth()->user();
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
 
-        // Daftar akun kas berdasarkan bidang_name
-        $akunKas = [
-            'Bendahara' => 1011,
-            'Kemasjidan' => 1012,
-            'Pendidikan' => 1013,
-            'Sosial' => 1014,
-            'Usaha' => 1015,
-        ];
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1011;
+        } else {
+            $akunKas = [
+                1 => 1012,
+                2 => 1013,
+                3 => 1014,
+                4 => 1015,
+            ];
+            $akun_keuangan_id = $akunKas[$bidang_id] ?? null;
+        }
+
+        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
+
+        if (!$bidang_id || !$akun_keuangan_id) {
+            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
+        }
 
         // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunKas[$bidang_name])) {
-            $akun_keuangan_id = $akunKas[$bidang_name];
+        if (isset($akunKas[$bidang_id])) {
+            $akun_keuangan_id = $akunKas[$bidang_id];
 
             $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_name)
+                ->where('bidang_name', $bidang_id)
                 ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke terbaru
                 ->get() // Ambil semua data sebagai collection
                 ->last(); // Ambil saldo terakhir (data terbaru)
@@ -49,21 +59,30 @@ class BidangController extends Controller
         // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
         $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
 
-        // Daftar akun kas berdasarkan bidang_name
-        $akunBank = [
-            'Bendahara' => 1021,
-            'Kemasjidan' => 1022,
-            'Pendidikan' => 1023,
-            'Sosial' => 1024,
-            'Usaha' => 1025,
-        ];
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1021;
+        } else {
+            $akunBank = [
+                1 => 1022,
+                2 => 1023,
+                3 => 1024,
+                4 => 1025,
+            ];
+            $akun_keuangan_id = $akunBank[$bidang_id] ?? null;
+        }
+
+        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
+
+        if (!$bidang_id || !$akun_keuangan_id) {
+            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
+        }
 
         // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunBank[$bidang_name])) {
-            $akun_keuangan_id = $akunBank [$bidang_name];
+        if (isset($akunBank[$bidang_id])) {
+            $akun_keuangan_id = $akunBank[$bidang_id];
 
             $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_name)
+                ->where('bidang_name', $bidang_id)
                 ->orderBy('tanggal_transaksi', 'asc')
                 ->get()
                 ->last();
@@ -82,11 +101,11 @@ class BidangController extends Controller
             ->where('kode_transaksi', 'not like', '%-LAWAN') // Hindari transaksi lawan
             ->count();  // Hitung jumlah transaksi utama
 
-        $jumlahPiutang = Piutang::where('bidang_name', $bidang_name)
+        $jumlahPiutang = Piutang::where('bidang_name', $bidang_id)
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
-        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidang_name)
+        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidang_id)
             ->sum('jumlah');
 
         $jumlahTanahBangunan = Transaksi::where('akun_keuangan_id', 104)
@@ -97,7 +116,7 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahHutang = Hutang::where('bidang_name', $bidang_name)
+        $jumlahHutang = Hutang::where('bidang_name', $bidang_id)
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
@@ -105,15 +124,9 @@ class BidangController extends Controller
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
             ->count();
 
-        $jumlahDonasi = Ledger::whereHas('transaksi', function ($query) use ($bidang_name) {
-            $query->where('bidang_name', $bidang_name);
-        })
-            ->whereIn('transaksi_id', function ($query) {
-                $query->select('transaksi_id')
-                    ->from('ledgers')
-                    ->where('akun_keuangan_id', 202);
-            })
-            ->sum('credit');
+        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
 
         $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
             ->where('bidang_name', auth()->user()->bidang_name)

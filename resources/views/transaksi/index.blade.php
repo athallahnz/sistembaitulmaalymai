@@ -3,15 +3,16 @@
 @section('content')
     <div class="container">
         <h1 class="mb-4">
-            @if(auth()->user()->hasRole('Bidang'))
-                Data Buku Harian <strong>Bidang {{ auth()->user()->bidang_name }}</strong>
+            @if (auth()->user()->hasRole('Bidang'))
+                Data Buku Harian <strong>Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}</strong>
             @elseif(auth()->user()->hasRole('Bendahara'))
                 Seluruh Data Transaksi Buku Harian <strong>Bidang</strong>
             @endif
         </h1>
 
         <!-- Button untuk membuka modal -->
-        <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal" data-bs-target="#transactionModal">
+        <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal"
+            data-bs-target="#transactionModal">
             <i class="bi bi-plus-circle"></i> Tambah Transaksi Kas
         </button>
         <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 me-2 shadow">
@@ -36,8 +37,12 @@
                             @csrf
                             <div class="mb-3 d-none">
                                 <label class="mb-2">Bidang</label>
-                                <input type="text" name="bidang_name" class="form-control"
-                                    value="{{ auth()->user()->bidang_name }}" readonly>
+                                @if(auth()->user()->role === 'Bendahara')
+                                    <input type="text" name="bidang_name" class="form-control" value="Tidak Ada" readonly>
+                                    <small class="form-text text-muted">Role Bendahara tidak memiliki bidang.</small>
+                                @else
+                                    <input type="text" name="bidang_name" class="form-control" value="{{ auth()->user()->bidang_name }}" readonly>
+                                @endif
                             </div>
 
                             <div class="mb-3">
@@ -85,10 +90,12 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
-                                <input type="number" name="amount" class="form-control" required>
+                                <input type="text" id="formattedAmount" class="form-control" oninput="formatInput(this)">
+                                <input type="number" name="amount" id="amount" class="form-control d-none">
                                 <small class="form-text text-muted" id="saldo-akun">
-                                    Saldo Kas: Rp {{ number_format($saldoKas ?? 0, 2) }}
+                                    Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.' ?? 0) }}
                                 </small>
+
                             </div>
 
                             <button type="submit" class="btn btn-primary">Simpan</button>
@@ -104,8 +111,8 @@
                 <thead class="table-light">
                     <tr>
                         <th>Tanggal</th>
-                        <th>Kode Transaksi</th>
-                        <th>Jenis Transaksi</th>
+                        <th>Kode T.</th>
+                        <th>Jenis T.</th>
                         <th>Akun</th>
                         <th>Sub Akun</th>
                         <th>Deskripsi</th>
@@ -173,8 +180,7 @@
                 processing: true,
                 serverSide: true,
                 ajax: "{{ route('transaksi.data') }}", // Sesuaikan dengan route yang sesuai untuk mengambil data transaksi
-                columns: [
-                    {
+                columns: [{
                         data: 'tanggal_transaksi', // Ambil tanggal transaksi
                         name: 'tanggal_transaksi'
                     },
@@ -184,7 +190,17 @@
                     },
                     {
                         data: 'type', // Ambil type
-                        name: 'type'
+                        name: 'type',
+                        render: function(data, type, row) {
+                            // Custom rendering based on the type value
+                            if (data === 'penerimaan') {
+                                return '<span class="badge bg-success">Penerimaan</span>'; // Green label
+                            } else if (data === 'pengeluaran') {
+                                return '<span class="badge bg-danger">Pengeluaran</span>'; // Red label
+                            } else {
+                                return '<span class="badge bg-secondary">Unknown</span>'; // Grey label for unknown
+                            }
+                        }
                     },
                     {
                         data: 'akun_keuangan_id', // Ambil nama akun yang terkait
@@ -225,6 +241,14 @@
                 }
             });
         });
+
+        function formatInput(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+
+            input.value = formatted; // Tampilkan angka dengan separator
+            document.getElementById("amount").value = rawValue; // Simpan angka asli tanpa separator
+        }
 
         function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
             number = (number + '').replace(/[^0-9+\-Ee.]/g, '');

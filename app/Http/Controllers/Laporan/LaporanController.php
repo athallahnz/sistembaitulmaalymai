@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
+use App\Models\Bidang;
 use App\Services\LaporanService;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -20,30 +21,41 @@ class LaporanController extends Controller
     {
         $user = auth()->user();
         $bidang_name = auth()->user()->bidang_name;
+        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
 
-        // Daftar akun Bank berdasarkan bidang_name
-        $akunBank = [
-            'Bendahara' => 1021,
-            'Kemasjidan' => 1022,
-            'Pendidikan' => 1023,
-            'Sosial' => 1024,
-            'Usaha' => 1025,
-        ];
-
-        // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunBank[$bidang_name])) {
-            $akun_keuangan_id = $akunBank [$bidang_name];
+        // Cek apakah pengguna adalah Bendahara
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1021; // Akun Bank untuk Bendahara
 
             $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_name)
                 ->orderBy('tanggal_transaksi', 'asc')
                 ->get()
                 ->last();
         } else {
-            $lastTransaksi = null; // Jika bidang_name tidak ditemukan, return null
+            // Daftar akun Bank berdasarkan bidang_id
+            $akunBank = [
+                1 => 1022, // Kemasjidan
+                2 => 1023, // Pendidikan
+                3 => 1024, // Sosial
+                4 => 1025, // Usaha
+            ];
+
+            // Pastikan bidang_id yang diberikan ada dalam daftar
+            if (isset($akunBank[$bidang_id])) {
+                $akun_keuangan_id = $akunBank[$bidang_id];
+
+                $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                    ->where('bidang_name', $bidang_name) // Gunakan bidang_id sebagai referensi
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            } else {
+                $lastTransaksi = null; // Jika bidang_id tidak ditemukan, return null
+            }
         }
 
         $lastSaldo = $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
+
 
         // Ambil transaksi berdasarkan role
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
@@ -69,23 +81,23 @@ class LaporanController extends Controller
 
         $role = auth()->user()->role;
 
-        // Tentukan prefix berdasarkan bidang_name
+        // Tentukan prefix berdasarkan bidang_id
         $prefix = '';
         if ($role === 'Bidang') {
-            switch ($bidang_name) {
-                case 'Pendidikan':
-                    $prefix = 'PND';
-                    break;
-                case 'Kemasjidan':
+            switch ($bidang_id) {
+                case 1: // Pendidikan
                     $prefix = 'SJD';
                     break;
-                case 'Sosial':
+                case 2: // Kemasjidan
+                    $prefix = 'PND';
+                    break;
+                case 3: // Sosial
                     $prefix = 'SOS';
                     break;
-                case 'Usaha':
+                case 4: // Usaha
                     $prefix = 'UHA';
                     break;
-                case 'Pembangunan':
+                case 5: // Pembangunan
                     $prefix = 'BGN';
                     break;
             }
@@ -130,30 +142,41 @@ class LaporanController extends Controller
         ]);
     }
 
-
     public function getData()
     {
         $user = auth()->user();
-        $bidang_name = $user->bidang_name; // Ambil bidang dari user
+        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
 
-        // Mapping bidang ke akun_keuangan_id
-        $akunBank = [
-            'Bendahara' => 1021,
-            'Kemasjidan' => 1022,
-            'Pendidikan' => 1023,
-            'Sosial' => 1024,
-            'Usaha' => 1025,
-        ];
+        // Cek apakah pengguna adalah Bendahara
+        if ($user->role == 'Bendahara') {
+            $akun_keuangan_id = 1021; // Akun Kas Bendahara
+        } else {
+            // Pastikan bidang ada dalam database
+            $bidang = Bidang::find($bidang_id);
 
-        // Pastikan bidang user ada dalam mapping
-        $akun_keuangan_id = $akunBank[$bidang_name] ?? null;
+            if (!$bidang) {
+                return response()->json(['error' => 'Bidang tidak ditemukan'], 400);
+            }
 
+            // Mapping bidang_id ke akun_keuangan_id
+            $akunBank = [
+                1 => 1022, // Kemasjidan
+                2 => 1023, // Pendidikan
+                3 => 1024, // Sosial
+                4 => 1025, // Usaha
+            ];
+
+            // Ambil akun_keuangan_id berdasarkan bidang_id
+            $akun_keuangan_id = $akunBank[$bidang_id] ?? null;
+        }
         if (!$akun_keuangan_id) {
             return response()->json(['error' => 'Bidang tidak valid'], 400);
         }
+
+        // Ambil data ledger berdasarkan bidang_id
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidang_name, $akun_keuangan_id) {
-                $query->where('bidang_name', $bidang_name)
+            ->whereHas('transaksi', function ($query) use ($bidang_id, $akun_keuangan_id) {
+                $query->where('bidang_name', $bidang_id) // bidang_name sekarang adalah INTEGER ID
                     ->where(function ($q) use ($akun_keuangan_id) {
                         $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
                             ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis

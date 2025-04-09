@@ -23,29 +23,29 @@ class BendaharaController extends Controller
     }
     public function index()
     {
-        $bidangName = auth()->user()->bidang_name; // Bidang name dari user saat ini
-
-        // Konsolidasi bank untuk bidang saat ini
-        $bankId = 102; // ID default akun bank
-        $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
-        $totalSaldoBank = $dataKonsolidasi['saldo'];
-        $transaksiBank = $dataKonsolidasi['transaksi'];
+        $user = auth()->user();
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
+        // // Konsolidasi bank untuk bidang saat ini
+        // $bankId = 102; // ID default akun bank
+        // $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
+        // $totalSaldoBank = $dataKonsolidasi['saldo'];
+        // $transaksiBank = $dataKonsolidasi['transaksi'];
 
         // **Akumulasi total seluruh Kas & Bank dari semua bidang**
         $akunKas = [
             'Bendahara' => 1011,
-            'Kemasjidan' => 1012,
-            'Pendidikan' => 1013,
-            'Sosial' => 1014,
-            'Usaha' => 1015,
+            1 => 1012,
+            2 => 1013,
+            3 => 1014,
+            4 => 1015,
         ];
 
         $akunBank = [
             'Bendahara' => 1021,
-            'Kemasjidan' => 1022,
-            'Pendidikan' => 1023,
-            'Sosial' => 1024,
-            'Usaha' => 1025,
+            1 => 1022,
+            2 => 1023,
+            3 => 1024,
+            4 => 1025,
         ];
 
         $saldoKasTotal = 0;
@@ -75,12 +75,12 @@ class BendaharaController extends Controller
         $totalKeuanganSemuaBidang = $saldoKasTotal + $saldoBankTotal;
 
         // Saldo terakhir untuk bidang saat ini
-        $lastSaldo = Transaksi::where('bidang_name', $bidangName)
+        $lastSaldo = Transaksi::where('bidang_name', $bidang_id)
             ->latest()
             ->value('saldo') ?? 0;
 
         // Jumlah transaksi untuk bulan ini
-        $jumlahTransaksi = Transaksi::where('bidang_name', $bidangName)
+        $jumlahTransaksi = Transaksi::where('bidang_name', $bidang_id)
             ->whereMonth('tanggal_transaksi', now()->month)
             ->whereYear('tanggal_transaksi', now()->year)
             ->count();
@@ -106,8 +106,8 @@ class BendaharaController extends Controller
         $totalBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])->sum('amount');
 
         return view('bendahara.index', compact(
-            'totalSaldoBank',
-            'transaksiBank',
+            // 'totalSaldoBank',
+            // 'transaksiBank',
             'saldoKasTotal',
             'saldoBankTotal',
             'totalKeuanganSemuaBidang',
@@ -130,17 +130,17 @@ class BendaharaController extends Controller
     /**
      * Menghitung total kas untuk bidang tertentu.
      */
-    private function calculateKasForBidang($bidangName)
+    private function calculateKasForBidang($bidang_id)
     {
         $totalDebit = Ledger::where('akun_keuangan_id', 101)
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
+            ->whereHas('transaksi', function ($query) use ($bidang_id) {
+                $query->where('bidang_name', $bidang_id);
             })
             ->sum('debit');
 
         $totalCredit = Ledger::where('akun_keuangan_id', 101)
-            ->whereHas('transaksi', function ($query) use ($bidangName) {
-                $query->where('bidang_name', $bidangName);
+            ->whereHas('transaksi', function ($query) use ($bidang_id) {
+                $query->where('bidang_name', $bidang_id);
             })
             ->sum('credit');
 

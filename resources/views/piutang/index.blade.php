@@ -2,7 +2,7 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Daftar Piutang <strong>Bidang {{ auth()->user()->bidang_name }}</strong></h1>
+        <h1 class="mb-4">Daftar Piutang <strong>Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}</strong></h1>
         <a href="{{ route('piutangs.create') }}" class="btn btn-primary mb-3"><i class="bi bi-plus-circle"></i> Catat
             Piutang!</a>
         <div class="p-3 shadow table-responsive rounded">

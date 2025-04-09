@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AkunKeuanganController;
 use App\Http\Controllers\BendaharaController;
 use App\Http\Controllers\ManajerController;
 use App\Http\Controllers\BidangController;
@@ -33,13 +34,23 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Admin routes
-Route::middleware(['role:Admin'])->group(function () {
-    Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.index');
-    Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
-    Route::get('admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
-    Route::put('admin/users/restore/{id}', [UserController::class, 'restore'])->name('admin.users.restore');
-    Route::delete('admin/users/force-delete/{id}', [UserController::class, 'forceDelete'])->name('admin.users.forceDelete');
+Route::middleware(['role:Admin'])->prefix('admin')->group(function () {
+    // Dashboard Admin
+    Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.index');
+
+    // Manajemen Users
+    Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
+    Route::get('/users/data', [UserController::class, 'data'])->name('admin.users.data');
+    Route::put('/users/restore/{id}', [UserController::class, 'restore'])->name('admin.users.restore');
+    Route::delete('/users/force-delete/{id}', [UserController::class, 'forceDelete'])->name('admin.users.forceDelete');
+
+    // Manajemen Akun Keuangan
+    Route::get('/akun-keuangan', [AkunKeuanganController::class, 'index'])->name('admin.akun_keuangan.index');
+    Route::get('/akun-keuangan/create', [AkunKeuanganController::class, 'create'])->name('admin.akun_keuangan.create');
+    Route::post('/akun-keuangan', [AkunKeuanganController::class, 'store'])->name('admin.akun_keuangan.store');
+    Route::get('/akun-keuangan/{akunKeuangan}/edit', [AkunKeuanganController::class, 'edit'])->name('admin.akun_keuangan.edit');
+    Route::put('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'update'])->name('admin.akun_keuangan.update');
+    Route::delete('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'destroy'])->name('admin.akun_keuangan.destroy');
 });
 
 // Ketua routes

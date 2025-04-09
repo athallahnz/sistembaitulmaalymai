@@ -7,7 +7,7 @@
                 <h5>Konsolidasi Saldo Bank</h5>
                 <div class="icon bi bi-bank"></div>
                 <div class="value {{ $lastSaldo>= 0 ? 'positive' : 'negative' }}">
-                    Rp.{{ number_format($lastSaldo, 2, ',', '.') }}</div>
+                    Rp{{ number_format($lastSaldo, 2, ',', '.') }}</div>
             </div>
         </div>
 
@@ -32,8 +32,12 @@
                             @csrf
                             <div class="mb-3 d-none">
                                 <label class="mb-2">Bidang</label>
-                                <input type="text" name="bidang_name" class="form-control"
-                                    value="{{ auth()->user()->bidang_name }}" readonly>
+                                @if(auth()->user()->role === 'Bendahara')
+                                    <input type="text" name="bidang_name" class="form-control" value="Tidak Ada" readonly>
+                                    <small class="form-text text-muted">Role Bendahara tidak memiliki bidang.</small>
+                                @else
+                                    <input type="text" name="bidang_name" class="form-control" value="{{ auth()->user()->bidang_name }}" readonly>
+                                @endif
                             </div>
 
                             <div class="mb-3">
@@ -82,7 +86,8 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
-                                <input type="number" name="amount" class="form-control" id="amount" required>
+                                <input type="text" id="formattedAmount" class="form-control" oninput="formatInput(this)">
+                                <input type="number" name="amount" id="amount" class="form-control d-none">
                                 <small class="form-text text-danger" id="amount-error" style="display: none;">Jumlah
                                     pengeluaran tidak boleh melebihi saldo akun.</small>
                                 <small class="form-text text-muted" id="saldo-bank">
@@ -236,6 +241,14 @@
                 s[1] += new Array(prec - s[1].length + 1).join('0');
             }
             return s.join(dec);
+        }
+
+        function formatInput(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+
+            input.value = formatted; // Tampilkan angka dengan separator
+            document.getElementById("amount").value = rawValue; // Simpan angka asli tanpa separator
         }
     </script>
 @endpush
