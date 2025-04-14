@@ -27,28 +27,71 @@ class LaporanKeuanganController extends Controller
         //
     }
 
-    // 🏦 Laporan Arus Kas
     public function arusKas(Request $request)
     {
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
         $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
-
         $user = auth()->user();
 
-        // Ambil transaksi berdasarkan bidang pengguna (tanpa join ke users)
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan')
-            ->whereBetween('tanggal_transaksi', [$startDate, $endDate]);
+        // Helper untuk filter transaksi non-internal antar akun kas
+        $filterTransaksiKasEksternal = function ($transaksi) {
+            return !(
+                isKasAkun($transaksi->akunAsal) &&
+                isKasAkun($transaksi->akunTujuan)
+            );
+        };
 
-        if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $user->bidang_name);
-        }
+        // Ambil data transaksi sesuai kategori cashflow, lalu filter agar bukan antar akun kas
+        $transaksiOperasional = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'operasional'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        $transaksi = $transaksiQuery->get();
+        $transaksiInvestasi = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'investasi'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        $penerimaan = $transaksi->where('type', 'penerimaan')->sum('amount');
-        $pengeluaran = $transaksi->where('type', 'pengeluaran')->sum('amount');
+        $transaksiPendanaan = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'pendanaan'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        return view('laporan.arus_kas', compact('penerimaan', 'pengeluaran', 'startDate', 'endDate'));
+        // Hitung total kas masuk dan keluar
+        $kasOperasionalMasuk = $transaksiOperasional->where('type', 'penerimaan')->sum('amount');
+        $kasOperasionalKeluar = $transaksiOperasional->where('type', 'pengeluaran')->sum('amount');
+
+        $kasInvestasiMasuk = $transaksiInvestasi->where('type', 'penerimaan')->sum('amount');
+        $kasInvestasiKeluar = $transaksiInvestasi->where('type', 'pengeluaran')->sum('amount');
+
+        $kasPendanaanMasuk = $transaksiPendanaan->where('type', 'penerimaan')->sum('amount');
+        $kasPendanaanKeluar = $transaksiPendanaan->where('type', 'pengeluaran')->sum('amount');
+
+        // Total arus kas
+        $totalKasMasuk = $kasOperasionalMasuk + $kasInvestasiMasuk + $kasPendanaanMasuk;
+        $totalKasKeluar = $kasOperasionalKeluar + $kasInvestasiKeluar + $kasPendanaanKeluar;
+
+        return view('laporan.arus_kas', compact(
+            'startDate',
+            'endDate',
+            'kasOperasionalMasuk',
+            'kasOperasionalKeluar',
+            'kasInvestasiMasuk',
+            'kasInvestasiKeluar',
+            'kasPendanaanMasuk',
+            'kasPendanaanKeluar',
+            'totalKasMasuk',
+            'totalKasKeluar'
+        ));
     }
 
     // 📥 Export Arus Kas ke PDF
@@ -56,34 +99,96 @@ class LaporanKeuanganController extends Controller
     {
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
         $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
-
         $user = auth()->user();
 
-        // Ambil transaksi berdasarkan bidang pengguna (tanpa join ke users)
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan')
-            ->whereBetween('tanggal_transaksi', [$startDate, $endDate]);
+        // Helper untuk filter transaksi non-internal antar akun kas
+        $filterTransaksiKasEksternal = function ($transaksi) {
+            return !(
+                isKasAkun($transaksi->akunAsal) &&
+                isKasAkun($transaksi->akunTujuan)
+            );
+        };
 
-        if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $user->bidang_name);
-        }
+        // Ambil data transaksi sesuai kategori cashflow, lalu filter agar bukan antar akun kas
+        $transaksiOperasional = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'operasional'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        $transaksi = $transaksiQuery->get();
+        $transaksiInvestasi = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'investasi'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        $penerimaan = $transaksi->where('type', 'penerimaan')->sum('amount');
-        $pengeluaran = $transaksi->where('type', 'pengeluaran')->sum('amount');
+        $transaksiPendanaan = Transaksi::where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereHas('akunTujuan', fn($q) => $q->where('cashflow_category', 'pendanaan'))
+            ->with(['akunAsal', 'akunTujuan'])
+            ->whereBetween('tanggal_transaksi', [$startDate, $endDate])
+            ->when($user->role === 'Bidang', fn($q) => $q->where('bidang_name', $user->bidang_name))
+            ->get()
+            ->filter($filterTransaksiKasEksternal);
 
-        $pdf = Pdf::loadView('laporan.export.arus_kas_pdf', compact('penerimaan', 'pengeluaran', 'startDate', 'endDate'));
+        // Hitung total kas masuk dan keluar
+        $kasOperasionalMasuk = $transaksiOperasional->where('type', 'penerimaan')->sum('amount');
+        $kasOperasionalKeluar = $transaksiOperasional->where('type', 'pengeluaran')->sum('amount');
+
+        $kasInvestasiMasuk = $transaksiInvestasi->where('type', 'penerimaan')->sum('amount');
+        $kasInvestasiKeluar = $transaksiInvestasi->where('type', 'pengeluaran')->sum('amount');
+
+        $kasPendanaanMasuk = $transaksiPendanaan->where('type', 'penerimaan')->sum('amount');
+        $kasPendanaanKeluar = $transaksiPendanaan->where('type', 'pengeluaran')->sum('amount');
+
+        // Total arus kas
+        $totalKasMasuk = $kasOperasionalMasuk + $kasInvestasiMasuk + $kasPendanaanMasuk;
+        $totalKasKeluar = $kasOperasionalKeluar + $kasInvestasiKeluar + $kasPendanaanKeluar;
+
+        $pdf = Pdf::loadView('laporan.export.arus_kas_pdf', compact(
+            'startDate',
+            'endDate',
+            'kasOperasionalMasuk',
+            'kasOperasionalKeluar',
+            'kasInvestasiMasuk',
+            'kasInvestasiKeluar',
+            'kasPendanaanMasuk',
+            'kasPendanaanKeluar',
+            'totalKasMasuk',
+            'totalKasKeluar'
+        ));
         return $pdf->download('laporan_arus_kas.pdf');
     }
 
     // 📊 Laporan Posisi Keuangan
-    public function posisiKeuangan()
+    public function posisiKeuangan(Request $request)
     {
-        $assets = AkunKeuangan::where('tipe_akun', 'asset')->with('transaksis')->get();
-        $liabilities = AkunKeuangan::where('tipe_akun', 'liability')->with('transaksis')->get();
-        $equity = AkunKeuangan::where('tipe_akun', 'equity')->with('transaksis')->get();
+        $startDate = Carbon::parse($request->input('start_date', Carbon::now()->startOfMonth()));
+        $endDate = Carbon::parse($request->input('end_date', Carbon::now()->endOfMonth()));
 
-        return view('laporan.posisi_keuangan', compact('assets', 'liabilities', 'equity'));
+
+        $kategoriAkun = ['asset', 'liability', 'equity'];
+        $data = [];
+
+        foreach ($kategoriAkun as $kategori) {
+            $akuns = AkunKeuangan::with([
+                'transaksis' => function ($query) use ($startDate, $endDate) {
+                    $query->whereBetween('tanggal_transaksi', [$startDate, $endDate]);
+                }
+            ])->where('tipe_akun', $kategori)->get();
+
+            $total = $akuns->sum('saldo'); // saldo tetap dari accessor
+
+            $data[$kategori] = [
+                'akuns' => $akuns,
+                'total' => $total,
+            ];
+        }
+
+        return view('laporan.posisi_keuangan', compact('data', 'startDate', 'endDate'));
     }
 
     // 📈 Laporan Aktivitas / Laba Rugi
@@ -109,26 +214,83 @@ class LaporanKeuanganController extends Controller
             ->whereIn('tipe_akun', ['asset', 'liability', 'expense'])
             ->get();
 
-        // Ambil saldo terakhir untuk akun Kas (101) & Bank (102)
-        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
-            ->where('bidang_name', $bidangName)
-            ->orderBy('tanggal_transaksi', 'asc')
-            ->get()
-            ->last()?->saldo ?? 0;
+        $user = auth()->user();
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
 
-        $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
-            ->where('bidang_name', $bidangName)
-            ->orderBy('tanggal_transaksi', 'asc')
-            ->get()
-            ->last()?->saldo ?? 0;
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1011;
+        } else {
+            $akunKas = [
+                1 => 1012,
+                2 => 1013,
+                3 => 1014,
+                4 => 1015,
+            ];
+            $akun_keuangan_id = $akunKas[$bidang_id] ?? null;
+        }
+
+        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
+
+        if (!$bidang_id || !$akun_keuangan_id) {
+            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
+        }
+
+        // Pastikan bidang_name yang diberikan ada dalam daftar
+        if (isset($akunKas[$bidang_id])) {
+            $akun_keuangan_id = $akunKas[$bidang_id];
+
+            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang_id)
+                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke terbaru
+                ->get() // Ambil semua data sebagai collection
+                ->last(); // Ambil saldo terakhir (data terbaru)
+        } else {
+            $lastSaldo = null; // Jika bidang_name tidak ditemukan, return null
+        }
+
+        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
+        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
+
+        if ($user->role === 'Bendahara') {
+            $akun_keuangan_id = 1021;
+        } else {
+            $akunBank = [
+                1 => 1022,
+                2 => 1023,
+                3 => 1024,
+                4 => 1025,
+            ];
+            $akun_keuangan_id = $akunBank[$bidang_id] ?? null;
+        }
+
+        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
+
+        if (!$bidang_id || !$akun_keuangan_id) {
+            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
+        }
+
+        // Pastikan bidang_name yang diberikan ada dalam daftar
+        if (isset($akunBank[$bidang_id])) {
+            $akun_keuangan_id = $akunBank[$bidang_id];
+
+            $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang_id)
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
+        } else {
+            $lastTransaksi = null; // Jika bidang_name tidak ditemukan, return null
+        }
+
+        $saldoBank = $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
 
         $jumlahPiutang = Piutang::where('bidang_name', $bidangName)
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
         $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
-        // Ambil saldo untuk Beban Gaji
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
+
+        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
@@ -136,14 +298,10 @@ class LaporanKeuanganController extends Controller
             ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
             ->sum('jumlah');
 
-        $jumlahDonasi = Ledger::where('akun_keuangan_id', 202)
-            ->whereHas('transaksi', function ($query) {
-                $query->where('bidang_name', auth()->user()->bidang_name);
-            })
-            ->sum('credit');
+        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
 
-
-        // Ambil saldo untuk Biaya Operasional
         $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
             3031,
             3032,
@@ -161,8 +319,19 @@ class LaporanKeuanganController extends Controller
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        // Ambil saldo untuk Biaya Kegiatan
-        $jumlahBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
@@ -170,15 +339,19 @@ class LaporanKeuanganController extends Controller
             'akunKeuangan',
             'startDate',
             'endDate',
-            'lastSaldo101',
-            'lastSaldo102',
+            'saldoKas',
+            'saldoBank',
             'jumlahHutang',
             'jumlahDonasi',
             'jumlahPiutang',
             'jumlahPendapatanBelumDiterima',
             'jumlahBebanGaji',
             'jumlahBiayaOperasional',
-            'jumlahBiayaKegiatan'
+            'jumlahBiayaKegiatanSiswa',
+            'jumlahBiayaPemeliharaan',
+            'jumlahBiayaSosial',
+            'jumlahBiayaPerlengkapanExtra',
+            'jumlahBiayaSeragam'
         ));
     }
 

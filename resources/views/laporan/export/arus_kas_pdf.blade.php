@@ -15,18 +15,41 @@
 <p><strong>Periode:</strong> {{ $startDate }} - {{ $endDate }}</p>
 
 @if(Auth::user()->role === 'Bidang')
-    <p><strong>Bidang:</strong> {{ Auth::user()->bidang_name }}</p>
+    <p><strong>Bidang:</strong> {{ auth()->user()->bidang->name }}</p>
 @endif
 
-<table>
-    <tr>
-        <th>Penerimaan</th>
-        <th>Pengeluaran</th>
-    </tr>
-    <tr>
-        <td>Rp {{ number_format($penerimaan, 0, ',', '.') }}</td>
-        <td>Rp {{ number_format($pengeluaran, 0, ',', '.') }}</td>
-    </tr>
+<table class="table table-bordered table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Kategori</th>
+            <th>Arus Kas Masuk</th>
+            <th>Arus Kas Keluar</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Operasional</strong></td>
+            <td>Rp {{ number_format($kasOperasionalMasuk, 2, ',', '.') }}</td>
+            <td>Rp {{ number_format($kasOperasionalKeluar, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td><strong>Investasi</strong></td>
+            <td>Rp {{ number_format($kasInvestasiMasuk, 2, ',', '.') }}</td>
+            <td>Rp {{ number_format($kasInvestasiKeluar, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td><strong>Pendanaan</strong></td>
+            <td>Rp {{ number_format($kasPendanaanMasuk, 2, ',', '.') }}</td>
+            <td>Rp {{ number_format($kasPendanaanKeluar, 2, ',', '.') }}</td>
+        </tr>
+    </tbody>
+    <tfoot class="table-light fw-bold">
+        <tr>
+            <td><strong>Total</strong></td>
+            <td><strong>Rp {{ number_format($totalKasMasuk, 2, ',', '.') }}</strong></td>
+            <td><strong>Rp {{ number_format($totalKasKeluar, 2, ',', '.') }}</strong></td>
+        </tr>
+    </tfoot>
 </table>
 
 </body>

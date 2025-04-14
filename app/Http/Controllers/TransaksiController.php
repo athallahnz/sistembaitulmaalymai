@@ -899,7 +899,8 @@ class TransaksiController extends Controller
         $user = auth()->user();
 
         // Query transaksi berdasarkan role dan bidang_name
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan', 'user');
+        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan', 'user')
+            ->where('kode_transaksi', 'not like', '%-LAWAN'); // Hindari transaksi lawan
 
         // Filter berdasarkan role 'Bidang'
         if ($user->role === 'Bidang') {

@@ -38,7 +38,8 @@
                                 style="display: none;">{{ number_format($saldoKas, 0, ',', '.') }}</span>
                             <span class="masked-value">***</span>
                             <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                onclick="toggleVisibility(this)"></i></div>
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -51,7 +52,8 @@
                                 style="display: none;">{{ number_format($saldoBank, 0, ',', '.') }}</span>
                             <span class="masked-value">***</span>
                             <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                onclick="toggleVisibility(this)"></i></div>
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
@@ -79,7 +81,12 @@
                             <div class="icon bi bi-wallet"></div>
                             <h5>Piutang</h5>
                             <div class="value {{ $jumlahPiutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPiutang, 0, ',', '.') }}</div>
+                                Rp <span class="hidden-value"
+                                    style="display: none;">{{ number_format($jumlahPiutang, 0, ',', '.') }}</span>
+                                <span class="masked-value">***</span>
+                                <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                    onclick="toggleVisibility(this)"></i>
+                            </div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -142,46 +149,6 @@
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-tools"></div>
-                            <h5>Beban Pemeliharaan</h5>
-                            <div class="value negative">0</div>
-                            <div class="description">Total s/d Bulan ini</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 304]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-calendar-check"></div>
-                            <h5>Biaya Kegiatan Siswa</h5>
-                            <div class="value negative">{{ number_format($jumlahBiayaKegiatan, 0, ',', '.') }}</div>
-                            <div class="description">Total s/d Bulan ini</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-stack"></div>
-                            <h5>Biaya Perlengkapan</h5>
-                            <div class="value negative">0</div>
-                            <div class="description">Total Nilai Asset</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-trash"></div>
-                            <h5>Biaya Habis Pakai</h5>
-                            <div class="value negative">0</div>
-                            <div class="description">Total Nilai Inventaris</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
                     <a href="{{ route('bidang.detail', ['parent_akun_id' => 303]) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-gear"></div>
@@ -192,42 +159,78 @@
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 304]) }}" class="text-decoration-none">
                         <div class="card">
-                            <div class="icon bi bi-gear"></div>
-                            <h5>Biaya Operasional Lain</h5>
-                            <div class="value negative">0</div>
+                            <div class="icon bi bi-calendar-check"></div>
+                            <h5>Biaya Kegiatan Siswa</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaKegiatanSiswa, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 305]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-tools"></div>
+                            <h5>Beban Pemeliharaan</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaPemeliharaan, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 306]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-people-fill"></div> {{-- Ikon untuk "Biaya Sosial" --}}
+                            <h5>Biaya Sosial</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaSosial, 0, ',', '.') }}</div>
+                            <div class="description">Total Nilai Inventaris</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 307]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-box-seam"></div> {{-- Ikon untuk "Biaya Per. Extra" --}}
+                            <h5>Biaya Per. Extra</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaPerlengkapanExtra, 0, ',', '.') }}
+                            </div>
+                            <div class="description">Total Nilai Asset</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 308]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi bi-incognito"></div> {{-- Ikon untuk "Biaya Seragam" --}}
+                            <h5>Biaya Seragam</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaSeragam, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
             </div>
-
         </div>
-        {{-- <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-        Logout
-    </a>
-    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-        @csrf
-    </form> --}}
     </div>
 @endsection
-<script>
-    function toggleVisibility(icon) {
-        let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
-        let hiddenValue = parent.querySelector('.hidden-value');
-        let maskedValue = parent.querySelector('.masked-value');
+@push('scripts')
+    <script>
+        function toggleVisibility(icon) {
+            let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+            let hiddenValue = parent.querySelector('.hidden-value');
+            let maskedValue = parent.querySelector('.masked-value');
 
-        if (hiddenValue.style.display === 'none') {
-            hiddenValue.style.display = 'inline';
-            maskedValue.style.display = 'none';
-            icon.classList.remove('bi-eye');
-            icon.classList.add('bi-eye-slash');
-        } else {
-            hiddenValue.style.display = 'none';
-            maskedValue.style.display = 'inline';
-            icon.classList.remove('bi-eye-slash');
-            icon.classList.add('bi-eye');
+            if (hiddenValue.style.display === 'none') {
+                hiddenValue.style.display = 'inline';
+                maskedValue.style.display = 'none';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                hiddenValue.style.display = 'none';
+                maskedValue.style.display = 'inline';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
         }
-    }
-</script>
+    </script>
+@endpush

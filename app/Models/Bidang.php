@@ -10,10 +10,7 @@ class Bidang extends Model
     use HasFactory;
 
     protected $table = 'bidangs'; // Pastikan sesuai dengan nama tabel di database
-
-    protected $fillable = [
-        'nama_bidang', // Nama bidang yang akan digunakan untuk relasi
-    ];
+    protected $fillable = ['name', 'description'];
 
     // Relasi dengan Transaksi (Satu bidang bisa memiliki banyak transaksi)
     public function transaksis()

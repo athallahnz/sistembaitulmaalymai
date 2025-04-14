@@ -120,7 +120,7 @@
                         <div class="icon bi bi-percent"></div>
                         <h5>Nilai Penyusutan Asset</h5>
                         <div class="value negative">{{ number_format($totalPenyusutanAsset, 0, ',', '.') }}</div>
-                        <div class="description">untuk bidang {{ auth()->user()->bidang_name }}!</div>
+                        <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
@@ -129,16 +129,16 @@
                             <div class="icon bi bi-cash"></div>
                             <h5>Beban Gaji dan Upah</h5>
                             <div class="value negative">{{ number_format($totalBebanGaji, 0, ',', '.') }}</div>
-                            <div class="description">total Transaksi bulan ini</div>
+                            <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 303]) }}" class="text-decoration-none">
                         <div class="card">
-                            <div class="icon bi bi-tools"></div>
-                            <h5>Beban Pemeliharaan</h5>
-                            <div class="value negative">0</div>
+                            <div class="icon bi bi-gear"></div>
+                            <h5>Biaya Operasional</h5>
+                            <div class="value negative">{{ number_format($totalBiayaOperasional,0,',','.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -148,47 +148,48 @@
                         <div class="card">
                             <div class="icon bi bi-calendar-check"></div>
                             <h5>Biaya Kegiatan Siswa</h5>
-                            <div class="value negative">{{ number_format($totalBiayaKegiatan) }}</div>
+                            <div class="value negative">{{ number_format($totalBiayaKegiatan,0,',','.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 305]) }}" class="text-decoration-none">
                         <div class="card">
-                            <div class="icon bi bi-stack"></div>
-                            <h5>Biaya Perlengkapan</h5>
-                            <div class="value negative">0</div>
-                            <div class="description">Total Nilai Asset</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-trash"></div>
-                            <h5>Biaya Habis Pakai</h5>
-                            <div class="value negative">0</div>
-                            <div class="description">Total Nilai Inventaris</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 303]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-gear"></div>
-                            <h5>Biaya Operasional</h5>
-                            <div class="value negative">{{ number_format($totalBiayaOperasional) }}</div>
+                            <div class="icon bi bi-tools"></div>
+                            <h5>Beban Pemeliharaan</h5>
+                            <div class="value negative">{{ number_format($totalBiayaPemeliharaan, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 302]) }}" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 306]) }}" class="text-decoration-none">
                         <div class="card">
-                            <div class="icon bi bi-gear"></div>
-                            <h5>Biaya Operasional Lain</h5>
-                            <div class="value negative">0</div>
+                            <div class="icon bi bi-people-fill"></div> {{-- Ikon untuk "Biaya Sosial" --}}
+                            <h5>Biaya Sosial</h5>
+                            <div class="value negative">{{ number_format($totalBiayaSosial, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 307]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-box-seam"></div> {{-- Ikon untuk "Biaya Per. Extra" --}}
+                            <h5>Biaya Per. Extra</h5>
+                            <div class="value negative">{{ number_format($totalBiayaPerlengkapanExtra, 0, ',', '.') }}
+                            </div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 308]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-incognito"></div> {{-- Ikon untuk "Biaya Seragam" --}}
+                            <h5>Biaya Seragam</h5>
+                            <div class="value negative">{{ number_format($totalBiayaSeragam, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>
@@ -197,22 +198,24 @@
         </div>
     </div>
 @endsection
-<script>
-    function toggleVisibility(icon) {
-        let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
-        let hiddenValue = parent.querySelector('.hidden-value');
-        let maskedValue = parent.querySelector('.masked-value');
+@push('scripts')
+    <script>
+        function toggleVisibility(icon) {
+            let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+            let hiddenValue = parent.querySelector('.hidden-value');
+            let maskedValue = parent.querySelector('.masked-value');
 
-        if (hiddenValue.style.display === 'none') {
-            hiddenValue.style.display = 'inline';
-            maskedValue.style.display = 'none';
-            icon.classList.remove('bi-eye');
-            icon.classList.add('bi-eye-slash');
-        } else {
-            hiddenValue.style.display = 'none';
-            maskedValue.style.display = 'inline';
-            icon.classList.remove('bi-eye-slash');
-            icon.classList.add('bi-eye');
+            if (hiddenValue.style.display === 'none') {
+                hiddenValue.style.display = 'inline';
+                maskedValue.style.display = 'none';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                hiddenValue.style.display = 'none';
+                maskedValue.style.display = 'inline';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
         }
-    }
-</script>
+    </script>
+@endpush

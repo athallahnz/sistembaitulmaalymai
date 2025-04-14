@@ -140,23 +140,23 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount'); // Menjumlahkan kolom 'amount'
 
-        $jumlahBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042]) // Menggunakan whereIn untuk mengecek beberapa nilai
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $xxx = Transaksi::where('akun_keuangan_id', 305)
+        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $xxx = Transaksi::where('akun_keuangan_id', 306)
+        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $xxx = Transaksi::where('akun_keuangan_id', 307)
+        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $xxx = Transaksi::where('akun_keuangan_id', 308)
+        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
@@ -175,8 +175,12 @@ class BidangController extends Controller
             'jumlahDonasi',
             'jumlahPenyusutanAsset',
             'jumlahBebanGaji',
-            'jumlahBiayaKegiatan',
+            'jumlahBiayaKegiatanSiswa',
             'jumlahBiayaOperasional',
+            'jumlahBiayaPemeliharaan',
+            'jumlahBiayaSosial',
+            'jumlahBiayaPerlengkapanExtra',
+            'jumlahBiayaSeragam'    
         ));
     }
 

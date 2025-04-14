@@ -18,7 +18,7 @@
                         {{ auth()->user()->unreadNotifications->count() }} Notifikasi Baru
                     </div>
                     <div class="list-group">
-                        @foreach(auth()->user()->unreadNotifications as $notification)
+                        @foreach (auth()->user()->unreadNotifications as $notification)
                             <a href="#" class="list-group-item list-group-item-action">
                                 <div class="row g-0 align-items-center">
                                     <div class="col-2">
@@ -28,14 +28,16 @@
                                         <div class="text-dark fw-bold">
                                             {{ $notification->data['message'] ?? 'Pesan tidak tersedia' }}
                                         </div>
-                                        <div class="text-muted small mt-1">{{ $notification->created_at->diffForHumans() }}</div>
+                                        <div class="text-muted small mt-1">
+                                            {{ $notification->created_at->diffForHumans() }}</div>
                                     </div>
                                 </div>
                             </a>
                         @endforeach
                     </div>
                     <div class="dropdown-menu-footer text-center">
-                        <a href="{{ route('notifications.markAsRead') }}" class="text-muted">Tandai semua sebagai dibaca</a>
+                        <a href="{{ route('notifications.markAsRead') }}" class="text-muted">Tandai semua sebagai
+                            dibaca</a>
                     </div>
                 </div>
             </li>
@@ -73,12 +75,13 @@
                     <i class="align-middle" data-feather="settings"></i>
                 </a>
                 <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-                    <img src="{{ asset('img/avatars/avatar.jpg') }}" class="avatar img-fluid rounded me-1"
-                        alt="User Avatar" />
+                    <img src="{{ auth()->user()->foto ? asset('storage/' . auth()->user()->foto) : asset('default.jpg') }}"
+                        class="avatar rounded me-1" style="object-fit: cover;" alt="User Avatar" />
                     <span class="text-dark">{{ Auth::user()->name }}</span>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
-                    <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="align-middle me-1" data-feather="user"></i>
+                    <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="align-middle me-1"
+                            data-feather="user"></i>
                         Profile</a>
                     <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="pie-chart"></i>
                         Analytics</a>

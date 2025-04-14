@@ -95,7 +95,6 @@
                                 <small class="form-text text-muted" id="saldo-akun">
                                     Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.' ?? 0) }}
                                 </small>
-
                             </div>
 
                             <button type="submit" class="btn btn-primary">Simpan</button>

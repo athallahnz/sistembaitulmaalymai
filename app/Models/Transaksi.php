@@ -20,6 +20,7 @@ class Transaksi extends Model
         'amount',
         'saldo',
     ];
+
     public function ledgers()
     {
         return $this->hasMany(Ledger::class, 'transaksi_id', 'id');
@@ -35,6 +36,16 @@ class Transaksi extends Model
     public function parentAkunKeuangan()
     {
         return $this->belongsTo(AkunKeuangan::class, 'parent_akun_id', 'id');
+    }
+
+    public function akunAsal()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id');
+    }
+
+    public function akunTujuan()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'parent_akun_id');
     }
 
 }

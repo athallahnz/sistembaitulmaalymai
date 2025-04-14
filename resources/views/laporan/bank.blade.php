@@ -4,10 +4,15 @@
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <div class="card" style="width: 20rem;">
-                <h5>Konsolidasi Saldo Bank</h5>
+                <h5>Saldo Bank</h5>
                 <div class="icon bi bi-bank"></div>
-                <div class="value {{ $lastSaldo>= 0 ? 'positive' : 'negative' }}">
-                    Rp{{ number_format($lastSaldo, 2, ',', '.') }}</div>
+                <div class="value {{ $lastSaldo >= 0 ? 'positive' : 'negative' }}">
+                    Rp <span class="hidden-value"
+                        style="display: none;">{{ number_format($lastSaldo, 0, ',', '.') }}</span>
+                    <span class="masked-value">***</span>
+                    <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                        onclick="toggleVisibility(this)"></i>
+                </div>
             </div>
         </div>
 
@@ -28,7 +33,7 @@
                     </div>
                     <div class="modal-body">
                         <!-- Form Create Transaksi -->
-                        <form action="{{ route('transaksi.storeBankTransaction') }}" method="POST">
+                        <form action="{{ route('transaksi.storeBank') }}" method="POST">
                             @csrf
                             <div class="mb-3 d-none">
                                 <label class="mb-2">Bidang</label>
@@ -249,6 +254,24 @@
 
             input.value = formatted; // Tampilkan angka dengan separator
             document.getElementById("amount").value = rawValue; // Simpan angka asli tanpa separator
+        }
+
+        function toggleVisibility(icon) {
+            let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+            let hiddenValue = parent.querySelector('.hidden-value');
+            let maskedValue = parent.querySelector('.masked-value');
+
+            if (hiddenValue.style.display === 'none') {
+                hiddenValue.style.display = 'inline';
+                maskedValue.style.display = 'none';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                hiddenValue.style.display = 'none';
+                maskedValue.style.display = 'inline';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
         }
     </script>
 @endpush

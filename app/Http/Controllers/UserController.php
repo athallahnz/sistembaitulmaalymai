@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Bidang;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
     public function index()
     {
-        return view('admin.users.index');
+        $bidangs = Bidang::all();
+        return view('admin.users.index', compact('bidangs'));
     }
 
     public function data(Request $request)
@@ -43,7 +47,8 @@ class UserController extends Controller
 
     public function create()
     {
-        return view('admin.users.create');
+        $bidangs = Bidang::all();
+        return view('admin.users.create', compact('bidangs'));
     }
 
     public function store(Request $request)
@@ -103,6 +108,7 @@ class UserController extends Controller
             'pin' => ['nullable', 'string', 'min:4', 'max:6'],  // Pin optional, bisa dikosongkan
             'role' => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
             'bidang_name' => 'nullable|string',  // Pastikan bidang_name tetap dapat diterima saat update
+            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         // Update data user
@@ -163,7 +169,7 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with(['success' => 'User dihapus permanen!']);
     }
 
-    public function editProfile()
+    public function editProfile(Request $request)
     {
         $user = auth()->user(); // Ambil user yang sedang login
         return view('profile.edit', compact('user'));
@@ -171,43 +177,51 @@ class UserController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $user = auth()->user(); // Ambil user yang sedang login
+        $user = auth()->user();
+        Log::info("Mulai update profil", ['user_id' => $user->id]);
 
-        // Validasi umum untuk semua user
-        $rules = [
+        // Validasi form
+        $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'nomor' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'pin' => ['nullable', 'string', 'min:4', 'max:6'], // Optional, hanya jika ingin mengubah
-        ];
+            'pin' => ['nullable', 'string', 'min:4', 'max:6'],
+            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
 
-        // Validasi bidang_name hanya untuk role "Bidang", tetapi abaikan perubahan pada server
-        if ($user->role === 'Bidang') {
-            $rules['bidang_name'] = 'required|string|max:255';
-        }
+        Log::info("Validasi berhasil");
 
-        // Validasi request
-        $request->validate($rules);
-
-        // Data yang akan diupdate
         $userData = [
             'name' => $request->name,
             'email' => $request->email,
             'nomor' => $request->nomor,
         ];
 
-        // Update PIN jika diberikan
         if ($request->filled('pin')) {
             $userData['pin'] = Hash::make($request->pin);
         }
 
-        // Abaikan perubahan bidang_name pada server
-        // Tidak perlu mengupdate bidang_name karena harus tetap sama seperti sebelumnya
+        if ($request->hasFile('foto')) {
+            // Hapus foto lama jika ada
+            if ($user->foto && Storage::exists('public/' . $user->foto)) {
+                Storage::delete('public/' . $user->foto);
+                Log::info("Foto lama dihapus", ['foto' => $user->foto]);
+            }
 
-        // Update user data
+            // Simpan foto baru
+            $file = $request->file('foto');
+            $filename = 'foto_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('public/foto_user', $filename);
+            $userData['foto'] = 'foto_user/' . $filename;
+        }
+
+
+        // Cek isi userData sebelum update
+        Log::info("Data yang akan disimpan", $userData);
+
         $user->update($userData);
+        Log::info("Update user berhasil");
 
         return redirect()->route('profile.edit')->with('success', 'Profil berhasil diperbarui!');
     }
-
 }

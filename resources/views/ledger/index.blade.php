@@ -6,7 +6,13 @@
             <div class="card" style="width: 20rem;">
                 <h5>Saldo Kas</h5>
                 <div class="icon bi bi-cash"></div>
-                <div class="value {{ $saldoKas >= 0 ? 'positive' : 'negative' }}">Rp{{ number_format($saldoKas, 2, ',', '.') }}</div>
+                <div class="value {{ $saldoKas >= 0 ? 'positive' : 'negative' }}">
+                    Rp <span class="hidden-value"
+                        style="display: none;">{{ number_format($saldoKas, 0, ',', '.') }}</span>
+                    <span class="masked-value">***</span>
+                    <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                        onclick="toggleVisibility(this)"></i>
+                </div>
             </div>
         </div>
 
@@ -21,11 +27,13 @@
                         <th>Kredit</th>
                     </tr>
                 </thead>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 @endsection
-<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+@push('scripts')
 <script>
     $(document).ready(function() {
         var table = $('.yajra-datatable').DataTable({
@@ -101,4 +109,23 @@
         }
         return s.join(dec);
     }
+    
+    function toggleVisibility(icon) {
+            let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+            let hiddenValue = parent.querySelector('.hidden-value');
+            let maskedValue = parent.querySelector('.masked-value');
+
+            if (hiddenValue.style.display === 'none') {
+                hiddenValue.style.display = 'inline';
+                maskedValue.style.display = 'none';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                hiddenValue.style.display = 'none';
+                maskedValue.style.display = 'inline';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        }
 </script>
+@endpush

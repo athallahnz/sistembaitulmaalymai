@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AddBidangController;
 use App\Http\Controllers\AkunKeuanganController;
 use App\Http\Controllers\BendaharaController;
 use App\Http\Controllers\ManajerController;
@@ -51,6 +52,19 @@ Route::middleware(['role:Admin'])->prefix('admin')->group(function () {
     Route::get('/akun-keuangan/{akunKeuangan}/edit', [AkunKeuanganController::class, 'edit'])->name('admin.akun_keuangan.edit');
     Route::put('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'update'])->name('admin.akun_keuangan.update');
     Route::delete('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'destroy'])->name('admin.akun_keuangan.destroy');
+
+    // Manajemen Bidang
+    Route::prefix('add_bidangs')->name('add_bidangs.')->group(function () {
+        Route::get('/', [AddBidangController::class, 'index'])->name('index');
+        Route::get('/create', [AddBidangController::class, 'create'])->name('create');
+        Route::post('/', [AddBidangController::class, 'store'])->name('store');
+        Route::get('/{bidang}/edit', [AddBidangController::class, 'edit'])->name('edit');
+        Route::put('/{bidang}', [AddBidangController::class, 'update'])->name('update');
+        Route::delete('/{bidang}', [AddBidangController::class, 'destroy'])->name('destroy');
+        Route::get('/data', [AddBidangController::class, 'getData'])->name('data');
+    });
+
+
 });
 
 // Ketua routes
@@ -89,27 +103,32 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
         // Route untuk CRU Transaksi
-        Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index');
-        Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create');
-        Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store');
-        Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBankTransaction');
-        Route::get('transaksi/data', [TransaksiController::class, 'getData'])->name('transaksi.data');
-        Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit');
-        Route::put('/transaksi/{id}/update', [TransaksiController::class, 'update'])->name('transaksi.update');
-        Route::put('/transaksi/{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBankTransaction');
+        Route::get('/', [TransaksiController::class, 'index'])->name('transaksi.index.bidang'); // List transactions
+        Route::get('/create', [TransaksiController::class, 'create'])->name('transaksi.create'); // Create transaction form
+        Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Store transaction
+        Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBank'); // Store bank transaction
+        Route::get('data', [TransaksiController::class, 'getData'])->name('transaksi.data'); // Get transaction data
+        Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit'); // Edit transaction form
+        Route::put('{id}/update', [TransaksiController::class, 'update'])->name('transaksi.update'); // Update transaction
+        Route::put('{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBank'); // Update bank transaction
 
         // Route untuk Cetak Pdf
-        Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf');
-        Route::get('transaksi/export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf');
-        Route::get('transaksi/export-excel', [TransaksiController::class, 'exportExcel'])->name('transaksi.exportExcel');
-        // Route untuk ledger
-        Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');
-        Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data');
-        // Route untuk laporan bank
-        Route::get('/bank', [LaporanController::class, 'index'])->name('laporan.bank');
-        Route::get('/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data');
+        Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf'); // Export single transaction PDF
+        Route::get('export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf'); // Export all transactions PDF
+        Route::get('export-excel', [TransaksiController::class, 'exportExcel'])->name('transaksi.exportExcel'); // Export all transactions Excel
 
+        // Route untuk ledger
+        Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index'); // Ledger index
+        Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data'); // Ledger data
+
+        // Route untuk laporan bank
+        Route::get('/bank', [LaporanController::class, 'index'])->name('laporan.bank'); // Bank report index
+        Route::get('/bank/data', [LaporanController::class, 'getData'])->name('laporan.bank.data'); // Bank report data
     });
+
+    Route::get('/piutangs/terima', [PiutangController::class, 'indexPenerima'])->name('piutangs.penerima');
+    Route::get('/piutangs/{id}/pay', [PiutangController::class, 'showPayForm'])->name('piutangs.showPayForm');
+    Route::post('/piutangs/{id}/pay', [PiutangController::class, 'storePayment'])->name('piutangs.storePayment');
 
 
 });
@@ -134,6 +153,8 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
+
+
 
 Route::get('/notifications/read', function () {
     if (Auth::check()) {

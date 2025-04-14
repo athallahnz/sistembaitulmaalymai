@@ -99,9 +99,11 @@ class LedgerController extends Controller
                     ->where(function ($q) use ($akun_keuangan_id) {
                         $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
                             ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis
-                    });
+                    })
+                    ->where('kode_transaksi', 'not like', '%-LAWAN'); // Hindari transaksi lawan
             })
             ->get();
+
 
         return DataTables::of($ledgers)
             ->addColumn('kode_transaksi', function ($item) {

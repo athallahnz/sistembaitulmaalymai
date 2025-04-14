@@ -25,13 +25,7 @@ class BendaharaController extends Controller
     {
         $user = auth()->user();
         $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
-        // // Konsolidasi bank untuk bidang saat ini
-        // $bankId = 102; // ID default akun bank
-        // $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
-        // $totalSaldoBank = $dataKonsolidasi['saldo'];
-        // $transaksiBank = $dataKonsolidasi['transaksi'];
 
-        // **Akumulasi total seluruh Kas & Bank dari semua bidang**
         $akunKas = [
             'Bendahara' => 1011,
             1 => 1012,
@@ -87,8 +81,10 @@ class BendaharaController extends Controller
 
         $totalPiutang = Piutang::where('status', 'belum_lunas')->sum('jumlah');
         $totalPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
+
         $totalTanahBangunan = Transaksi::where('akun_keuangan_id', 104)->sum('amount');
         $totalInventaris = Transaksi::where('akun_keuangan_id', 105)->sum('amount');
+
         $totalHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
         $totalHutangJatuhTempo = Hutang::where('status', 'belum_lunas')
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
@@ -104,10 +100,12 @@ class BendaharaController extends Controller
         $totalBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])->sum('amount');
         $totalBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312])->sum('amount');
         $totalBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])->sum('amount');
+        $totalBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])->sum('amount');
+        $totalBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])->sum('amount');
+        $totalBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])->sum('amount');
+        $totalBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])->sum('amount');
 
         return view('bendahara.index', compact(
-            // 'totalSaldoBank',
-            // 'transaksiBank',
             'saldoKasTotal',
             'saldoBankTotal',
             'totalKeuanganSemuaBidang',
@@ -123,13 +121,14 @@ class BendaharaController extends Controller
             'totalPenyusutanAsset',
             'totalBebanGaji',
             'totalBiayaOperasional',
-            'totalBiayaKegiatan'
+            'totalBiayaKegiatan',
+            'totalBiayaPemeliharaan',
+            'totalBiayaSosial',
+            'totalBiayaPerlengkapanExtra',
+            'totalBiayaSeragam'
         ));
     }
 
-    /**
-     * Menghitung total kas untuk bidang tertentu.
-     */
     private function calculateKasForBidang($bidang_id)
     {
         $totalDebit = Ledger::where('akun_keuangan_id', 101)
@@ -147,9 +146,6 @@ class BendaharaController extends Controller
         return $totalDebit - $totalCredit;
     }
 
-    /**
-     * Menghitung total kas untuk semua bidang.
-     */
     private function calculateTotalKas()
     {
         $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
@@ -165,9 +161,6 @@ class BendaharaController extends Controller
         return $totalKas;
     }
 
-    /**
-     * Menghitung total keuangan untuk seluruh bidang.
-     */
     private function calculateTotalKeuanganBidang()
     {
         $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
@@ -215,7 +208,6 @@ class BendaharaController extends Controller
         return view('bendahara.detail', compact('transaksiData', 'jumlahBiayaOperasional', 'parentAkunId', 'parentAkun'));
     }
 
-    // Method untuk mengambil data transaksi tanpa filter bidang_name
     public function getDetailDataBendahara(Request $request)
     {
         $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL

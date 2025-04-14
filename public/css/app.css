@@ -13430,3 +13430,7 @@ span.flatpickr-weekday {
     color: red;
 }
 
+label[for="foto"]:hover i {
+    transform: scale(1.2);
+    transition: transform 0.3s ease;
+}

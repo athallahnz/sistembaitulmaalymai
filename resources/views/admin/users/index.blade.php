@@ -49,11 +49,9 @@
                             <div class="mb-3" id="bidang_name_group" style="display: none;">
                                 <label for="bidang_name" class="mb-2">Bidang Name</label>
                                 <select class="form-control" id="bidang_name" name="bidang_name">
-                                    <option value="Kemasjidan">Kemasjidan</option>
-                                    <option value="Pendidikan">Pendidikan</option>
-                                    <option value="Sosial">Sosial</option>
-                                    <option value="Usaha">Usaha</option>
-                                    <option value="Pembangunan">Pembangunan</option>
+                                    @foreach($bidangs as $bidang)
+                                        <option value="{{ $bidang->name }}">{{ $bidang->name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             <button type="submit" class="btn btn-primary">Simpan</button>

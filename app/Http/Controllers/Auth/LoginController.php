@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class LoginController extends Controller
 {
@@ -17,6 +18,12 @@ class LoginController extends Controller
     public function __construct()
     {
         $this->middleware('guest')->except('logout');
+    }
+
+    public function authenticated(Request $request, $user)
+    {
+        $user->last_login_at = Carbon::now();
+        $user->save();
     }
 
     public function showLoginForm()
@@ -50,6 +57,8 @@ class LoginController extends Controller
 
         if ($user && Hash::check($request->pin, $user->pin)) {
             Auth::login($user, true);
+            $user->last_login_at = Carbon::now();
+            $user->save();
             session()->flash('login success', 'Selamat datang, ' . $user->name . '.');
 
             switch ($user->role) {

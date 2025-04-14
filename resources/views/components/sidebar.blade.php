@@ -28,7 +28,13 @@
                         <span class="align-middle">Akun Keuangan</span>
                     </a>
                 </li>
-                @endrole
+                <li class="sidebar-item {{ request()->routeIs('add_bidangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('add_bidangs.index') }}">
+                        <i class="align-middle" data-feather="briefcase"></i>
+                        <span class="align-middle">Tambah Bidang</span>
+                    </a>
+                </li>
+            @endrole
 
             @role('Ketua Yayasan')
                 <li class="sidebar-item {{ request()->routeIs('ketua.index') ? 'active' : '' }}">
@@ -73,11 +79,26 @@
                         <span class="align-middle">Buku Besar Bank</span>
                     </a>
                 </li>
-                <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
-                    <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                <li class="sidebar-item">
+                    <a href="#hutangpiutang" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Piutang</span>
+                        <span class="align-middle">Hutang Piutang</span>
                     </a>
+                    <ul id="hutangpiutang"
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
+                        <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
+                                <span class="align-middle">Piutang</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('piutangs.penerima') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('piutangs.penerima') }}">
+                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
+                                <span class="align-middle">Hutang</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="sidebar-item {{ request()->routeIs('hutangs.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('hutangs.index') }}">
@@ -123,8 +144,8 @@
                         <span class="align-middle">Dashboard Bidang</span>
                     </a>
                 </li>
-                <li class="sidebar-item {{ request()->routeIs('transaksi.index') ? 'active' : '' }}">
-                    <a class="sidebar-link" href="{{ route('transaksi.index') }}">
+                <li class="sidebar-item {{ request()->routeIs('transaksi.index.bidang') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('transaksi.index.bidang') }}">
                         <i class="align-middle" data-feather="dollar-sign"></i>
                         <span class="align-middle">Buku Harian</span>
                     </a>
@@ -141,11 +162,26 @@
                         <span class="align-middle">Buku Besar Bank</span>
                     </a>
                 </li>
-                <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
-                    <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                <li class="sidebar-item">
+                    <a href="#hutangpiutang" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Piutang</span>
+                        <span class="align-middle">Hutang Piutang</span>
                     </a>
+                    <ul id="hutangpiutang"
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
+                        <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('piutangs.index') }}">
+                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
+                                <span class="align-middle">Piutang</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('piutangs.penerima') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('piutangs.penerima') }}">
+                                <i class="align-middle ms-3" data-feather="dollar-sign"></i>
+                                <span class="align-middle">Hutang</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="sidebar-item {{ request()->routeIs('hutangs.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('hutangs.index') }}">

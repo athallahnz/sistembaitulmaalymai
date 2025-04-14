@@ -24,7 +24,8 @@ class TransaksisExport implements FromCollection, WithHeadings, WithMapping
         $user = auth()->user();
 
         // Ambil transaksi berdasarkan role dan kode_transaksi
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan');
+        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan')
+            ->where('kode_transaksi', 'not like', '%-LAWAN'); // Hindari transaksi lawan
 
         // Filter berdasarkan role 'Bidang'
         if ($user->role === 'Bidang') {
