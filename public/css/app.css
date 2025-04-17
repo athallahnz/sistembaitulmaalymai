@@ -13434,3 +13434,15 @@ label[for="foto"]:hover i {
     transform: scale(1.2);
     transition: transform 0.3s ease;
 }
+
+.smooth-collapse {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    opacity: 0;
+}
+
+.smooth-collapse.show {
+    max-height: 1000px; /* pastikan lebih besar dari tinggi konten */
+    opacity: 1;
+}

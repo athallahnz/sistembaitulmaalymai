@@ -263,6 +263,15 @@ class TransaksiController extends Controller
             // Tidak perlu redirect atau error message
         }
 
+        // Validasi saldo akun lawan untuk penerimaan: akun kas/bank tidak boleh minus
+        if (
+            $validatedData['type'] === 'penerimaan' &&
+            $validatedData['amount'] > $saldoSebelumnyaLawan &&
+            in_array($parent_akun_id, $akunTerbatas)
+        ) {
+            return redirect()->back()->with('error', 'Transaksi gagal! Saldo akun kas/bank tidak mencukupi untuk penerimaan.');
+        }
+
         // Hitung saldo baru untuk akun utama
         $newSaldoAkun = $validatedData['type'] === 'penerimaan'
             ? $saldoSebelumnyaAkun + $validatedData['amount']

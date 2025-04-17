@@ -4,7 +4,7 @@
     <div class="container">
         <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</strong>
         </h1>
-        <div class="container-fluid p-4">
+        <div class="container-fluid p-4">   
             <h4 class="mb-4">Nilai Asset, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
                 <div class="col-md-3 mb-4">

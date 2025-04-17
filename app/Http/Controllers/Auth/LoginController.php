@@ -22,9 +22,14 @@ class LoginController extends Controller
 
     public function authenticated(Request $request, $user)
     {
-        $user->last_login_at = Carbon::now();
-        $user->save();
+        // Update 'last_activity_at' dan 'last_login_at' sekaligus
+        $user->update([
+            'last_activity_at' => Carbon::now(),
+            'last_login_at' => Carbon::now(),
+            'is_active' => true, // ⬅ Tambahkan ini
+        ]);
     }
+
 
     public function showLoginForm()
     {
@@ -57,8 +62,14 @@ class LoginController extends Controller
 
         if ($user && Hash::check($request->pin, $user->pin)) {
             Auth::login($user, true);
-            $user->last_login_at = Carbon::now();
-            $user->save();
+
+            // ✅ Tambahkan update status login dan aktivitas di sini
+            $user->update([
+                'last_login_at' => now(),
+                'last_activity_at' => Carbon::now(),
+                'is_active' => true,
+            ]);
+
             session()->flash('login success', 'Selamat datang, ' . $user->name . '.');
 
             switch ($user->role) {
@@ -83,6 +94,9 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        $user = auth()->user();
+        $user->update(['is_active' => false]);
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

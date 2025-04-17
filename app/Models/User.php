@@ -28,6 +28,7 @@ class User extends Authenticatable
         'role',
         'bidang_name',
         'last_login_at',
+        'last_activity_at',
         'is_active',
         'foto',
     ];
@@ -44,6 +45,8 @@ class User extends Authenticatable
     ];
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_activity_at' => 'datetime',
+        'last_login_at' => 'datetime',
     ];
     // public function bidang()
     // {

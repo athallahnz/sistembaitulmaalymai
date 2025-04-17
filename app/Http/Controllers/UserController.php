@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 class UserController extends Controller
 {
@@ -23,22 +24,53 @@ class UserController extends Controller
     {
         if ($request->ajax()) {
             $users = User::withTrashed() // Menampilkan data yang sudah dihapus
-                ->select('id', 'name', 'email', 'nomor', 'role', 'bidang_name', 'deleted_at'); // Tidak perlu join
+                ->select('id', 'name', 'email', 'nomor', 'role', 'bidang_name', 'deleted_at', 'last_activity_at','is_active'); // Include 'last_activity_at'
 
             $data = DataTables::of($users)
                 ->addColumn('bidang_name', function ($user) {
-                    return $user->bidang->name ?? '-';
+                    return $user->bidang->name ?? '-';  
                 })
+                ->addColumn('status', function ($user) {
+                    $lastActivity = $user->last_activity_at;
+
+                    // Jika tidak pernah aktif
+                    if (!$lastActivity) {
+                        return '<span class="badge bg-secondary">Tidak pernah aktif</span>';
+                    }
+
+                    // Hitung durasi tidak aktif
+                    $minutesSinceLastActivity = Carbon::now()->diffInMinutes($lastActivity);
+
+                    if ($user->is_active && $minutesSinceLastActivity < 2) {
+                        return '<div>
+                                    <span class="badge bg-success">Online</span><br>
+                                    <small class="text-muted">Aktif ' . $lastActivity->diffForHumans() . '</small>
+                                </div>';
+                    }
+
+                    if ($user->is_active) {
+                        return '<div>
+                                    <span class="badge bg-warning text-dark">Idle</span><br>
+                                    <small class="text-muted">Login tapi tidak aktif sejak ' . $lastActivity->diffForHumans() . '</small>
+                                </div>';
+                    }
+
+                    return '<div>
+                                <span class="badge bg-secondary">Offline</span><br>
+                                <small class="text-muted">Logout ' . $lastActivity->diffForHumans() . '</small>
+                            </div>';
+                })
+
                 ->addColumn('actions', function ($user) {
                     return view('admin.users.actions', compact('user'))->render();
                 })
                 ->editColumn('deleted_at', function ($user) {
                     return $user->deleted_at ? '<span class="text-danger">Terhapus</span>' : '<span class="text-success">Aktif</span>';
                 })
-                ->rawColumns(['actions', 'deleted_at'])
+                ->rawColumns(['actions', 'deleted_at', 'status']) // Include 'status' for raw HTML
                 ->make(true);
 
-            // Log untuk memastikan data sudah sampai
+            // Log for debugging
             \Log::info($data);
 
             return $data;

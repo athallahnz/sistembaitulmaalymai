@@ -9,7 +9,8 @@
         </button>
 
         <!-- Modal -->
-        <div class="modal fade" id="userModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal fade" id="userModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-labelledby="userModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -22,19 +23,23 @@
                             @csrf
                             <div class="mb-3">
                                 <label class="mb-2">Nama</label>
-                                <input type="text" name="name" class="form-control" placeholder="Masukkan Nama" required>
+                                <input type="text" name="name" class="form-control" placeholder="Masukkan Nama"
+                                    required>
                             </div>
                             <div class="mb-3">
                                 <label class="mb-2">Email</label>
-                                <input type="email" name="email" class="form-control" placeholder="Masukkan Email" required>
+                                <input type="email" name="email" class="form-control" placeholder="Masukkan Email"
+                                    required>
                             </div>
                             <div class="mb-3">
                                 <label class="mb-2">Nomor</label>
-                                <input type="text" name="nomor" class="form-control" placeholder="Masukkan Nomor" required>
+                                <input type="text" name="nomor" class="form-control" placeholder="Masukkan Nomor"
+                                    required>
                             </div>
                             <div class="mb-3">
                                 <label class="mb-2">PIN</label>
-                                <input type="password" name="pin" class="form-control" placeholder="Masukkan PIN" required>
+                                <input type="password" name="pin" class="form-control" placeholder="Masukkan PIN"
+                                    required>
                             </div>
                             <div class="mb-3">
                                 <label class="mb-2">Role</label>
@@ -49,7 +54,7 @@
                             <div class="mb-3" id="bidang_name_group" style="display: none;">
                                 <label for="bidang_name" class="mb-2">Bidang Name</label>
                                 <select class="form-control" id="bidang_name" name="bidang_name">
-                                    @foreach($bidangs as $bidang)
+                                    @foreach ($bidangs as $bidang)
                                         <option value="{{ $bidang->name }}">{{ $bidang->name }}</option>
                                     @endforeach
                                 </select>
@@ -67,10 +72,10 @@
                 <thead class="table-light">
                     <tr>
                         <th>Nama</th>
-                        <th>Email</th>
                         <th>Nomor</th>
                         <th>Role</th>
                         <th>Bidang</th>
+                        <th>Status</th>
                         <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
@@ -78,64 +83,69 @@
             </table>
         </div>
 
-        <script>
-            $(document).ready(function() {
-                var table = $('.yajra-datatable').DataTable({
-                    processing: true,
-                    serverSide: true,
-                    ajax: "{{ route('admin.users.data') }}",
-                    columns: [{
-                            data: 'name',
-                            name: 'name'
-                        },
-                        {
-                            data: 'email',
-                            name: 'email'
-                        },
-                        {
-                            data: 'nomor',
-                            name: 'nomor'
-                        },
-                        {
-                            data: 'role',
-                            name: 'role'
-                        },
-                        {
-                            data: 'bidang_name',
-                            name: 'bidang_name'
-                        },
-                        {
-                            data: 'actions',
-                            name: 'actions',
-                            orderable: false,
-                            searchable: false
-                        },
-                    ],
-                    error: function(xhr, status, error) {
-                        console.log(xhr.responseText); // Debugging error response
-                    }
-                });
-            });
-
-            document.getElementById('role').addEventListener('change', function() {
-                var role = this.value;
-                var bidangField = document.getElementById('bidang_name_group');
-
-                // Jika role adalah Bidang, tampilkan kolom bidang_name
-                if (role === 'Bidang') {
-                    bidangField.style.display = 'block';
-                } else {
-                    bidangField.style.display = 'none';
-                }
-            });
-        </script>
 
 
     </div>
 @endsection
-@section('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+@push('scripts')
     <script>
+        $(document).ready(function() {
+            var table = $('.yajra-datatable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ route('admin.users.data') }}",
+                columns: [{
+                        data: 'name',
+                        name: 'name'
+                    },
+                    {
+                        data: 'nomor',
+                        name: 'nomor'
+                    },
+                    {
+                        data: 'role',
+                        name: 'role'
+                    },
+                    {
+                        data: 'bidang_name',
+                        name: 'bidang_name'
+                    },
+                    {
+                        data: 'status', // Add this line
+                        name: 'status',
+                        searchable: false,
+                        orderable: false
+                    },
+                    {
+                        data: 'actions',
+                        name: 'actions',
+                        orderable: false,
+                        searchable: false
+                    },
+                ],
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText); // Debugging error response
+                }
+            });
+        });
+
+        document.getElementById('role').addEventListener('change', function() {
+            var role = this.value;
+            var bidangField = document.getElementById('bidang_name_group');
+
+            // Jika role adalah Bidang, tampilkan kolom bidang_name
+            if (role === 'Bidang') {
+                bidangField.style.display = 'block';
+            } else {
+                bidangField.style.display = 'none';
+            }
+        });
+
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.delete-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -159,4 +169,4 @@
             });
         });
     </script>
-@endsection
+@endpush
