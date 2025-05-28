@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Hutang;
+use App\Models\Piutang;
 use App\Models\User;
 use App\Models\AkunKeuangan;
+use App\Models\Transaksi;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Notifications\HutangReminder; // Sesuaikan dengan notifikasi yang dibuat
@@ -39,25 +42,106 @@ class HutangController extends Controller
             })
             ->get();
 
-        return view('hutang.create', compact('akunKeuangan', 'akunHutang', 'parentAkunHutang', 'users'));
+        // Ambil data user yang login
+        $user = auth()->user();
+        $bidangName = $user->bidang_name;
+
+        $piutangs = Piutang::with('bidang')
+            ->where('status', 'belum_lunas')
+            ->where('user_id', auth()->id())
+            ->get();
+
+        // Tentukan akun kas atau bank berdasarkan role dan bidang
+        if ($user->role === 'Bendahara') {
+            // Akun Kas untuk Bendahara
+            $akunKeuanganKas = 1011; // Akun Kas
+            $akunKeuanganBank = 1021; // Akun Bank
+        } else {
+            // Akun Kas berdasarkan bidang_id
+            $akunKas = [
+                1 => 1012, // Kemasjidan
+                2 => 1013, // Pendidikan
+                3 => 1014, // Sosial
+                4 => 1015, // Usaha
+            ];
+
+            // Akun Bank berdasarkan bidang_id
+            $akunBank = [
+                1 => 1022, // Kemasjidan
+                2 => 1023, // Pendidikan
+                3 => 1024, // Sosial
+                4 => 1025, // Usaha
+            ];
+
+            // Pilih akun kas dan akun bank berdasarkan bidang_name
+            $akunKeuanganKas = $akunKas[$user->bidang_name] ?? null;
+            $akunKeuanganBank = $akunBank[$user->bidang_name] ?? null;
+        }
+
+        // Menyediakan pilihan akun untuk form
+        $akunKeuanganOptions = [
+            'Kas' => $akunKeuanganKas,
+            'Bank' => $akunKeuanganBank
+        ];
+
+        // Ambil saldo masing-masing akun berdasarkan role dan bidang
+        $saldos = [];
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
+        foreach ($akunKeuanganOptions as $label => $akunId) {
+            if ($user->role === 'Bendahara') {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $akunId)
+                    ->whereNull('bidang_name')
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            } else {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $akunId)
+                    ->where('bidang_name', $bidang_id)
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            }
+
+            $saldos[$akunId] = $lastSaldo ? $lastSaldo->saldo : 0;
+        }
+
+        return view('hutang.create', compact('akunKeuangan', 'akunHutang', 'parentAkunHutang', 'users', 'piutangs', 'akunKeuanganOptions', 'saldos'));
     }
 
     public function store(Request $request)
     {
         Log::info('Menerima request untuk menyimpan Hutang', ['data' => $request->all()]);
 
-        try {
-            $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
-                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-                'parent_akun_id' => 'nullable|exists:akun_keuangans,id',
-                'jumlah' => 'required|numeric|min:0',
-                'tanggal_jatuh_tempo' => 'required|date',
-                'deskripsi' => 'nullable|string',
-                'status' => 'required|in:belum_lunas,lunas',
-            ]);
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+            'parent_akun_id' => 'nullable|exists:akun_keuangans,id',
+            'jumlah' => 'required|numeric|min:0',
+            'tanggal_jatuh_tempo' => 'required|date',
+            'deskripsi' => 'nullable|string',
+            'status' => 'required|in:belum_lunas,lunas',
+        ]);
 
-            $bidangName = auth()->user()->bidang_name;
+        Log::info('Validasi berhasil', ['validated_data' => $validated]);
+
+        DB::beginTransaction();
+
+        try {
+            $tanggalTransaksi = now()->toDateString();
+            $user = auth()->user();
+            $bidangName = $user->bidang_name;
+
+            // Ambil saldo terakhir
+            $lastSaldo = Transaksi::where('akun_keuangan_id', $validated['akun_keuangan_id'])
+                ->when($user->role !== 'Bendahara', fn ($q) => $q->where('bidang_name', $bidangName))
+                ->when($user->role === 'Bendahara', fn ($q) => $q->whereNull('bidang_name'))
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
+
+            $saldoSebelumnya = $lastSaldo ? $lastSaldo->saldo : 0;
+            $saldoSetelahnya = $saldoSebelumnya + $validated['jumlah'];
+            $kodeTransaksi = 'HUT-' . now()->format('YmdHis') . '-' . rand(100, 999);
 
             $hutang = Hutang::create([
                 'user_id' => $validated['user_id'],
@@ -70,22 +154,35 @@ class HutangController extends Controller
                 'bidang_name' => $bidangName,
             ]);
 
-            Log::info('Hutang berhasil disimpan', ['hutang' => $hutang]);
+            Transaksi::create([
+                'kode_transaksi' => $kodeTransaksi,
+                'tanggal_transaksi' => $tanggalTransaksi,
+                'type' => 'penerimaan',
+                'deskripsi' => 'Pencatatan Hutang ke ' . $hutang->user->name,
+                'akun_keuangan_id' => $validated['akun_keuangan_id'],
+                'parent_akun_id' => $request->parent_akun_id ?? null,
+                'amount' => $validated['jumlah'],
+                'saldo' => $saldoSetelahnya,
+                'bidang_name' => $bidangName,
+            ]);
 
-            // Coba ambil user yang membuat hutang
-            $pembuatHutang = User::find(auth()->id());
-
-            if ($pembuatHutang) {
-                Log::info('Mengirim notifikasi ke pembuat hutang', ['user_id' => $pembuatHutang->id]);
-                $pembuatHutang->notify(new HutangReminder($hutang));
-            } else {
-                Log::error('User tidak ditemukan saat mengirim notifikasi.');
+            // Kirim notifikasi
+            $userToNotify = User::find($validated['user_id']);
+            if ($userToNotify) {
+                Notification::send($userToNotify, new HutangReminder($hutang));
             }
 
+            DB::commit();
+
             return redirect()->route('hutangs.index')->with('success', 'Hutang berhasil ditambahkan.');
-        } catch (\Exception $e) {
-            Log::error('Gagal menyimpan Hutang', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan hutang. ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Gagal menyimpan Hutang', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return back()->with('error', 'Terjadi kesalahan saat menyimpan hutang.')->withInput();
         }
     }
 

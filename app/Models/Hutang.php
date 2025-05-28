@@ -25,4 +25,9 @@ class Hutang extends Model
     {
         return $this->belongsTo(AkunKeuangan::class, 'parent_id', 'id');
     }
+
+    public function bidang()
+    {
+        return $this->belongsTo(Bidang::class, 'bidang_name');
+    }
 }

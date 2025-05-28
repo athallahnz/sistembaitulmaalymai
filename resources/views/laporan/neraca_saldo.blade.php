@@ -59,13 +59,13 @@
                                 <tr>
                                     <td>101</td>
                                     <td>Kas</td>
-                                    <td>Rp{{ number_format($totalseluruhKas, 2, ',', '.') }}</td>
+                                    <td>Rp{{ number_format($saldoKasTotal, 2, ',', '.') }}</td>
                                     <td>-</td>
                                 </tr>
                                 <tr>
                                     <td>102</td>
                                     <td>Bank</td>
-                                    <td>Rp{{ number_format($totalSeluruhBank, 2, ',', '.') }}</td>
+                                    <td>Rp{{ number_format($saldoBankTotal, 2, ',', '.') }}</td>
                                     <td>-</td>
                                 </tr>
                             @endif
@@ -163,7 +163,7 @@
                                     </td>
                                 @elseif(Auth::user()->hasRole('Bendahara'))
                                     <td>Rp
-                                        {{ number_format($totalseluruhKas + $totalSeluruhBank + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra, 2, ',', '.') }}
+                                        {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra, 2, ',', '.') }}
                                     </td>
                                 @endif
                                 <td>Rp

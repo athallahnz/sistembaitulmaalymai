@@ -15,9 +15,6 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TransaksisExpors;
 use App\Services\LaporanService;
 
-
-
-
 class TransaksiController extends Controller
 {
     public function index()

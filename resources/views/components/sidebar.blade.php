@@ -82,20 +82,20 @@
                 <li class="sidebar-item">
                     <a href="#hutangpiutang" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Hutang Piutang</span>
+                        <span class="align-middle">Hutang Piutang Perantara</span>
                     </a>
                     <ul id="hutangpiutang"
                         class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
                         <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.index') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
-                                <span class="align-middle">Piutang</span>
+                                <span class="align-middle">Piutang Perantara</span>
                             </a>
                         </li>
                         <li class="sidebar-item {{ request()->routeIs('piutangs.penerima') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.penerima') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
-                                <span class="align-middle">Hutang</span>
+                                <span class="align-middle">Hutang Perantara</span>
                             </a>
                         </li>
                     </ul>
@@ -165,20 +165,20 @@
                 <li class="sidebar-item">
                     <a href="#hutangpiutang" data-bs-toggle="collapse" class="sidebar-link">
                         <i class="align-middle" data-feather="dollar-sign"></i>
-                        <span class="align-middle">Hutang Piutang</span>
+                        <span class="align-middle">Hutang Piutang Perantara</span>
                     </a>
                     <ul id="hutangpiutang"
                         class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
                         <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.index') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
-                                <span class="align-middle">Piutang</span>
+                                <span class="align-middle">Piutang Perantara</span>
                             </a>
                         </li>
                         <li class="sidebar-item {{ request()->routeIs('piutangs.penerima') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.penerima') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
-                                <span class="align-middle">Hutang</span>
+                                <span class="align-middle">Hutang Perantara</span>
                             </a>
                         </li>
                     </ul>

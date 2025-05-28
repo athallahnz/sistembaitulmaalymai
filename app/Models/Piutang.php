@@ -36,6 +36,11 @@ class Piutang extends Model
     }
     public function routeNotificationForDatabase()
     {
-        return $this->id; // Notifiable ID menggunakan ID Piutang
+        return $this->id;
+    }
+
+    public function bidang()
+    {
+        return $this->belongsTo(Bidang::class, 'bidang_name');
     }
 }

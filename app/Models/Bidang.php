@@ -9,18 +9,26 @@ class Bidang extends Model
 {
     use HasFactory;
 
-    protected $table = 'bidangs'; // Pastikan sesuai dengan nama tabel di database
+    protected $table = 'bidangs';
     protected $fillable = ['name', 'description'];
 
-    // Relasi dengan Transaksi (Satu bidang bisa memiliki banyak transaksi)
     public function transaksis()
     {
         return $this->hasMany(Transaksi::class, 'bidang_name', 'id');
     }
 
-    // Relasi dengan User (Satu bidang bisa memiliki banyak user)
     public function users()
     {
         return $this->hasMany(User::class, 'bidang_name', 'id');
+    }
+
+    public function hutangs()
+    {
+        return $this->hasMany(Hutang::class, 'bidang_name');
+    }
+
+    public function piutangs()
+    {
+        return $this->hasMany(Piutang::class, 'bidang_name');
     }
 }

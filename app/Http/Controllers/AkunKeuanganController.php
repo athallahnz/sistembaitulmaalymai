@@ -43,7 +43,9 @@ class AkunKeuanganController extends Controller
                 'nama_akun' => 'required|string|max:255',
                 'tipe_akun' => 'required|in:asset,liability,revenue,expense,equity',
                 'saldo_normal' => 'required|in:debit,kredit',
-                'parent_id' => 'nullable|exists:akun_keuangans,id'
+                'parent_id' => 'nullable|exists:akun_keuangans,id',
+                'cashflow_category' => 'nullable|in:operasional,investasi,pendanaan',
+                'icon' => 'nullable|string|max:255',
             ]);
 
             Log::info('Validasi sukses', ['validatedData' => $validatedData]);
@@ -82,7 +84,9 @@ class AkunKeuanganController extends Controller
                 'nama_akun' => 'required|string|max:255',
                 'tipe_akun' => 'required|in:asset,liability,revenue,expense,equity',
                 'saldo_normal' => 'required|in:debit,kredit',
-                'parent_id' => 'nullable|exists:akun_keuangans,id'
+                'parent_id' => 'nullable|exists:akun_keuangans,id',
+                'cashflow_category' => 'nullable|in:operasional,investasi,pendanaan',
+                'icon' => 'nullable|string|max:255'
             ]);
 
             $akunKeuangan->update($request->all());

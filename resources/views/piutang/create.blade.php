@@ -64,7 +64,7 @@
                 <label for="jumlah" class="form-label mb-2">Jumlah</label>
                 <input type="text" id="formattedAmount" class="form-control" oninput="formatInput(this)">
                 <input type="number" name="jumlah" id="jumlah"
-                class="form-control d-none @error('jumlah') is-invalid @enderror" value="{{ old('jumlah') }}">
+                    class="form-control d-none @error('jumlah') is-invalid @enderror" value="{{ old('jumlah') }}">
                 @error('jumlah')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
@@ -137,7 +137,11 @@
             });
         });
 
+        // JSON saldo sudah OK
         const saldos = @json($saldos);
+
+        // Tambah event listener
+        document.getElementById('akun_keuangan_id').addEventListener('change', updateSaldoInfo);
 
         function updateSaldoInfo() {
             const select = document.getElementById('akun_keuangan_id');

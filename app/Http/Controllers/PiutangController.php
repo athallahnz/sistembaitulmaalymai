@@ -193,7 +193,7 @@ class PiutangController extends Controller
                 'kode_transaksi' => $kodeTransaksi,
                 'tanggal_transaksi' => $tanggalTransaksi,
                 'type' => 'pengeluaran',
-                'deskripsi' => 'Pencatatan Piutang #' . $piutang->id,
+                'deskripsi' => 'Pencatatan Piutang ke ' . $piutang->user->name,
                 'akun_keuangan_id' => $validated['akun_keuangan_id'],
                 'parent_akun_id' => $request->parent_akun_id ?? null,
                 'amount' => $validated['jumlah'],
@@ -205,20 +205,6 @@ class PiutangController extends Controller
                 'kode_transaksi' => $kodeTransaksi,
                 'saldo_setelah' => $saldoSetelahnya,
                 'akun_keuangan_id' => $validated['akun_keuangan_id']
-            ]);
-
-            // Simpan Pendapatan yang Belum Diterima
-            PendapatanBelumDiterima::create([
-                'user_id' => $validated['user_id'],
-                'jumlah' => $validated['jumlah'],
-                'tanggal_pencatatan' => now(),
-                'deskripsi' => 'Pendapatan yang belum diterima dari Piutang #' . $piutang->id,
-                'bidang_name' => $bidangName,
-            ]);
-
-            Log::info('Pendapatan Belum Diterima dicatat', [
-                'user_id' => $validated['user_id'],
-                'jumlah' => $validated['jumlah']
             ]);
 
             // Kirim notifikasi
@@ -299,7 +285,65 @@ class PiutangController extends Controller
         $parentAkunPiutang = AkunKeuangan::where('parent_id', 103)->get();
 
         $akunKeuangans = AkunKeuangan::where('parent_id', 103)->get();
-        return view('piutang.edit', compact('piutang', 'users', 'akunKeuangans', 'akunPiutang', 'parentAkunPiutang'));
+        // Ambil data user yang login
+        $user = auth()->user();
+        $bidangName = $user->bidang_name;
+
+        // Tentukan akun kas atau bank berdasarkan role dan bidang
+        if ($user->role === 'Bendahara') {
+            // Akun Kas untuk Bendahara
+            $akunKeuanganKas = 1011; // Akun Kas
+            $akunKeuanganBank = 1021; // Akun Bank
+        } else {
+            // Akun Kas berdasarkan bidang_id
+            $akunKas = [
+                1 => 1012, // Kemasjidan
+                2 => 1013, // Pendidikan
+                3 => 1014, // Sosial
+                4 => 1015, // Usaha
+            ];
+
+            // Akun Bank berdasarkan bidang_id
+            $akunBank = [
+                1 => 1022, // Kemasjidan
+                2 => 1023, // Pendidikan
+                3 => 1024, // Sosial
+                4 => 1025, // Usaha
+            ];
+
+            // Pilih akun kas dan akun bank berdasarkan bidang_name
+            $akunKeuanganKas = $akunKas[$user->bidang_name] ?? null;
+            $akunKeuanganBank = $akunBank[$user->bidang_name] ?? null;
+        }
+
+        // Menyediakan pilihan akun untuk form
+        $akunKeuanganOptions = [
+            'Kas' => $akunKeuanganKas,
+            'Bank' => $akunKeuanganBank
+        ];
+
+        // Ambil saldo masing-masing akun berdasarkan role dan bidang
+        $saldos = [];
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
+        foreach ($akunKeuanganOptions as $label => $akunId) {
+            if ($user->role === 'Bendahara') {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $akunId)
+                    ->whereNull('bidang_name')
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            } else {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $akunId)
+                    ->where('bidang_name', $bidang_id)
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            }
+
+            $saldos[$akunId] = $lastSaldo ? $lastSaldo->saldo : 0;
+        }
+
+        return view('piutang.edit', compact('piutang', 'akunKeuangans', 'akunPiutang', 'parentAkunPiutang', 'users', 'akunKeuanganOptions', 'saldos'));
     }
 
     public function update(Request $request, Piutang $piutang)
@@ -309,42 +353,100 @@ class PiutangController extends Controller
             'data_baru' => $request->all()
         ]);
 
-        try {
-            $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
-                'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
-                'jumlah' => 'required|numeric|min:0',
-                'tanggal_jatuh_tempo' => 'required|date',
-                'deskripsi' => 'nullable|string',
-                'status' => 'required|in:belum_lunas,lunas',
-            ]);
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
+            'parent_akun_id' => 'nullable|exists:akun_keuangans,id',
+            'jumlah' => 'required|numeric|min:0',
+            'tanggal_jatuh_tempo' => 'required|date',
+            'deskripsi' => 'nullable|string',
+            'status' => 'required|in:belum_lunas,lunas',
+        ]);
 
-            $bidangName = auth()->user()->bidang_name;
+        DB::beginTransaction();
+
+        try {
+            $tanggalTransaksi = now()->toDateString();
+            $user = auth()->user();
+            $bidangName = $user->bidang_name;
             $statusSebelumnya = $piutang->status;
 
-            $piutang->update(array_merge($validated, ['bidang_name' => $bidangName]));
+            // Ambil saldo terakhir
+            if ($user->role === 'Bendahara') {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $validated['akun_keuangan_id'])
+                    ->whereNull('bidang_name')
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            } else {
+                $lastSaldo = Transaksi::where('akun_keuangan_id', $validated['akun_keuangan_id'])
+                    ->where('bidang_name', $bidangName)
+                    ->orderBy('tanggal_transaksi', 'asc')
+                    ->get()
+                    ->last();
+            }
 
-            if ($validated['status'] === 'lunas') {
+            $saldoSebelumnya = $lastSaldo ? $lastSaldo->saldo : 0;
+
+            // Jika belum lunas -> lunas, cek saldo cukup
+            if ($statusSebelumnya !== 'lunas' && $validated['status'] === 'lunas') {
+                if ($saldoSebelumnya < $validated['jumlah']) {
+                    Log::warning('Saldo tidak mencukupi untuk update pelunasan piutang', [
+                        'saldo' => $saldoSebelumnya,
+                        'jumlah' => $validated['jumlah'],
+                        'akun_keuangan_id' => $validated['akun_keuangan_id']
+                    ]);
+
+                    return redirect()->back()
+                        ->with('error', 'Saldo akun Kas/Bank tidak mencukupi untuk mencatat pelunasan piutang.')
+                        ->withInput();
+                }
+
+                $saldoSetelahnya = $saldoSebelumnya - $validated['jumlah'];
+                $kodeTransaksi = 'PIU-UPD-' . now()->format('YmdHis') . '-' . rand(100, 999);
+
+                // Tambahkan transaksi pelunasan
+                Transaksi::create([
+                    'kode_transaksi' => $kodeTransaksi,
+                    'tanggal_transaksi' => $tanggalTransaksi,
+                    'type' => 'pengeluaran',
+                    'deskripsi' => 'Pelunasan Piutang #' . $piutang->id,
+                    'akun_keuangan_id' => $validated['akun_keuangan_id'],
+                    'parent_akun_id' => $validated['parent_akun_id'] ?? null,
+                    'amount' => $validated['jumlah'],
+                    'saldo' => $saldoSetelahnya,
+                    'bidang_name' => $bidangName,
+                ]);
+
+                Log::info('Transaksi pelunasan dicatat', [
+                    'kode_transaksi' => $kodeTransaksi,
+                    'saldo_setelah' => $saldoSetelahnya
+                ]);
+
+                // Hapus dari PendapatanBelumDiterima
                 PendapatanBelumDiterima::where('user_id', $piutang->user_id)
                     ->where('jumlah', $piutang->jumlah)
                     ->where('bidang_name', $bidangName)
                     ->delete();
+
+                Log::info('PendapatanBelumDiterima dihapus karena status lunas');
             }
+
+            // Update Piutang
+            $piutang->update(array_merge($validated, ['bidang_name' => $bidangName]));
 
             Log::info('Piutang berhasil diperbarui', ['piutang' => $piutang]);
 
-            $user = User::find($validated['user_id']);
-            if ($user) {
+            // Update atau kirim notifikasi
+            $userToNotify = User::find($validated['user_id']);
+            if ($userToNotify) {
                 $existingNotification = DatabaseNotification::whereJsonContains('data->piutang_id', $piutang->id)->first();
 
                 if ($existingNotification) {
                     if ($statusSebelumnya === 'belum_lunas' && $validated['status'] === 'lunas') {
-                        $existingNotification->update([
-                            'read_at' => now(),
-                        ]);
-                        Log::info('Notifikasi ditandai sebagai dibaca untuk user ' . $user->id);
+                        $existingNotification->update(['read_at' => now()]);
+                        Log::info('Notifikasi ditandai sebagai dibaca');
                     } else {
-                        // **PERBAIKAN DI SINI: Gunakan $piutang, bukan $this->piutang**
                         $existingNotification->update([
                             'data' => [
                                 'message' => 'Hutang sebesar Rp' . number_format($piutang->jumlah, 2, ',', '.') .
@@ -353,18 +455,26 @@ class PiutangController extends Controller
                                 'piutang_id' => $piutang->id,
                             ]
                         ]);
-                        Log::info('Notifikasi diperbarui untuk user ' . $user->id);
+                        Log::info('Notifikasi diperbarui');
                     }
                 } else {
-                    Notification::send($user, new HutangJatuhTempo($piutang));
-                    Log::info('Notifikasi baru dikirim untuk user ' . $user->id);
+                    Notification::send($userToNotify, new HutangJatuhTempo($piutang));
+                    Log::info('Notifikasi baru dikirim');
                 }
             }
 
+            DB::commit();
             return redirect()->route('piutangs.index')->with('success', 'Piutang berhasil diperbarui.');
-        } catch (\Exception $e) {
-            Log::error('Gagal memperbarui Piutang', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui piutang.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Gagal update Piutang', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui piutang.')->withInput();
         }
     }
 
@@ -399,12 +509,48 @@ class PiutangController extends Controller
     {
         $piutang = Piutang::findOrFail($id);
 
+        // Tentukan akun kas atau bank berdasarkan role dan bidang
+        $user = auth()->user();
+        $bidangName = $user->bidang_name;
+
+        if ($user->role === 'Bendahara') {
+            // Akun Kas untuk Bendahara
+            $akunKeuanganKas = 1011; // Akun Kas
+            $akunKeuanganBank = 1021; // Akun Bank
+        } else {
+            // Akun Kas berdasarkan bidang_id
+            $akunKas = [
+                1 => 1012, // Kemasjidan
+                2 => 1013, // Pendidikan
+                3 => 1014, // Sosial
+                4 => 1015, // Usaha
+            ];
+
+            // Akun Bank berdasarkan bidang_id
+            $akunBank = [
+                1 => 1022, // Kemasjidan
+                2 => 1023, // Pendidikan
+                3 => 1024, // Sosial
+                4 => 1025, // Usaha
+            ];
+
+            // Pilih akun kas dan akun bank berdasarkan bidang_name
+            $akunKeuanganKas = $akunKas[$bidangName] ?? null;
+            $akunKeuanganBank = $akunBank[$bidangName] ?? null;
+        }
+
+        // Menyediakan pilihan akun untuk form
+        $akunKeuanganOptions = [
+            'Kas' => $akunKeuanganKas,
+            'Bank' => $akunKeuanganBank
+        ];
+
         // Validasi akses: hanya bidang yang berbeda yang bisa melunasi
         if ($piutang->bidang_name === auth()->user()->bidang_name) {
             return redirect()->route('piutangs.index')->with('error', 'Anda tidak bisa melunasi piutang yang Anda buat sendiri.');
         }
 
-        return view('piutang.form-pelunasan', compact('piutang'));
+        return view('piutang.form-pelunasan', compact('piutang', 'akunKeuanganOptions'));
     }
 
     public function storePayment(Request $request, $Id)
@@ -415,7 +561,7 @@ class PiutangController extends Controller
             'akun_keuangan_id' => 'required|exists:akun_keuangans,id',
         ]);
 
-        $piutang = Piutang::findOrFail($piutangId);
+        $piutang = Piutang::findOrFail($Id);
 
         // Pastikan piutang belum lunas
         if ($piutang->status === 'lunas') {

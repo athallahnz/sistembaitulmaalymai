@@ -13446,3 +13446,12 @@ label[for="foto"]:hover i {
     max-height: 1000px; /* pastikan lebih besar dari tinggi konten */
     opacity: 1;
 }
+
+.chevron {
+    display: inline-block;
+    transition: transform .3s ease;
+}
+.chevron.rotated {
+    transform: rotate(180deg);
+}
+

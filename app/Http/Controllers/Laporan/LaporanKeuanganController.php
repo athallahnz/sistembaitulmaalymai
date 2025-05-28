@@ -367,32 +367,50 @@ class LaporanKeuanganController extends Controller
 
         $bidangName = auth()->user()->bidang_name; // Bidang name dari user saat ini
 
-        // Konsolidasi bank untuk bidang saat ini
-        $bankId = 102; // ID default akun bank
-        $dataKonsolidasi = LaporanService::index($bankId, $bidangName);
-        $totalSaldoBank = $dataKonsolidasi['saldo'];
-        $transaksiBank = $dataKonsolidasi['transaksi'];
+        $user = auth()->user();
+        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
 
-        // **Akumulasi total kas seluruh bidang**
-        $totalseluruhKas = $this->calculateTotalKas();
+        $akunKas = [
+            'Bendahara' => 1011,
+            1 => 1012,
+            2 => 1013,
+            3 => 1014,
+            4 => 1015,
+        ];
 
-        // **Akumulasi total seluruh bank dari semua bidang**
-        $allFields = Transaksi::distinct()->pluck('bidang_name');
-        $totalSeluruhBank = $allFields->reduce(function ($carry, $field) use ($bankId) {
-            $dataKonsolidasiField = LaporanService::index($bankId, $field);
-            return $carry + $dataKonsolidasiField['saldo'];
-        }, 0);
+        $akunBank = [
+            'Bendahara' => 1021,
+            1 => 1022,
+            2 => 1023,
+            3 => 1024,
+            4 => 1025,
+        ];
 
-        // Ambil saldo terakhir untuk akun Kas (101) & Bank (102)
-        $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
-            ->orderBy('tanggal_transaksi', 'asc')
-            ->get()
-            ->last()?->saldo ?? 0;
+        $saldoKasTotal = 0;
+        $saldoBankTotal = 0;
 
-        $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
-            ->orderBy('tanggal_transaksi', 'asc')
-            ->get()
-            ->last()?->saldo ?? 0;
+        foreach ($akunKas as $bidang => $akun_keuangan_id) {
+            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang)
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
+
+            $saldoKasTotal += $lastSaldo ? (float) $lastSaldo->saldo : 0;
+        }
+
+        foreach ($akunBank as $bidang => $akun_keuangan_id) {
+            $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
+                ->where('bidang_name', $bidang)
+                ->orderBy('tanggal_transaksi', 'asc')
+                ->get()
+                ->last();
+
+            $saldoBankTotal += $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
+        }
+
+        // **Total Keuangan Semua Bidang (Kas + Bank)**
+        $totalKeuanganSemuaBidang = $saldoKasTotal + $saldoBankTotal;
 
         $jumlahPiutang = Piutang::where('status', 'belum_lunas')->sum('jumlah');
 
@@ -404,8 +422,8 @@ class LaporanKeuanganController extends Controller
 
         $jumlahHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
 
-        $jumlahDonasi = Ledger::where('akun_keuangan_id', 202)
-            ->sum('credit');
+        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
+            ->sum('amount');
 
         // Ambil saldo untuk Biaya Operasional
         $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
@@ -424,24 +442,35 @@ class LaporanKeuanganController extends Controller
         ])->sum('amount');
 
         // Ambil saldo untuk Biaya Kegiatan
-        $jumlahBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+            ->sum('amount');
+
+        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
+            ->sum('amount');
+        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
+            ->sum('amount');
+        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
+            ->sum('amount');
+        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
             ->sum('amount');
 
         return view('laporan.neraca_saldo', compact(
             'akunKeuangan',
             'startDate',
             'endDate',
-            'lastSaldo101',
-            'lastSaldo102',
-            'totalseluruhKas',
-            'totalSeluruhBank',
+            'saldoKasTotal',
+            'saldoBankTotal',
             'jumlahHutang',
             'jumlahDonasi',
             'jumlahPiutang',
             'jumlahPendapatanBelumDiterima',
             'jumlahBebanGaji',
             'jumlahBiayaOperasional',
-            'jumlahBiayaKegiatan'
+            'jumlahBiayaKegiatanSiswa',
+            'jumlahBiayaPemeliharaan',
+            'jumlahBiayaSosial',
+            'jumlahBiayaPerlengkapanExtra',
+            'jumlahBiayaSeragam'
         ));
     }
 

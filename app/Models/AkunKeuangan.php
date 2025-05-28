@@ -21,7 +21,9 @@ class AkunKeuangan extends Model
         'tipe_akun',
         'kode_akun',
         'parent_id',
-        'saldo_normal'
+        'saldo_normal',
+        'cashflow_category',
+        'icon'
     ];
 
     public function parentAkun()
