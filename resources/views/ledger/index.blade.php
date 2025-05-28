@@ -109,7 +109,7 @@
         }
         return s.join(dec);
     }
-    
+
     function toggleVisibility(icon) {
             let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
             let hiddenValue = parent.querySelector('.hidden-value');

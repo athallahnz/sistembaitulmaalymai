@@ -79,7 +79,6 @@ class AkunKeuanganController extends Controller
             Log::info('Request masuk ke update()', ['request' => $request->all(), 'akun' => $akunKeuangan]);
 
             $request->validate([
-                'id' => 'required|numeric', // Tidak perlu unique saat update
                 'kode_akun' => 'required|unique:akun_keuangans,kode_akun,' . $akunKeuangan->id,
                 'nama_akun' => 'required|string|max:255',
                 'tipe_akun' => 'required|in:asset,liability,revenue,expense,equity',
