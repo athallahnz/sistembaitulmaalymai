@@ -17,6 +17,8 @@ use App\Http\Controllers\Laporan\LaporanController;
 use App\Http\Controllers\Laporan\LaporanKeuanganController;
 use App\Http\Controllers\PiutangController;
 use App\Http\Controllers\HutangController;
+use App\Http\Controllers\Pendidikan\EduPaymentController;
+use App\Http\Controllers\Pendidikan\StudentController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -130,7 +132,16 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/piutangs/{id}/pay', [PiutangController::class, 'showPayForm'])->name('piutangs.showPayForm');
     Route::post('/piutangs/{id}/pay', [PiutangController::class, 'storePayment'])->name('piutangs.storePayment');
 
+    Route::get('/payment/form', function () {return view('bidang.pendidikan.form');})->name('payment.form');
 
+    Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
+
+    //Student Route
+    Route::get('students', [StudentController::class, 'index'])->name('students.index');
+    Route::post('students', [StudentController::class, 'store'])->name('students.store');
+    Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
+    Route::put('students/{student}', [StudentController::class, 'update'])->name('students.update');
+    Route::delete('students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
 });
 
 // Route untuk home setelah login

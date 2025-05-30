@@ -132,15 +132,15 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
+        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
-        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312]) // Menggunakan whereIn untuk mengecek beberapa nilai
+        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312, 30313, 30314, 30315]) // Menggunakan whereIn untuk mengecek beberapa nilai
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount'); // Menjumlahkan kolom 'amount'
 
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043])
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
@@ -157,6 +157,10 @@ class BidangController extends Controller
             ->sum('amount');
 
         $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
+        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
@@ -180,7 +184,8 @@ class BidangController extends Controller
             'jumlahBiayaPemeliharaan',
             'jumlahBiayaSosial',
             'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam'    
+            'jumlahBiayaSeragam',
+            'jumlahBiayaPeningkatanSDM'
         ));
     }
 

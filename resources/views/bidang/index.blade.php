@@ -4,7 +4,7 @@
     <div class="container">
         <h1 class="mb-2"><strong>Selamat Datang, di Dashboard {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</strong>
         </h1>
-        <div class="container-fluid p-4">   
+        <div class="container-fluid p-4">
             <h4 class="mb-4">Nilai Asset, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
                 <div class="col-md-3 mb-4">
@@ -106,7 +106,7 @@
                     </a>
                 </div>
                 <div class="col-md-4 mb-5">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Donasi (Pendapatan)</h5>
@@ -205,6 +205,16 @@
                             <div class="icon bi bi bi-incognito"></div> {{-- Ikon untuk "Biaya Seragam" --}}
                             <h5>Biaya Seragam</h5>
                             <div class="value negative">{{ number_format($jumlahBiayaSeragam, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 309]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi bi-incognito"></div> {{-- Ikon untuk "Biaya Seragam" --}}
+                            <h5>Biaya Peningkatan SDM</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaPeningkatanSDM, 0, ',', '.') }}</div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
                     </a>

@@ -17,3 +17,22 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::get('/student-by-rfid/{uid}', function($uid) {
+    $student = App\Models\Student::where('rfid_uid', $uid)->first();
+
+    if (!$student) {
+        return response()->json(null);
+    }
+
+    $sudahBayar = $student->payments()->sum('jumlah');
+    $sisa = $student->total_biaya - $sudahBayar;
+
+    return response()->json([
+        'id' => $student->id,
+        'name' => $student->name,
+        'kelas' => $student->kelas,
+        'total_biaya' => $student->total_biaya,
+        'sisa' => $sisa
+    ]);
+});

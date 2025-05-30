@@ -6,7 +6,7 @@
         </div>
 
         <ul class="sidebar-nav">
-            <li class="sidebar-header">Manajemen</li>
+            <li class="sidebar-header">Manajemen Keuangan</li>
             @role('Admin')
                 <li class="sidebar-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('admin.index') }}">
@@ -85,7 +85,7 @@
                         <span class="align-middle">Hutang Piutang Perantara</span>
                     </a>
                     <ul id="hutangpiutang"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index', 'piutangs.penerima') ? 'show' : '' }}">
                         <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.index') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
@@ -168,7 +168,7 @@
                         <span class="align-middle">Hutang Piutang Perantara</span>
                     </a>
                     <ul id="hutangpiutang"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index','piutangs.penerima') ? 'show' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('piutangs.index', 'piutangs.penerima') ? 'show' : '' }}">
                         <li class="sidebar-item {{ request()->routeIs('piutangs.index') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('piutangs.index') }}">
                                 <i class="align-middle ms-3" data-feather="dollar-sign"></i>
@@ -189,14 +189,6 @@
                         <span class="align-middle">Hutang</span>
                     </a>
                 </li>
-                @if (auth()->user()->bidang_name === 'Pendidikan')
-                    <li class="sidebar-item">
-                        <a class="sidebar-link" href="#">
-                            <i class="align-middle" data-feather="dollar-sign"></i>
-                            <span class="align-middle">Pembayaran SPP</span>
-                        </a>
-                    </li>
-                @endif
                 <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
@@ -225,6 +217,21 @@
                         </li>
                     </ul>
                 </li>
+                @if (auth()->user()->bidang && auth()->user()->bidang->name === 'Pendidikan')
+                    <li class="sidebar-header">Manajement Murid</li>
+                    <li class="sidebar-item {{ request()->routeIs('students.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('students.index') }}">
+                            <i class="align-middle" data-feather="user"></i>
+                            <span class="align-middle">Data Murid</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item {{ request()->routeIs('payment.form') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('payment.form') }}">
+                            <i class="align-middle" data-feather="credit-card"></i>
+                            <span class="align-middle">Pembayaran SPP</span>
+                        </a>
+                    </li>
+                @endif
             @endrole
         </ul>
 

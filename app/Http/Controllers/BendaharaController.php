@@ -90,20 +90,22 @@ class BendaharaController extends Controller
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
             ->count();
 
-        $totalDonasi = Ledger::whereIn('transaksi_id', function ($query) {
-            $query->select('transaksi_id')
-                ->from('ledgers')
-                ->where('akun_keuangan_id', 202);
-        })->sum('credit');
+        // $totalDonasi = Ledger::whereIn('transaksi_id', function ($query) {
+        //     $query->select('transaksi_id')
+        //         ->from('ledgers')
+        //         ->where('akun_keuangan_id', 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028);
+        // })->sum('credit');
+        $totalDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])->sum('amount');
 
         $totalPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)->sum('amount');
-        $totalBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])->sum('amount');
-        $totalBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312])->sum('amount');
-        $totalBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042])->sum('amount');
+        $totalBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])->sum('amount');
+        $totalBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312, 30313, 30314, 30315])->sum('amount');
+        $totalBiayaKegiatan = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])->sum('amount');
         $totalBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])->sum('amount');
         $totalBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])->sum('amount');
         $totalBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])->sum('amount');
         $totalBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])->sum('amount');
+        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])->sum('amount');
 
         return view('bendahara.index', compact(
             'saldoKasTotal',
@@ -125,7 +127,8 @@ class BendaharaController extends Controller
             'totalBiayaPemeliharaan',
             'totalBiayaSosial',
             'totalBiayaPerlengkapanExtra',
-            'totalBiayaSeragam'
+            'totalBiayaSeragam',
+            'jumlahBiayaPeningkatanSDM'
         ));
     }
 

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('ledgers', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('traksaksi_id'); // Transaksi terkait
+            $table->unsignedBigInteger('transaksi_id'); // Transaksi terkait
             $table->unsignedBigInteger('akun_keuangan_id'); // Akun terkait
             $table->decimal('debit', 15, 2)->default(0); // Nilai debit
             $table->decimal('credit', 15, 2)->default(0); // Nilai kredit
-            $table->foreign('traksaksi_id')->references('id')->on('traksaksis')->onDelete('cascade');
+            $table->foreign('transaksi_id')->references('id')->on('transaksis')->onDelete('cascade');
             $table->foreign('akun_keuangan_id')->references('id')->on('akun_keuangans')->onDelete('cascade');
             $table->timestamps();
         });

@@ -28,7 +28,7 @@ class UserController extends Controller
 
             $data = DataTables::of($users)
                 ->addColumn('bidang_name', function ($user) {
-                    return $user->bidang->name ?? '-';  
+                    return $user->bidang->name ?? '-';
                 })
                 ->addColumn('status', function ($user) {
                     $lastActivity = $user->last_activity_at;
@@ -92,7 +92,7 @@ class UserController extends Controller
             'nomor' => 'required|unique:users,nomor',
             'pin' => 'required|string|min:6',  // Sesuaikan dengan panjang PIN yang Anda tentukan
             'role' => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
-            'bidang_name' => 'nullable|string',  // Kolom bidang_name hanya diperlukan jika role adalah "Bidang"
+            'bidang_name' => 'nullable|exists:bidangs,id',  // Kolom bidang_name hanya diperlukan jika role adalah "Bidang"
         ]);
 
         // Menentukan data yang akan disimpan

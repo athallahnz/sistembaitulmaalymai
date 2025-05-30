@@ -314,12 +314,15 @@ class LaporanKeuanganController extends Controller
             3039,
             30310,
             30311,
-            30312
+            30312,
+            30313,
+            30314,
+            30315
         ])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043])
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
             ->where('bidang_name', $bidangName)
             ->sum('amount');
         $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
@@ -333,6 +336,9 @@ class LaporanKeuanganController extends Controller
             ->sum('amount');
         $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
             ->where('bidang_name', $bidangName)
+            ->sum('amount');
+        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
+            ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
         return view('laporan.neraca_saldo', compact(
@@ -351,7 +357,8 @@ class LaporanKeuanganController extends Controller
             'jumlahBiayaPemeliharaan',
             'jumlahBiayaSosial',
             'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam'
+            'jumlahBiayaSeragam',
+            'jumlahBiayaPeningkatanSDM'
         ));
     }
 
@@ -417,7 +424,7 @@ class LaporanKeuanganController extends Controller
         $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
 
         // Ambil saldo untuk Beban Gaji
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024])
+        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
             ->sum('amount');
 
         $jumlahHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
@@ -438,11 +445,14 @@ class LaporanKeuanganController extends Controller
             3039,
             30310,
             30311,
-            30312
+            30312,
+            30313,
+            30314,
+            30315
         ])->sum('amount');
 
         // Ambil saldo untuk Biaya Kegiatan
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042])
+        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
             ->sum('amount');
 
         $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
@@ -452,6 +462,8 @@ class LaporanKeuanganController extends Controller
         $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
             ->sum('amount');
         $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
+            ->sum('amount');
+        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
             ->sum('amount');
 
         return view('laporan.neraca_saldo', compact(
@@ -470,7 +482,8 @@ class LaporanKeuanganController extends Controller
             'jumlahBiayaPemeliharaan',
             'jumlahBiayaSosial',
             'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam'
+            'jumlahBiayaSeragam',
+            'jumlahBiayaPeningkatanSDM'
         ));
     }
 

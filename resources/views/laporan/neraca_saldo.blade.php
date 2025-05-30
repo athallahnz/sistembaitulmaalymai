@@ -153,17 +153,23 @@
                                 <td>Rp{{ number_format($jumlahBiayaSeragam, 2, ',', '.') }}</td>
                                 <td>-</td>
                             </tr>
+                            <tr>
+                                <td>309</td>
+                                <td>Biaya Peningkatan SDM</td>
+                                <td>Rp{{ number_format($jumlahBiayaPeningkatanSDM, 2, ',', '.') }}</td>
+                                <td>-</td>
+                            </tr>
                         </tbody>
                         <tfoot class="table-light">
                             <tr class="fw-bold">
                                 <td colspan="2" class="text-center">Total</td>
                                 @if (Auth::user()->hasRole('Bidang'))
                                     <td>Rp
-                                        {{ number_format($saldoKas + $saldoBank + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra, 2, ',', '.') }}
+                                        {{ number_format($saldoKas + $saldoBank + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra + $jumlahBiayaPeningkatanSDM, 2, ',', '.') }}
                                     </td>
                                 @elseif(Auth::user()->hasRole('Bendahara'))
                                     <td>Rp
-                                        {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra, 2, ',', '.') }}
+                                        {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra + $jumlahBiayaPeningkatanSDM, 2, ',', '.') }}
                                     </td>
                                 @endif
                                 <td>Rp

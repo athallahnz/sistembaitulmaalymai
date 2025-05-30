@@ -10,15 +10,15 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::table('transaksis', function (Blueprint $table) {
-            $table->string('bidang_name')->nullable();  // Menambahkan kolom bidang_name
+        Schema::table('pendapatan_belum_diterima', function (Blueprint $table) {
+            $table->string('bidang_name')->nullable()->after('user_id');
         });
     }
 
     public function down()
     {
-        Schema::table('transaksis', function (Blueprint $table) {
-            $table->dropColumn('bidang_name');  // Menghapus kolom jika migrasi dibatalkan
+        Schema::table('pendapatan_belum_diterima', function (Blueprint $table) {
+            $table->dropColumn('bidang_name');
         });
     }
 

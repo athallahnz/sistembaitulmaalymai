@@ -1,6 +1,41 @@
 @extends('layouts.app')
 @section('title', 'Catatan Buku Harian')
 @section('content')
+    <style>
+        .btn-outline-success,
+        .btn-outline-danger {
+            transition: all 0.2s ease-in-out;
+        }
+
+        #penerimaan:not(:checked)+.btn-outline-success:hover {
+            background-color: #198754;
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.3rem rgba(25, 135, 84, 0.4);
+        }
+
+        #pengeluaran:not(:checked)+.btn-outline-danger:hover {
+            background-color: #dc3545;
+            color: #fff;
+            border-color: #dc3545;
+            box-shadow: 0 0 0.3rem rgba(220, 53, 69, 0.4);
+        }
+
+        #penerimaan:checked+.btn-outline-success {
+            background-color: #198754;
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.4rem rgba(25, 135, 84, 0.5);
+        }
+
+        #pengeluaran:checked+.btn-outline-danger {
+            background-color: #dc3545;
+            color: #fff;
+            border-color: #dc3545;
+            box-shadow: 0 0 0.4rem rgba(220, 53, 69, 0.5);
+        }
+    </style>
+
     <div class="container">
         <h1 class="mb-4">
             @if (auth()->user()->hasRole('Bidang'))
@@ -37,11 +72,13 @@
                             @csrf
                             <div class="mb-3 d-none">
                                 <label class="mb-2">Bidang</label>
-                                @if(auth()->user()->role === 'Bendahara')
-                                    <input type="text" name="bidang_name" class="form-control" value="Tidak Ada" readonly>
+                                @if (auth()->user()->role === 'Bendahara')
+                                    <input type="text" name="bidang_name" class="form-control" value="Tidak Ada"
+                                        readonly>
                                     <small class="form-text text-muted">Role Bendahara tidak memiliki bidang.</small>
                                 @else
-                                    <input type="text" name="bidang_name" class="form-control" value="{{ auth()->user()->bidang_name }}" readonly>
+                                    <input type="text" name="bidang_name" class="form-control"
+                                        value="{{ auth()->user()->bidang_name }}" readonly>
                                 @endif
                             </div>
 
@@ -58,10 +95,15 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Tipe Transaksi</label>
-                                <select name="type" class="form-control" id="type-select" required>
-                                    <option value="penerimaan">Penerimaan</option>
-                                    <option value="pengeluaran">Pengeluaran</option>
-                                </select>
+                                <div class="d-flex gap-2" id="transaction-type-buttons">
+                                    <input type="radio" class="btn-check" name="type" id="penerimaan"
+                                        value="penerimaan" autocomplete="off" required>
+                                    <label class="btn btn-outline-success" for="penerimaan">Penerimaan</label>
+
+                                    <input type="radio" class="btn-check" name="type" id="pengeluaran"
+                                        value="pengeluaran" autocomplete="off" required>
+                                    <label class="btn btn-outline-danger" for="pengeluaran">Pengeluaran</label>
+                                </div>
                             </div>
 
                             <div class="mb-3">
@@ -90,7 +132,8 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
-                                <input type="text" id="formattedAmount" class="form-control" oninput="formatInput(this)">
+                                <input type="text" id="formattedAmount" class="form-control"
+                                    oninput="formatInput(this)">
                                 <input type="number" name="amount" id="amount" class="form-control d-none">
                                 <small class="form-text text-muted" id="saldo-akun">
                                     Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.' ?? 0) }}

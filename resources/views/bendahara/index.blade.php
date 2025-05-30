@@ -3,10 +3,102 @@
 @section('content')
     <div class="container">
         <h1 class="mb-4">Selamat Datang, <strong>{{ auth()->user()->role }} Yayasan!</strong></h1>
+        {{-- <h3 class="mb-4 d-flex">
+            <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganbendahara" role="button"
+                aria-expanded="true" aria-controls="dataKeuanganbendahara"> Dashboard Keuangan
+                <strong>{{ auth()->user()->role }}!</strong>
+                <i class="bi bi-chevron-down ms-2 chevron"></i>
+            </a>
+        </h3>
+        <div class="collapse show" id="dataKeuanganbendahara">
+            <h4 class="mb-4">Nilai Asset, {{ auth()->user()->role }}!</h4>
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-cash-coin"></div>
+                        <h5>Nilai Kekayaan</h5>
+                        <div class="">
+                            Rp <span class="hidden-value" style="display: none;">***</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
+                        <div class="description">untuk {{ auth()->user()->role }}!</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-credit-card"></div>
+                        <h5>Transaksi</h5>
+                        <div class="value">{{ $jumlahTransaksi }}</div>
+                        <div class="description">Jumlah Transaksi bulan ini</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-cash"></div>
+                        <h5>Saldo Kas</h5>
+                        <div class="">
+                            Rp <span class="hidden-value" style="display: none;">***</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
+                        <div class="description">Total s/d Bulan ini</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-bank"></div>
+                        <h5>Saldo Bank</h5>
+                        <div class="">
+                            Rp <span class="hidden-value" style="display: none;">***</span>
+                            <span class="masked-value">***</span>
+                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                onclick="toggleVisibility(this)"></i>
+                        </div>
+                        <div class="description">Total s/d Bulan ini</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-building"></div>
+                        <h5>Tanah Bangunan</h5>
+                        <div class="">
+                            ***</div>
+                        <div class="description">Total Nilai Asset</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card">
+                        <div class="icon bi bi-truck"></div>
+                        <h5>Inventaris</h5>
+                        <div class="">
+                            ***</div>
+                        <div class="description">Total Nilai Inventaris</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-wallet"></div>
+                            <h5>Piutang</h5>
+                            <div class="">
+                                Rp <span class="hidden-value" style="display: none;">***</span>
+                                <span class="masked-value">***</span>
+                                <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
+                                    onclick="toggleVisibility(this)"></i>
+                            </div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div> --}}
         <h3 class="mb-4 d-flex">
             <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuangan" role="button"
                 aria-expanded="true" aria-controls="dataKeuangan">
-                Dashboard Keuangan <strong>{{ auth()->user()->role }} Yayasan!</strong>
+                Dashboard Keuangan <strong>Yayasan!</strong>
                 <i class="bi bi-chevron-down ms-2 chevron"></i>
             </a>
         </h3>
@@ -17,11 +109,7 @@
                         <div class="icon bi bi-gem"></div>
                         <h5 class="w-50">Total Nilai Kekayaan Yayasan</h5>
                         <h3 class="value {{ $totalKeuanganSemuaBidang >= 0 ? 'positive' : 'negative' }}">
-                            Rp <span class="hidden-value"
-                                style="display: none;">{{ number_format($totalKeuanganSemuaBidang, 0, ',', '.') }}</span>
-                            <span class="masked-value">***</span>
-                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                onclick="toggleVisibility(this)"></i>
+                            Rp {{ number_format($totalKeuanganSemuaBidang, 0, ',', '.') }}
                         </h3>
                     </div>
                 </div>
@@ -30,11 +118,7 @@
                         <div class="icon bi bi-cash-coin"></div>
                         <h5 class="w-50">Total Saldo Kas Seluruh Bidang</h5>
                         <h3 class="value {{ $saldoKasTotal >= 0 ? 'positive' : 'negative' }}">
-                            Rp <span class="hidden-value"
-                                style="display: none;">{{ number_format($saldoKasTotal, 0, ',', '.') }}</span>
-                            <span class="masked-value">***</span>
-                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                onclick="toggleVisibility(this)"></i>
+                            Rp {{ number_format($saldoKasTotal, 0, ',', '.') }}
                         </h3>
                     </div>
                 </div>
@@ -43,18 +127,14 @@
                         <div class="icon bi bi-bank"></div>
                         <h5 class="w-50">Total Saldo Bank Seluruh Bidang</h5>
                         <h3 class="value {{ $saldoBankTotal >= 0 ? 'positive' : 'negative' }}">
-                            Rp <span class="hidden-value"
-                                style="display: none;">{{ number_format($saldoBankTotal, 0, ',', '.') }}</span>
-                            <span class="masked-value">***</span>
-                            <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                onclick="toggleVisibility(this)"></i>
+                            Rp {{ number_format($saldoBankTotal, 0, ',', '.') }}
                         </h3>
                     </div>
                 </div>
             </div>
             <h4 class="mb-4 d-flex">
-                <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganSub1" role="button"
-                    aria-expanded="true" aria-controls="dataKeuanganSub1">
+                <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganSub1"
+                    role="button" aria-expanded="true" aria-controls="dataKeuanganSub1">
                     Nilai Asset, Yayasan!
                     <i class="bi bi-chevron-down ms-2 chevron"></i>
                 </a>
@@ -91,8 +171,8 @@
                 </div>
             </div>
             <h4 class="mb-4 d-flex">
-                <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganSub2" role="button"
-                    aria-expanded="true" aria-controls="dataKeuanganSub2">
+                <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganSub2"
+                    role="button" aria-expanded="true" aria-controls="dataKeuanganSub2">
                     Nilai Liability, Yayasan!
                     <i class="bi bi-chevron-down ms-2 chevron"></i>
                 </a>
@@ -220,6 +300,16 @@
                         </div>
                     </a>
                 </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 309]) }}" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-incognito"></div> {{-- Ikon untuk "Biaya Seragam" --}}
+                            <h5>Biaya Peningkatan SDM</h5>
+                            <div class="value negative">{{ number_format($jumlahBiayaPeningkatanSDM, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -243,8 +333,16 @@
                 icon.classList.add('bi-eye');
             }
         }
+
         document.addEventListener('DOMContentLoaded', () => {
-            // main section
+            // main section bendahara
+            const mainCollapse = document.getElementById('dataKeuanganbendahara');
+            const mainChevron = document.querySelector('h3 a[href="#dataKeuanganbendahara"] i.chevron');
+
+            mainCollapse.addEventListener('shown.bs.collapse', () => mainChevron.classList.add('rotated'));
+            mainCollapse.addEventListener('hidden.bs.collapse', () => mainChevron.classList.remove('rotated'));
+
+            // main section yayasan
             const mainCollapse = document.getElementById('dataKeuangan');
             const mainChevron = document.querySelector('h3 a i.chevron');
 

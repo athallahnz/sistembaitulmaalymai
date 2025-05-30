@@ -55,7 +55,7 @@
                                 <label for="bidang_name" class="mb-2">Bidang Name</label>
                                 <select class="form-control" id="bidang_name" name="bidang_name">
                                     @foreach ($bidangs as $bidang)
-                                        <option value="{{ $bidang->name }}">{{ $bidang->name }}</option>
+                                        <option value="{{ $bidang->id }}">{{ $bidang->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
