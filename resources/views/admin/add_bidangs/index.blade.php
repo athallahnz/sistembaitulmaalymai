@@ -36,15 +36,17 @@
                 </div>
             </div>
         </div>
-        <table class="table table-bordered yajra-datatable">
-            <thead>
-                <tr>
-                    <th>Nama</th>
-                    <th>Deskripsi</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-        </table>
+        <div class="p-3 shadow table-responsive rounded">
+            <table class="table table-bordered yajra-datatable">
+                <thead>
+                    <tr>
+                        <th>Nama</th>
+                        <th>Deskripsi</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
 
     </div>
 @endsection
@@ -55,14 +57,19 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
 
     <script>
-        $(document).ready(function () {
+        $(document).ready(function() {
             $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: "{{ route('add_bidangs.data') }}",
-                columns: [
-                    { data: 'name', name: 'name' },
-                    { data: 'description', name: 'description' },
+                columns: [{
+                        data: 'name',
+                        name: 'name'
+                    },
+                    {
+                        data: 'description',
+                        name: 'description'
+                    },
                     {
                         data: 'actions',
                         name: 'actions',
@@ -77,4 +84,3 @@
         });
     </script>
 @endpush
-

@@ -51,4 +51,14 @@ class AkunKeuangan extends Model
         return $this->saldo_normal === 'debit' ? $debit - $kredit : $kredit - $debit;
     }
 
+    public function studentCosts()
+    {
+        return $this->hasMany(StudentCost::class);
+    }
+    public function eduClasses()
+    {
+        return $this->belongsToMany(EduClass::class, 'edu_class_akun_keuangan');
+    }
+
+
 }

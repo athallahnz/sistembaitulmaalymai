@@ -228,7 +228,7 @@
                     <li class="sidebar-item {{ request()->routeIs('payment.form') ? 'active' : '' }}">
                         <a class="sidebar-link" href="{{ route('payment.form') }}">
                             <i class="align-middle" data-feather="credit-card"></i>
-                            <span class="align-middle">Pembayaran SPP</span>
+                            <span class="align-middle">Pembayaran</span>
                         </a>
                     </li>
                 @endif

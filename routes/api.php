@@ -1,5 +1,6 @@
 <?php
 
+use FontLib\Table\Type\name;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,7 +32,8 @@ Route::get('/student-by-rfid/{uid}', function($uid) {
     return response()->json([
         'id' => $student->id,
         'name' => $student->name,
-        'kelas' => $student->kelas,
+        'edu_class' => $student->edu_class ? $student->edu_class->name : null,
+        'tahun_ajaran' => $student->edu_class ? $student->edu_class->tahun_ajaran : null,
         'total_biaya' => $student->total_biaya,
         'sisa' => $sisa
     ]);
