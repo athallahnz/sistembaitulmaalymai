@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Pendidikan;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use App\Models\Student;
+use App\Models\WaliMurid;
 use App\Models\StudentCost;
 use App\Models\EduClass;
 use App\Models\AkunKeuangan;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -45,36 +48,115 @@ class StudentController extends Controller
     }
 
     // Simpan student baru
+
     public function store(Request $request)
     {
-        try {
-            $request->validate([
-                'name' => 'required|string|max:100',
-                'edu_class_id' => 'required|integer|exists:edu_classes,id',
-                'total_biaya' => 'required|numeric|min:10000',
-                'rfid_uid' => 'required|string|unique:students,rfid_uid',
-                'akun_keuangan_id.*' => 'required|exists:akun_keuangans,id',
-                'jumlah.*' => 'required|numeric|min:0',
+        $validator = Validator::make($request->all(), [
+            // Data murid
+            'name' => 'required|string',
+            'jenis_kelamin' => 'required|in:L,P',
+            'ttl' => 'nullable|date',
+            'usia' => 'nullable|string|max:100',
+            'nik' => 'nullable|string',
+            'no_akte' => 'nullable|string',
+            'no_kk' => 'nullable|string',
+            'alamat_kk' => 'nullable|string',
+            'alamat_tinggal' => 'nullable|string',
+            'pas_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'akte' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'kk' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'edu_class_id' => 'required|exists:edu_classes,id',
+            'rfid_uid' => 'required|unique:students,rfid_uid',
+            'total_biaya' => 'required|numeric',
+
+            // Data wali murid
+            'wali_nama' => 'required|string',
+            'wali_jenis_kelamin' => 'required|in:L,P',
+            'wali_hubungan' => 'required|in:Ayah,Ibu,Wali',
+            'wali_nik' => 'nullable|string',
+            'wali_no_hp' => 'nullable|string',
+            'wali_alamat' => 'nullable|string',
+            'wali_foto_ktp' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+
+            // Rincian biaya
+            'akun_keuangan_id' => 'required|array|min:1',
+            'akun_keuangan_id.*' => 'required|distinct|exists:akun_keuangans,id',
+            'jumlah' => 'required|array|min:1',
+            'jumlah.*' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            \Log::warning('Validasi gagal saat menyimpan siswa', [
+                'errors' => $validator->errors()->all(),
             ]);
 
-            DB::beginTransaction();
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+
+        if (count($request->akun_keuangan_id) !== count($request->jumlah)) {
+            return redirect()->back()->with('error', 'Data akun keuangan dan jumlah tidak seimbang.')->withInput();
+        }
+
+        // dd($request->all());
+
+        DB::beginTransaction();
+
+        try {
+            // Upload file wali murid
+            $fotoKtp = $request->file('wali_foto_ktp')
+                ? $request->file('wali_foto_ktp')->store('wali_ktp')
+                : null;
+
+            // Simpan wali murid
+            $wali = WaliMurid::create([
+                'nama' => $request->wali_nama,
+                'jenis_kelamin' => $request->wali_jenis_kelamin,
+                'hubungan' => $request->wali_hubungan,
+                'nik' => $request->wali_nik,
+                'no_hp' => $request->wali_no_hp,
+                'alamat' => $request->wali_alamat,
+                'foto_ktp' => $fotoKtp,
+            ]);
+
+            $ttl = null;
+            if ($request->ttl) {
+                $ttl = \Carbon\Carbon::createFromFormat('d/m/Y', $request->ttl)->format('Y-m-d');
+            }
+
+            // Upload dokumen murid
+            $pasPhoto = $request->file('pas_photo')
+                ? $request->file('pas_photo')->store('students/photo')
+                : null;
+            $akte = $request->file('akte')
+                ? $request->file('akte')->store('students/akte')
+                : null;
+            $kk = $request->file('kk')
+                ? $request->file('kk')->store('students/kk')
+                : null;
 
             // Simpan siswa
-            $student = Student::create($request->only(['name', 'edu_class_id', 'total_biaya', 'rfid_uid']));
-
+            $student = Student::create([
+                'name' => $request->name,
+                'jenis_kelamin' => $request->jenis_kelamin,
+                'ttl' => $ttl,
+                'usia' => $request->usia,
+                'nik' => $request->nik,
+                'no_akte' => $request->no_akte,
+                'no_kk' => $request->no_kk,
+                'alamat_kk' => $request->alamat_kk,
+                'alamat_tinggal' => $request->alamat_tinggal,
+                'edu_class_id' => $request->edu_class_id,
+                'rfid_uid' => $request->rfid_uid,
+                'total_biaya' => $request->total_biaya,
+                'wali_murid_id' => $wali->id,
+                'pas_photo' => $pasPhoto,
+                'akte' => $akte,
+                'kk' => $kk,
+            ]);
 
             // Simpan rincian biaya
-            if (!$request->has('akun_keuangan_id') || !$request->has('jumlah')) {
-                throw new \Exception('Data akun keuangan atau jumlah tidak ditemukan.');
-            }
-
-            if (count($request->akun_keuangan_id) !== count($request->jumlah)) {
-                throw new \Exception('Data akun keuangan dan jumlah tidak seimbang');
-            }
-
             $pairs = array_combine($request->akun_keuangan_id, $request->jumlah);
-
-
 
             foreach ($pairs as $akunId => $jumlah) {
                 StudentCost::create([
@@ -85,25 +167,21 @@ class StudentController extends Controller
             }
 
             DB::commit();
+            return redirect()->route('students.index')->with('success', 'Data murid dan rincian biaya berhasil disimpan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
 
-            return redirect()->route('students.index')->with('success', 'Murid berhasil didaftarkan beserta rincian biayanya.');
-        } catch (ValidationException $e) {
-            Log::error('Validasi gagal saat mendaftarkan siswa:', [
-                'errors' => $e->errors(),
-                'input' => $request->all()
+            // Tambahkan log error detail
+            \Log::error('Gagal menyimpan data siswa: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
             ]);
 
             return redirect()->back()
-            ->withErrors($e->validator)
-            ->withInput();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::info('Valid akun_keuangan_id', $request->akun_keuangan_id);
-            Log::info('Valid jumlah', $request->jumlah);
-            Log::error('Gagal menyimpan data siswa:', ['message' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan data.');
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
         }
     }
+
 
     public function getData(Request $request)
     {

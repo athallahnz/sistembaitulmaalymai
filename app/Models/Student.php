@@ -7,7 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
 {
-    protected $fillable = ['name', 'edu_class_id', 'total_biaya', 'rfid_uid'];
+    protected $fillable = [
+        'name',
+        'jenis_kelamin',
+        'ttl',
+        'usia',
+        'nik',
+        'no_akte',
+        'no_kk',
+        'alamat_kk',
+        'alamat_tinggal',
+        'pas_photo',
+        'akte',
+        'kk',
+        'wali_murid_id',
+        'edu_class_id',
+        'rfid_uid',
+        'total_biaya',
+    ];
+
 
     public function payments()
     {
@@ -25,6 +43,12 @@ class Student extends Model
     {
         return $this->hasMany(StudentCost::class);
     }
+
+    public function waliMurid()
+    {
+        return $this->belongsTo(WaliMurid::class);
+    }
+
 
 }
 

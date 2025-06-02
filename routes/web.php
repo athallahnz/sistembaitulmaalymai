@@ -153,7 +153,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::post('/students/{student}/costs', [StudentCostController::class, 'store'])->name('student_costs.store');
     Route::get('/kelas/{id}/akun-keuangan', [StudentController::class, 'getAkunKeuanganByClass']);
 
-
+    Route::resource('wali-murids', \App\Http\Controller\Pendidikan\WaliMuridController::class)->only(['index', 'show']);
 });
 
 // Route untuk home setelah login
