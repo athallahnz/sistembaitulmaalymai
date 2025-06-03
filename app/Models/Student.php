@@ -10,6 +10,7 @@ class Student extends Model
     protected $fillable = [
         'name',
         'jenis_kelamin',
+        'tempat_lahir',
         'ttl',
         'usia',
         'nik',

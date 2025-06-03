@@ -15,6 +15,9 @@ class WaliMurid extends Model
         'jenis_kelamin',
         'hubungan',
         'no_hp',
+        'email',
+        'pendidikan_terakhir',
+        'pekerjaan',
         'alamat',
         'foto_ktp',
     ];
