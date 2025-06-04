@@ -24,7 +24,7 @@ class StudentController extends Controller
     // Tampilkan daftar student (dashboard)
     public function index()
     {
-        $students = Student::orderBy('name')->paginate(10);
+        $students = Student::orderBy('name');
         $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
         $akunKeuangans = AkunKeuangan::where('parent_id', 202)->get();
         return view('bidang.pendidikan.student_index', compact('students', 'eduClasses', 'akunKeuangans'));
@@ -51,6 +51,9 @@ class StudentController extends Controller
     {
         $messages = [
             // Data murid
+            'no_induk.required' => 'No. Induk wajib diisi.',
+            'no_induk.string' => 'No. Induk harus berupa teks.',
+
             'name.required' => 'Nama murid wajib diisi.',
             'name.string' => 'Nama murid harus berupa teks.',
 
@@ -132,8 +135,23 @@ class StudentController extends Controller
             'jumlah.*.min' => 'Jumlah nominal tidak boleh negatif.',
         ];
 
+        if ($request->filled('ttl')) {
+            try {
+                // Konversi dari d/m/Y ke Y-m-d agar lolos validasi 'date'
+                $request->merge([
+                    'ttl' => \Carbon\Carbon::createFromFormat('d/m/Y', $request->ttl)->format('Y-m-d'),
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Format TTL tidak valid: ' . $request->ttl);
+                return redirect()->back()
+                    ->withErrors(['ttl' => 'Format tanggal lahir tidak valid. Gunakan format dd/mm/yyyy.'])
+                    ->withInput();
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             // Data murid
+            'no_induk' => 'required|string|unique:students,no_induk',
             'name' => 'required|string',
             'jenis_kelamin' => 'required|in:L,P',
             'tempat_lahir' => 'required|string',
@@ -190,7 +208,7 @@ class StudentController extends Controller
         try {
             // Upload file wali murid
             $fotoKtp = $request->file('wali_foto_ktp')
-                ? $request->file('wali_foto_ktp')->store('wali_ktp')
+                ? $request->file('wali_foto_ktp')->store('wali_ktp', 'public')
                 : null;
 
             // Simpan wali murid
@@ -200,32 +218,31 @@ class StudentController extends Controller
                 'hubungan' => $request->wali_hubungan,
                 'nik' => $request->wali_nik,
                 'no_hp' => $request->wali_no_hp,
+                'email' => $request->wali_email,
+                'pendidikan_terakhir' => $request->wali_pendidikan_terakhir,
+                'pekerjaan' => $request->wali_pekerjaan,
                 'alamat' => $request->wali_alamat,
                 'foto_ktp' => $fotoKtp,
             ]);
 
-            $ttl = null;
-            if ($request->ttl) {
-                $ttl = \Carbon\Carbon::createFromFormat('d/m/Y', $request->ttl)->format('Y-m-d');
-            }
-
             // Upload dokumen murid
             $pasPhoto = $request->file('pas_photo')
-                ? $request->file('pas_photo')->store('public/students/photo')
+                ? $request->file('pas_photo')->store('students/photo', 'public')
                 : null;
             $akte = $request->file('akte')
-                ? $request->file('akte')->store('public/students/akte')
+                ? $request->file('akte')->store('students/akte', 'public')
                 : null;
             $kk = $request->file('kk')
-                ? $request->file('kk')->store('public/students/kk')
+                ? $request->file('kk')->store('students/kk', 'public')
                 : null;
 
             // Simpan siswa
             $student = Student::create([
+                'no_induk' => $request->no_induk,
                 'name' => $request->name,
                 'jenis_kelamin' => $request->jenis_kelamin,
                 'tempat_lahir' => $request->tempat_lahir,
-                'ttl' => $ttl,
+                'ttl' => $request->ttl,
                 'usia' => $request->usia,
                 'nik' => $request->nik,
                 'no_akte' => $request->no_akte,
@@ -309,30 +326,140 @@ class StudentController extends Controller
     {
         $student = Student::findOrFail($id);
         $students = Student::with('waliMurid')->find($id);
-        return view('bidang.pendidikan.student_show', compact('student','students'));
+        return view('bidang.pendidikan.student_show', compact('student', 'students'));
     }
 
     // Form edit student
     public function edit(Student $student)
     {
         $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
-        return view('bidang.pendidikan.student_edit', compact('student', 'eduClasses'));
+        $class = EduClass::findOrFail($student->edu_class_id); // sesuaikan relasi
+        $akunKeuangans = $class->akunKeuangans;
+        $studentCosts = DB::table('student_costs')
+            ->join('akun_keuangans', 'student_costs.akun_keuangan_id', '=', 'akun_keuangans.id')
+            ->where('student_costs.student_id', $student->id)
+            ->select('akun_keuangans.nama_akun as nama_akun', 'student_costs.jumlah')
+            ->get();
+        return view('bidang.pendidikan.student_edit', compact('student', 'eduClasses', 'akunKeuangans', 'class', 'studentCosts'));
     }
 
+
     // Update data student
-    public function update(Request $request, Student $student)
+    public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required|string|max:100',
-            'edu_class_id' => 'required|string|max:50',
-            'total_biaya' => 'required|numeric|min:10000',
-            // Kalau rfid_uid diganti, cek unique kecuali id current
-            'rfid_uid' => 'required|string|unique:students,rfid_uid,' . $student->id,
+        if ($request->filled('ttl')) {
+            try {
+                // Konversi dari d/m/Y ke Y-m-d agar lolos validasi 'date'
+                $request->merge([
+                    'ttl' => \Carbon\Carbon::createFromFormat('d/m/Y', $request->ttl)->format('Y-m-d'),
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Format TTL tidak valid: ' . $request->ttl);
+                return redirect()->back()
+                    ->withErrors(['ttl' => 'Format tanggal lahir tidak valid. Gunakan format dd/mm/yyyy.'])
+                    ->withInput();
+            }
+        }
+        $student = Student::findOrFail($id);
+
+        // Validasi input
+        $validated = $request->validate([
+            'rfid_uid' => 'nullable|string|max:255',
+            'jenis_kelamin' => 'required|in:L,P',
+            'tempat_lahir' => 'nullable|string|max:255',
+            'ttl' => 'nullable|date',
+            'usia' => 'required|string|max:100',
+            'nik' => 'nullable|string|max:255',
+            'no_akte' => 'nullable|string|max:255',
+            'no_kk' => 'nullable|string|max:255',
+            'alamat_kk' => 'nullable|string',
+            'alamat_tinggal' => 'nullable|string',
+            'pas_photo' => 'nullable|image|max:2048',
+            'akte' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'kk' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'wali_nama' => 'nullable|string|max:255',
+            'wali_jenis_kelamin' => 'nullable|in:L,P',
+            'wali_hubungan' => 'required|in:Ayah,Ibu,Wali',
+            'wali_nik' => 'nullable|string',
+            'wali_no_hp' => 'required|string',
+            'wali_email' => 'required|email|unique:wali_murids,email,' . ($student->wali_murid_id ?? 'null') . ',id',
+            'wali_pendidikan_terakhir' => 'nullable|string',
+            'wali_pekerjaan' => 'nullable|string',
+            'wali_alamat' => 'nullable|string',
+            'wali_foto_ktp' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $student->update($request->only(['name', 'edu_class_id', 'total_biaya', 'rfid_uid']));
+        // Update data student
+        $student->update([
+            'rfid_uid' => $validated['rfid_uid'],
+            'jenis_kelamin' => $validated['jenis_kelamin'],
+            'tempat_lahir' => $validated['tempat_lahir'],
+            'ttl' => $validated['ttl'],
+            'usia' => $validated['usia'],
+            'nik' => $validated['nik'],
+            'no_akte' => $validated['no_akte'],
+            'no_kk' => $validated['no_kk'],
+            'alamat_kk' => $validated['alamat_kk'],
+            'alamat_tinggal' => $validated['alamat_tinggal'],
+        ]);
 
-        return redirect()->route('students.index')->with('success', 'Data siswa berhasil diperbarui.');
+        // Upload dokumen
+        if ($request->hasFile('pas_photo')) {
+            if ($student->pas_photo) {
+                Storage::delete($student->pas_photo);
+            }
+            $student->pas_photo = $request->file('pas_photo')->store('pas_photo');
+        }
+
+        if ($request->hasFile('akte')) {
+            if ($student->akte) {
+                Storage::delete($student->akte);
+            }
+            $student->akte = $request->file('akte')->store('dokumen_akte');
+        }
+
+        if ($request->hasFile('kk')) {
+            if ($student->kk) {
+                Storage::delete($student->kk);
+            }
+            $student->kk = $request->file('kk')->store('dokumen_kk');
+        }
+
+        // Update or create wali murid
+        $waliMurid = WaliMurid::updateOrCreate(
+            ['id' => $student->wali_murid_id],
+            [
+                'nama' => $validated['wali_nama'],
+                'jenis_kelamin' => $validated['wali_jenis_kelamin'],
+                'hubungan' => $validated['wali_hubungan'],
+                'nik' => $validated['wali_nik'] ?? null,
+                'no_hp' => $validated['wali_no_hp'],
+                'email' => $validated['wali_email'],
+                'pendidikan_terakhir' => $validated['wali_pendidikan_terakhir'] ?? null,
+                'pekerjaan' => $validated['wali_pekerjaan'] ?? null,
+                'alamat' => $validated['wali_alamat'] ?? null,
+            ]
+        );
+        if ($request->hasFile('wali_foto_ktp')) {
+            // Hapus file lama jika ada
+            if ($waliMurid->foto_ktp && Storage::disk('public')->exists($waliMurid->foto_ktp)) {
+                Storage::disk('public')->delete($waliMurid->foto_ktp);
+            }
+
+            // Simpan file baru
+            $file = $request->file('wali_foto_ktp');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $path = $file->storeAs('wali_ktp', $filename, 'public');
+            $waliMurid->foto_ktp = $path;
+            $waliMurid->save();
+        }
+
+
+        // Update foreign key di tabel students
+        $student->wali_murid_id = $waliMurid->id;
+        $student->save();
+
+        return redirect()->route('students.index')->with('success', 'Data siswa berhasil diperbarui!');
     }
 
     // Hapus student

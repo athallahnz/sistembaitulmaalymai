@@ -43,21 +43,33 @@
                                 <div class="col-md-4">
                                     <h4 class="mb-3">Data Diri Murid</h4>
 
-                                    <div class="mb-3">
-                                        <label>Kelas</label>
-                                        <select name="edu_class_id" class="form-select" required>
-                                            <option value="">Pilih Kelas</option>
-                                            @foreach ($eduClasses as $class)
-                                                <option value="{{ $class->id }}" {{ old('edu_class_id') == $class->id ? 'selected' : '' }}>{{ $class->name }} -
-                                                    {{ $class->tahun_ajaran }}</option>
-                                            @endforeach
-                                        </select>
+                                    <div class="row mb-3">
+                                        <div class="col-md-8">
+                                            <label>Kelas</label>
+                                            <select name="edu_class_id" class="form-select" required>
+                                                <option value="">Pilih Kelas</option>
+                                                @foreach ($eduClasses as $class)
+                                                    <option value="{{ $class->id }}"
+                                                        {{ old('edu_class_id') == $class->id ? 'selected' : '' }}>
+                                                        {{ $class->name }} -
+                                                        {{ $class->tahun_ajaran }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label>No. Induk</label>
+                                            <input type="text" name="no_induk" class="form-control"
+                                                value="{{ old('no_induk') }}" placeholder="Ex: 001">
+                                            @error('no_induk')
+                                                <div class="text-danger mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
 
                                     <div class="mb-3">
                                         <label>Nama Lengkap</label>
-                                        <input type="text" name="name" class="form-control" value="{{ old('name') }}"
-                                            placeholder="Masukkan Nama Murid.." required>
+                                        <input type="text" name="name" class="form-control"
+                                            value="{{ old('name') }}" placeholder="Masukkan Nama Murid.." required>
                                         @error('name')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -66,22 +78,26 @@
                                     <div class="mb-3">
                                         <label>Jenis Kelamin</label>
                                         <select name="jenis_kelamin" class="form-select" required>
-                                            <option value="L" {{ old('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
-                                            <option value="P" {{ old('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
+                                            <option value="L" {{ old('jenis_kelamin') == 'L' ? 'selected' : '' }}>
+                                                Laki-laki</option>
+                                            <option value="P" {{ old('jenis_kelamin') == 'P' ? 'selected' : '' }}>
+                                                Perempuan</option>
                                         </select>
                                     </div>
 
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label>Tempat Lahir</label>
-                                            <input type="text" name="tempat_lahir" class="form-control" value="{{ old('tempat_lahir') }}" placeholder="Contoh: Surabaya">
+                                            <input type="text" name="tempat_lahir" class="form-control"
+                                                value="{{ old('tempat_lahir') }}" placeholder="Ex: Surabaya">
                                             @error('tempat_lahir')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
+                                                <div class="text-danger mt-1">{{ $message }}</div>
                                             @enderror
                                         </div>
                                         <div class="col-md-6">
                                             <label>Tanggal Lahir</label>
-                                            <input type="date" name="ttl" class="form-control" placeholder="dd/mm/yyyy" value="{{ old('ttl') }}">
+                                            <input type="text" name="ttl" class="form-control"
+                                                placeholder="dd/mm/yyyy" value="{{ old('ttl') }}" required>
                                         </div>
                                     </div>
 
@@ -169,8 +185,9 @@
 
                                     <div class="mb-3">
                                         <label>Nama</label>
-                                        <input type="text" name="wali_nama" class="form-control" value="{{ old('wali_nama') }}"
-                                            placeholder="Masukkan Nama Wali Murid.." required>
+                                        <input type="text" name="wali_nama" class="form-control"
+                                            value="{{ old('wali_nama') }}" placeholder="Masukkan Nama Wali Murid.."
+                                            required>
                                         @error('wali_nama')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -179,24 +196,31 @@
                                     <div class="mb-3">
                                         <label>Jenis Kelamin</label>
                                         <select name="wali_jenis_kelamin" class="form-select">
-                                            <option value="L" {{ old('wali_jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
-                                            <option value="P" {{ old('wali_jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
+                                            <option value="L"
+                                                {{ old('wali_jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki
+                                            </option>
+                                            <option value="P"
+                                                {{ old('wali_jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan
+                                            </option>
                                         </select>
                                     </div>
 
                                     <div class="mb-3">
                                         <label>Hubungan</label>
                                         <select name="wali_hubungan" class="form-select" required>
-                                            <option value="Ayah" {{ old('wali_hubungan') == 'Ayah' ? 'selected' : '' }}>Ayah</option>
-                                            <option value="Ibu" {{ old('wali_hubungan') == 'Ibu' ? 'selected' : '' }}>Ibu</option>
-                                            <option value="Wali" {{ old('wali_hubungan') == 'Wali' ? 'selected' : '' }}>Wali</option>
+                                            <option value="Ayah" {{ old('wali_hubungan') == 'Ayah' ? 'selected' : '' }}>
+                                                Ayah</option>
+                                            <option value="Ibu" {{ old('wali_hubungan') == 'Ibu' ? 'selected' : '' }}>
+                                                Ibu</option>
+                                            <option value="Wali" {{ old('wali_hubungan') == 'Wali' ? 'selected' : '' }}>
+                                                Wali</option>
                                         </select>
                                     </div>
 
                                     <div class="mb-3">
                                         <label>NIK</label>
-                                        <input type="text" name="wali_nik" class="form-control" value="{{ old('wali_nik') }}"
-                                            placeholder="Masukkan NIK Wali Murid..">
+                                        <input type="text" name="wali_nik" class="form-control"
+                                            value="{{ old('wali_nik') }}" placeholder="Masukkan NIK Wali Murid..">
                                         @error('wali_nik')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -204,8 +228,8 @@
 
                                     <div class="mb-3">
                                         <label>No. Handphone</label>
-                                        <input type="text" name="wali_no_hp" class="form-control" value="{{ old('wali_no_hp') }}"
-                                            placeholder="Masukkan No. Handphone..">
+                                        <input type="text" name="wali_no_hp" class="form-control"
+                                            value="{{ old('wali_no_hp') }}" placeholder="Masukkan No. Handphone..">
                                         @error('wali_no_hp')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -213,8 +237,8 @@
 
                                     <div class="mb-3">
                                         <label>E-Mail</label>
-                                        <input type="text" name="wali_email" class="form-control" value="{{ old('wali_email') }}"
-                                            placeholder="Masukkan E-Mail..">
+                                        <input type="text" name="wali_email" class="form-control"
+                                            value="{{ old('wali_email') }}" placeholder="Masukkan E-Mail..">
                                         @error('wali_email')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -222,7 +246,8 @@
 
                                     <div class="mb-3">
                                         <label>Pendidikan Terakhir</label>
-                                        <input type="text" name="wali_pendidikan_terakhir" class="form-control" value="{{ old('wali_pendidikan_terakhir') }}"
+                                        <input type="text" name="wali_pendidikan_terakhir" class="form-control"
+                                            value="{{ old('wali_pendidikan_terakhir') }}"
                                             placeholder="Masukkan Pendidikan Terakhir..">
                                         @error('wali_pendidikan_terakhir')
                                             <div class="text-danger mt-1">{{ $message }}</div>
@@ -231,8 +256,8 @@
 
                                     <div class="mb-3">
                                         <label>Pekerjaan</label>
-                                        <input type="text" name="wali_pekerjaan" class="form-control" value="{{ old('wali_pekerjaan') }}"
-                                            placeholder="Masukkan Pekerjaan..">
+                                        <input type="text" name="wali_pekerjaan" class="form-control"
+                                            value="{{ old('wali_pekerjaan') }}" placeholder="Masukkan Pekerjaan..">
                                         @error('wali_pekerjaan')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -331,7 +356,8 @@
                             <div class="mb-3">
                                 <label for="name" class="form-label">Nama Kelas:</label>
                                 <input type="text" class="form-control @error('name') is-invalid @enderror"
-                                    id="name" name="name" value="{{ old('name') }}" required>
+                                    id="name" name="name" value="{{ old('name') }}"
+                                    placeholder="Masukkan Nama Kelas.." required>
                                 @error('name')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -588,9 +614,10 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         flatpickr("input[name='ttl']", {
-            dateFormat: "d/m/Y",
+            dateFormat: "d/m/Y", // ini yang akan dikirim
             altInput: true,
             altFormat: "d/m/Y",
+            altInputClass: "form-control", // agar tetap pakai style Bootstrap
             onChange: function(selectedDates) {
                 if (selectedDates.length > 0) {
                     const birthDate = selectedDates[0];

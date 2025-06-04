@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Student extends Model
 {
     protected $fillable = [
+        'no_induk',
         'name',
         'jenis_kelamin',
         'tempat_lahir',
@@ -50,6 +52,20 @@ class Student extends Model
         return $this->belongsTo(WaliMurid::class);
     }
 
+    public function getTtlFormattedAttribute()
+    {
+        return Carbon::parse($this->ttl)->format('d/m/Y');
+    }
+
+    public function getUsiaAttribute()
+    {
+        $tanggalLahir = Carbon::parse($this->ttl);
+        $sekarang = Carbon::now();
+
+        $selisih = $tanggalLahir->diff($sekarang);
+
+        return $selisih->y . ' tahun, ' . $selisih->m . ' bulan, ' . $selisih->d . ' hari';
+    }
 
 }
 
