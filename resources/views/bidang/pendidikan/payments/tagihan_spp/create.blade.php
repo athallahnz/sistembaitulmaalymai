@@ -89,7 +89,7 @@
             </div>
         </div>
     </div> --}}
-    <h1>Input Tagihan SPP/Bulan</h1>
+    <h1 class="mb-4">Buat <strong>Tagihan SPP Murid/Bulan</strong></h1>
     <div class="container my-3">
     <div class="row">
         <!-- Form Input Tagihan -->

@@ -19,7 +19,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/student-by-rfid/{uid}', function($uid) {
+Route::get('/student-by-rfid/{uid}', function ($uid) {
     $student = App\Models\Student::where('rfid_uid', $uid)->first();
 
     if (!$student) {
@@ -38,3 +38,21 @@ Route::get('/student-by-rfid/{uid}', function($uid) {
         'sisa' => $sisa
     ]);
 });
+
+Route::get('/spp-tagihan-by-rfid/{uid}', function ($uid) {
+    $student = App\Models\Student::where('rfid_uid', $uid)->first();
+
+    if (!$student) {
+        return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
+    }
+
+    $tagihans = $student->tagihanSpps()->get();
+
+    return response()->json([
+        'student_id' => $student->id,
+        'student_name' => $student->name,
+        'tagihan_count' => $tagihans->count(),
+        'tagihan' => $tagihans
+    ]);
+});
+

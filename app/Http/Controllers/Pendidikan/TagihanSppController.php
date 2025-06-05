@@ -15,39 +15,51 @@ class TagihanSppController extends Controller
 
     public function dashboardTagihan(Request $request)
     {
-        $tahun = $request->tahun ?? date('Y');
-        $bulan = $request->bulan;
-        $kelasId = $request->kelas;
+        $tahun = $request->get('tahun', date('Y'));
+        $bulan = $request->get('bulan');
+        $kelasId = $request->get('kelas');
 
-        $students = Student::with('eduClass')
-            ->when($kelasId, fn($q) => $q->where('edu_class_id', $kelasId))
-            ->get();
-
-        $data = $students->map(function ($student) use ($tahun, $bulan) {
-            $tagihanQuery = $student->tagihanSpps()
-                ->where('tahun', $tahun);
-
-            if ($bulan) {
-                $tagihanQuery->where('bulan', $bulan);
-            }
-
-            $tagihan = $tagihanQuery->get();
-
-            $total_tagihan = $tagihan->sum('jumlah');
-            $total_bayar = $tagihan->where('status', 'lunas')->sum('jumlah');
-
-            return (object) [
-                'id' => $student->id,
-                'name' => $student->name,
-                'kelas' => $student->eduClass->name ?? '-',
-                'total_tagihan' => $total_tagihan,
-                'total_bayar' => $total_bayar,
-            ];
-        });
-
+        // Ambil data kelas untuk filter
         $kelasList = EduClass::all();
 
-        return view('bidang.pendidikan.payments.tagihan_spp.dashboard', compact('data', 'tahun', 'bulan', 'kelasId', 'kelasList'));
+        // Ambil semua siswa dengan relasi tagihan
+        $students = Student::with([
+            'eduClass',
+            'tagihanSpps' => function ($query) use ($tahun, $bulan) {
+                $query->where('tahun', $tahun);
+                if ($bulan) {
+                    $query->where('bulan', $bulan);
+                }
+            }
+        ]);
+
+        if ($kelasId) {
+            $students->where('edu_class_id', $kelasId);
+        }
+
+        $data = $students->get()->map(function ($s) {
+            $s->kelas = $s->eduClass->name ?? '-';
+            $s->total_tagihan = $s->tagihanSpps->sum('jumlah');
+            $s->total_bayar = $s->tagihanSpps->where('status', 'lunas')->sum('jumlah');
+            return $s;
+        });
+
+
+        // Data chart: total tagihan dan pembayaran
+        $chartLabels = $data->pluck('name');
+        $chartTagihan = $data->pluck('total_tagihan');
+        $chartPembayaran = $data->pluck('total_bayar');
+
+        return view('bidang.pendidikan.payments.tagihan_spp.dashboard', compact(
+            'tahun',
+            'bulan',
+            'kelasId',
+            'kelasList',
+            'data',
+            'chartLabels',
+            'chartTagihan',
+            'chartPembayaran'
+        ));
     }
 
     public function create()
@@ -83,6 +95,13 @@ class TagihanSppController extends Controller
         return redirect()->back()->with('success', 'Tagihan berhasil dibuat untuk semua siswa.');
     }
 
+    public function show($id)
+    {
+        $student = Student::with('eduClass', 'tagihanSpps')->findOrFail($id);
+
+        return view('bidang.pendidikan.payments.tagihan_spp.show', compact('student'));
+    }
+
     // Export Excel
     public function export(Request $request)
     {
@@ -98,5 +117,94 @@ class TagihanSppController extends Controller
             "tagihan_spp_{$request->bulan}_{$request->tahun}.xlsx"
         );
     }
+
+    // API endpoint untuk fetch tagihan berdasarkan RFID
+    public function getTagihanByRfid($uid)
+    {
+        $student = Student::where('rfid_uid', $uid)->first();
+
+        if (!$student) {
+            return response()->json(null, 404);
+        }
+
+        // Ambil total tagihan yang statusnya belum_lunas
+        $totalTagihan = $student->tagihanSpps()
+            ->where('status', 'belum_lunas')
+            ->sum('jumlah');
+
+        // Hitung sudah bayar, bisa dari tabel payments atau dari tagihan lunas (jika ada)
+        // Contoh jika ada relasi payments:
+        // $sudahBayar = $student->payments()->sum('jumlah');
+
+        // Jika belum ada tabel pembayaran terpisah, bisa hitung total tagihan lunas
+        $sudahBayar = $student->tagihanSpps()
+            ->where('status', 'lunas')
+            ->sum('jumlah');
+
+        $sisa = $totalTagihan - $sudahBayar;
+
+        // Jika sisa <= 0 artinya sudah lunas semua
+        if ($totalTagihan <= 0) {
+            return response()->json([
+                'message' => 'Semua tagihan sudah lunas',
+                'id' => $student->id,
+                'name' => $student->name,
+                'edu_class' => $student->edu_class ? $student->edu_class->name : null,
+                'tahun_ajaran' => $student->edu_class ? $student->edu_class->tahun_ajaran : null,
+                'total' => 0,
+                'sisa' => 0,
+            ], 200);
+        }
+
+        return response()->json([
+            'id' => $student->id,
+            'name' => $student->name,
+            'edu_class' => $student->edu_class ? $student->edu_class->name : null,
+            'tahun_ajaran' => $student->edu_class ? $student->edu_class->tahun_ajaran : null,
+            'total' => $totalTagihan,
+            'sisa' => $sisa > 0 ? $sisa : 0
+        ]);
+    }
+
+
+    // Form submission untuk bayar tagihan
+    public function bayar(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'jumlah' => 'required|numeric|min:1',
+        ]);
+
+        $student = Student::findOrFail($request->student_id);
+
+        // Ambil tagihan spp yang belum lunas, urut dari yang paling lama
+        $tagihan = $student->tagihanSpps()
+            ->where('status', 'belum_lunas')
+            ->orderBy('tahun')
+            ->orderBy('bulan')
+            ->first();
+
+        if (!$tagihan) {
+            return redirect()->back()->with('error', 'Tagihan tidak ditemukan.');
+        }
+
+        if ($request->jumlah < $tagihan->jumlah) {
+            return redirect()->back()->with('error', 'Jumlah bayar kurang dari tagihan.');
+        }
+
+        // Update status tagihan jadi lunas
+        $tagihan->update([
+            'status' => 'lunas',
+        ]);
+
+        // Catat pembayaran (optional, jika ada tabel payments)
+        // $student->payments()->create([
+        //     'jumlah' => $request->jumlah,
+        //     'tanggal_bayar' => now(),
+        // ]);
+
+        return redirect()->back()->with('success', 'Pembayaran berhasil!');
+    }
+
 
 }

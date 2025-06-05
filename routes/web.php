@@ -148,8 +148,10 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/pendidikan/tagihan-spp/create', [TagihanSppController::class, 'create'])->name('tagihan-spp.create');
     Route::post('/tagihan-spp/store', [TagihanSppController::class, 'store'])->name('tagihan-spp.store');
     Route::get('/tagihan-spp/export', [TagihanSppController::class, 'export'])->name('tagihan-spp.export');
+    Route::post('/tagihan-spp/bayar', [TagihanSppController::class, 'bayar'])->name('tagihan-spp.bayar');
+    Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
     Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
-
+    Route::get('/dashboard-tagihan/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
 
     //Student Route
     Route::get('students', [StudentController::class, 'index'])->name('students.index');

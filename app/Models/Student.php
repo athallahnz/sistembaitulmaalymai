@@ -75,7 +75,7 @@ class Student extends Model
     }
     public function tagihanSpps()
     {
-        return $this->hasMany(TagihanSpp::class);
+        return $this->hasMany(TagihanSpp::class,'student_id');
     }
 }
 
