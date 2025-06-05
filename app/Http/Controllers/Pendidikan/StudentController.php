@@ -211,19 +211,7 @@ class StudentController extends Controller
                 ? $request->file('wali_foto_ktp')->store('wali_ktp', 'public')
                 : null;
 
-            // Simpan wali murid
-            $wali = WaliMurid::create([
-                'nama' => $request->wali_nama,
-                'jenis_kelamin' => $request->wali_jenis_kelamin,
-                'hubungan' => $request->wali_hubungan,
-                'nik' => $request->wali_nik,
-                'no_hp' => $request->wali_no_hp,
-                'email' => $request->wali_email,
-                'pendidikan_terakhir' => $request->wali_pendidikan_terakhir,
-                'pekerjaan' => $request->wali_pekerjaan,
-                'alamat' => $request->wali_alamat,
-                'foto_ktp' => $fotoKtp,
-            ]);
+
 
             // Upload dokumen murid
             $pasPhoto = $request->file('pas_photo')
@@ -236,7 +224,7 @@ class StudentController extends Controller
                 ? $request->file('kk')->store('students/kk', 'public')
                 : null;
 
-            // Simpan siswa
+            // 1. Simpan siswa terlebih dahulu
             $student = Student::create([
                 'no_induk' => $request->no_induk,
                 'name' => $request->name,
@@ -252,10 +240,24 @@ class StudentController extends Controller
                 'edu_class_id' => $request->edu_class_id,
                 'rfid_uid' => $request->rfid_uid,
                 'total_biaya' => $request->total_biaya,
-                'wali_murid_id' => $wali->id,
                 'pas_photo' => $pasPhoto,
                 'akte' => $akte,
                 'kk' => $kk,
+            ]);
+
+            // 2. Simpan wali murid dan hubungkan dengan siswa yang baru dibuat
+            $wali = WaliMurid::create([
+                'nama' => $request->wali_nama,
+                'jenis_kelamin' => $request->wali_jenis_kelamin,
+                'hubungan' => $request->wali_hubungan,
+                'nik' => $request->wali_nik,
+                'no_hp' => $request->wali_no_hp,
+                'email' => $request->wali_email,
+                'pendidikan_terakhir' => $request->wali_pendidikan_terakhir,
+                'pekerjaan' => $request->wali_pekerjaan,
+                'alamat' => $request->wali_alamat,
+                'foto_ktp' => $fotoKtp,
+                'student_id' => $student->id,
             ]);
 
             // Simpan rincian biaya
@@ -324,9 +326,8 @@ class StudentController extends Controller
 
     public function show($id)
     {
-        $student = Student::findOrFail($id);
-        $students = Student::with('waliMurid')->find($id);
-        return view('bidang.pendidikan.student_show', compact('student', 'students'));
+        $student = Student::with('waliMurid')->findOrFail($id);
+        return view('bidang.pendidikan.student_show', compact('student'));
     }
 
     // Form edit student

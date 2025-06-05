@@ -2,7 +2,7 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-3">Edit Data Murid</h1>
+        <h1 class="mb-3">Form Edit Data Murid</h1>
 
         {{-- Flash Message --}}
         @if (session('success'))
@@ -15,13 +15,13 @@
             @method('PUT')
 
             {{-- Header --}}
-            <div class="row mb-4">
-                <div class="col-md-6 mb-3">
+            <div class="row mb-2">
+                <div class="col-md-6 mb-2">
                     <label for="no_induk">No Induk - Nama</label>
                     <h2>{{ old('no_induk', $student->no_induk) }} - {{ old('name', $student->name) }}</h2>
                 </div>
 
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-2">
                     <label for="edu_class_id">Kelas / Tahun Ajaran</label>
                     <h2>
                         {{ $class->name }} / {{ $class->tahun_ajaran }}

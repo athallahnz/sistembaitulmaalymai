@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class EduPayment extends Model {
-    protected $fillable = ['student_id', 'jumlah', 'tanggal'];
+class TagihanSpp extends Model
+{
+    protected $fillable = [
+        'student_id', 'tahun', 'bulan', 'jumlah', 'status', 'tanggal_aktif'
+    ];
 
     public function student()
     {

@@ -2,13 +2,13 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-4">Data Murid</h1>
+        <h1 class="mb-4">Dashboard Murid</h1>
 
         <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#studentModal">
             Tambah Siswa
         </button>
 
-        <button type="button" class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#eduClassModal">
+        <button type="button" class="btn btn-success mb-3 text-end" data-bs-toggle="modal" data-bs-target="#eduClassModal">
             Tambah Kelas
         </button>
 
@@ -112,8 +112,7 @@
 
                                     <div class="mb-3">
                                         <label>NIK</label>
-                                        <input type="text" name="nik" class="form-control"
-                                            placeholder="Masukkan NIK..">
+                                        <input type="text" name="nik" class="form-control" placeholder="Masukkan NIK.." value="{{ old('nik') }}">
                                         @error('nik')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -121,8 +120,7 @@
 
                                     <div class="mb-3">
                                         <label>No. Akta</label>
-                                        <input type="text" name="no_akte" class="form-control"
-                                            placeholder="Masukkan No. Akta..">
+                                        <input type="text" name="no_akte" class="form-control" placeholder="Masukkan No. Akta.." value="{{ old('no_akte') }}">
                                         @error('no_akte')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -130,8 +128,7 @@
 
                                     <div class="mb-3">
                                         <label>No. Kartu Keluarga</label>
-                                        <input type="text" name="no_kk" class="form-control"
-                                            placeholder="Masukkan No. Kartu Keluarga..">
+                                        <input type="text" name="no_kk" class="form-control" placeholder="Masukkan No. Kartu Keluarga.." value="{{ old('no_kk') }}">
                                         @error('no_kk')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -139,7 +136,7 @@
 
                                     <div class="mb-3">
                                         <label>Alamat KK (Utama)</label>
-                                        <textarea name="alamat_kk" id="alamat_kk" class="form-control" placeholder="Sesuaikan dengan Alamat KK...">{{ old('alamat') }}</textarea>
+                                        <textarea name="alamat_kk" id="alamat_kk" class="form-control" placeholder="Sesuaikan dengan Alamat KK...">{{ old('alamat_kk') }}</textarea>
                                     </div>
 
                                     <div class="form-check mb-3">
@@ -151,7 +148,7 @@
 
                                     <div class="mb-3">
                                         <label>Alamat Tinggal</label>
-                                        <textarea name="alamat_tinggal" id="alamat_tinggal" class="form-control"></textarea>
+                                        <textarea name="alamat_tinggal" id="alamat_tinggal" class="form-control">{{ old('alamat_tinggal') }}</textarea>
                                     </div>
 
                                     <div class="mb-3">
@@ -271,7 +268,8 @@
                                     </div>
                                     <div class="mb-3">
                                         <label>Alamat Wali</label>
-                                        <textarea name="wali_alamat" id="wali_alamat" class="form-control"></textarea>
+                                        <textarea name="wali_alamat" id="wali_alamat" class="form-control">{{ old('wali_alamat') }}</textarea>
+
                                     </div>
 
                                     <div class="mb-3">

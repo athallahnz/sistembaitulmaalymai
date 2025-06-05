@@ -34,14 +34,21 @@ class Student extends Model
     {
         return $this->hasMany(EduPayment::class);
     }
+    public function biaya()
+    {
+        return $this->hasMany(StudentCost::class);
+    }
+
     public function eduClass()
     {
         return $this->belongsTo(EduClass::class);
     }
+
     public function edu_class()
     {
         return $this->belongsTo(EduClass::class);
     }
+
     public function costs()
     {
         return $this->hasMany(StudentCost::class);
@@ -49,7 +56,7 @@ class Student extends Model
 
     public function waliMurid()
     {
-        return $this->belongsTo(WaliMurid::class);
+        return $this->hasOne(WaliMurid::class);
     }
 
     public function getTtlFormattedAttribute()
@@ -66,6 +73,9 @@ class Student extends Model
 
         return $selisih->y . ' tahun, ' . $selisih->m . ' bulan, ' . $selisih->d . ' hari';
     }
-
+    public function tagihanSpps()
+    {
+        return $this->hasMany(TagihanSpp::class);
+    }
 }
 

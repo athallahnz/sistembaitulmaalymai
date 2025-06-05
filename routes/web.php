@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\EduPayment;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Pendidikan\EduPaymentController;
 use App\Http\Controllers\Pendidikan\EduClassController;
 use App\Http\Controllers\Pendidikan\StudentController;
 use App\Http\Controllers\Pendidikan\StudentCostController;
+use App\Http\Controllers\Pendidikan\TagihanSppController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -134,10 +136,20 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/piutangs/{id}/pay', [PiutangController::class, 'showPayForm'])->name('piutangs.showPayForm');
     Route::post('/piutangs/{id}/pay', [PiutangController::class, 'storePayment'])->name('piutangs.storePayment');
 
-    Route::get('/payment/form', function () {
-        return view('bidang.pendidikan.form'); })->name('payment.form');
+    Route::get('/pendidikan/payment/form', function () {
+        return view('bidang.pendidikan.payments.form');
+    })->name('pendidikan.payment.form');
 
     Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
+    Route::get('/payment/history/{student_id}', [EduPaymentController::class, 'history'])->name('payment.history');
+    Route::get('/payments/data', [EduPaymentController::class, 'getData'])->name('payments.data');
+    Route::get('/payment-dashboard', [EduPaymentController::class, 'index'])->name('payment.dashboard');
+    Route::get('/payment-dashboard/{student}', [EduPaymentController::class, 'show'])->name('payment.show');
+    Route::get('/pendidikan/tagihan-spp/create', [TagihanSppController::class, 'create'])->name('tagihan-spp.create');
+    Route::post('/tagihan-spp/store', [TagihanSppController::class, 'store'])->name('tagihan-spp.store');
+    Route::get('/tagihan-spp/export', [TagihanSppController::class, 'export'])->name('tagihan-spp.export');
+    Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
+
 
     //Student Route
     Route::get('students', [StudentController::class, 'index'])->name('students.index');

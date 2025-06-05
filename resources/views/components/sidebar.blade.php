@@ -225,10 +225,31 @@
                             <span class="align-middle">Data Murid</span>
                         </a>
                     </li>
-                    <li class="sidebar-item {{ request()->routeIs('payment.form') ? 'active' : '' }}">
-                        <a class="sidebar-link" href="{{ route('payment.form') }}">
-                            <i class="align-middle" data-feather="credit-card"></i>
-                            <span class="align-middle">Pembayaran</span>
+                    <li class="sidebar-item">
+                        <a href="#dataPembayaran" data-bs-toggle="collapse" class="sidebar-link">
+                            <i class="align-middle" data-feather="clipboard"></i>
+                            <span class="align-middle">Data Pembayaran Murid</span>
+                        </a>
+                        <ul id="dataPembayaran"
+                            class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('payment.dashboard','tagihan-spp.dashboard') ? 'show' : '' }}">
+                            <li class="sidebar-item {{ request()->routeIs('payment.dashboard') ? 'active' : '' }}">
+                                <a class="sidebar-link" href="{{ route('payment.dashboard') }}">
+                                    <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                    <span class="align-middle">Pembayaran PMB</span>
+                                </a>
+                            </li>
+                            <li class="sidebar-item {{ request()->routeIs('tagihan-spp.dashboard') ? 'active' : '' }}">
+                                <a class="sidebar-link" href="{{ route('tagihan-spp.dashboard') }}">
+                                    <i class="align-middle ms-3" data-feather="bar-chart-2"></i>
+                                    <span class="align-middle">Pembayaran SPP</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="sidebar-item {{ request()->routeIs('tagihan-spp.create') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('tagihan-spp.create') }}">
+                            <i class="align-middle" data-feather="file-plus"></i>
+                            <span class="align-middle">Buat Tagihan Murid</span>
                         </a>
                     </li>
                 @endif

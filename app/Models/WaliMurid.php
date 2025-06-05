@@ -20,11 +20,12 @@ class WaliMurid extends Model
         'pekerjaan',
         'alamat',
         'foto_ktp',
+        'student_id'
     ];
 
-    public function students()
+    public function student()
     {
-        return $this->hasMany(Student::class);
+        return $this->belongsTo(Student::class);
     }
 
 }
