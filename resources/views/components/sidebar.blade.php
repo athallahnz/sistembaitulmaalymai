@@ -225,6 +225,12 @@
                             <span class="align-middle">Data Murid</span>
                         </a>
                     </li>
+                    <li class="sidebar-item {{ request()->routeIs('edu_classes.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('edu_classes.index') }}">
+                            <i class="align-middle" data-feather="user"></i>
+                            <span class="align-middle">Data Kelas</span>
+                        </a>
+                    </li>
                     <li class="sidebar-item">
                         <a href="#dataPembayaran" data-bs-toggle="collapse" class="sidebar-link">
                             <i class="align-middle" data-feather="clipboard"></i>

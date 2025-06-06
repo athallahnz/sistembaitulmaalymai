@@ -2,6 +2,12 @@
 
 @section('content')
     <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a>Dashboard</a></li>
+            </ol>
+        </nav>
         <h1 class="mb-4">Dashboard Murid</h1>
 
         <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#studentModal">

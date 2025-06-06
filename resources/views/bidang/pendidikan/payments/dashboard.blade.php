@@ -2,6 +2,12 @@
 
 @section('content')
     <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+            </ol>
+        </nav>
         <h1 class="mb-4">Dashboard <strong>Pembayaran PMB Siswa</strong></h1>
         <!-- Tombol Trigger Modal -->
         <div class="mb-3">
@@ -11,7 +17,8 @@
         </div>
 
         <!-- Modal Form Pembayaran -->
-        <div class="modal fade" id="modalPembayaran" tabindex="-1" aria-labelledby="modalPembayaranLabel" aria-hidden="true">
+        <div class="modal fade" id="modalPembayaran" tabindex="-1" aria-labelledby="modalPembayaranLabel"
+            aria-hidden="true">
             <div class="modal-dialog">
                 <form method="POST" action="{{ route('payment.store') }}" class="modal-content">
                     @csrf

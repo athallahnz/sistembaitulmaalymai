@@ -2,6 +2,12 @@
 
 @section('content')
     <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+            </ol>
+        </nav>
         <h1 class="mb-4">Dashboard <strong>Pembayaran SPP Siswa</strong></h1>
         <!-- Tombol Trigger Modal -->
         <div class="mb-3">
@@ -11,7 +17,8 @@
         </div>
 
         <!-- Modal Form Pembayaran -->
-        <div class="modal fade" id="modalPembayaran" tabindex="-1" aria-labelledby="modalPembayaranLabel" aria-hidden="true">
+        <div class="modal fade" id="modalPembayaran" tabindex="-1" aria-labelledby="modalPembayaranLabel"
+            aria-hidden="true">
             <div class="modal-dialog">
                 <form method="POST" action="{{ route('tagihan-spp.bayar') }}"
                     class="modal-content border rounded shadow-sm bg-light">
@@ -58,18 +65,17 @@
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif
 
-        <form id="filterForm" method="GET" action="{{ route('tagihan-spp.dashboard') }}" class="row g-3 mb-4">
+        <form id="filterForm" class="row g-3 mb-4">
             <div class="col-md-3">
                 <label for="tahun" class="form-label">Tahun</label>
-                <input type="number" name="tahun" id="tahun" class="form-control" value="{{ $tahun }}">
+                <input type="number" name="tahun" id="tahun" class="form-control" value="{{ date('Y') }}">
             </div>
             <div class="col-md-3">
                 <label for="bulan" class="form-label">Bulan</label>
                 <select name="bulan" id="bulan" class="form-select">
                     <option value="">Semua Bulan</option>
                     @for ($i = 1; $i <= 12; $i++)
-                        <option value="{{ $i }}" {{ $bulan == $i ? 'selected' : '' }}>
-                            {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
+                        <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
                         </option>
                     @endfor
                 </select>
@@ -79,9 +85,7 @@
                 <select name="kelas" id="kelas" class="form-select">
                     <option value="">Semua Kelas</option>
                     @foreach ($kelasList as $kelas)
-                        <option value="{{ $kelas->id }}" {{ $kelasId == $kelas->id ? 'selected' : '' }}>
-                            {{ $kelas->name }}
-                        </option>
+                        <option value="{{ $kelas->id }}">{{ $kelas->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -95,8 +99,8 @@
             </div>
         </form>
 
-        <div class="table-responsive shadow p-3 rounded">
-            <table class="table table-bordered">
+        <div class="shadow p-3 mb-3 table-responsive rounded">
+            <table class="table table-bordered yajra-datatable">
                 <thead>
                     <tr>
                         <th>Nama Murid</th>
@@ -107,35 +111,10 @@
                         <th>Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse ($data as $student)
-                        <tr>
-                            <td>{{ $student->name }}</td>
-                            <td>{{ $student->kelas }}</td>
-                            <td>Rp {{ number_format($student->total_tagihan, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($student->total_bayar, 0, ',', '.') }}</td>
-                            <td>
-                                @if ($student->total_bayar >= $student->total_tagihan && $student->total_tagihan > 0)
-                                    <span class="badge bg-success">Lunas</span>
-                                @elseif($student->total_tagihan == 0)
-                                    <span class="badge bg-secondary">Belum Ada Tagihan</span>
-                                @else
-                                    <span class="badge bg-warning text-dark">Belum Lunas</span>
-                                @endif
-                            </td>
-                            <td>
-                                <a href="{{ route('tagihan-spp.show', $student->id) }}" class="btn btn-sm btn-info">Lihat
-                                    Detail</a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="text-center">Tidak ada data</td>
-                        </tr>
-                    @endforelse
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
+
     </div>
 @endsection
 @push('scripts')
@@ -267,22 +246,23 @@
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> <!-- Kalau pakai axios -->
     <script>
         const sppCtx = document.getElementById('sppChart').getContext('2d');
         const sppChart = new Chart(sppCtx, {
             type: 'bar',
             data: {
-                labels: {!! json_encode($chartLabels) !!},
+                labels: [],
                 datasets: [{
                         label: 'Total Tagihan',
-                        data: {!! json_encode($chartTagihan) !!},
+                        data: [],
                         backgroundColor: 'rgba(255, 99, 132, 0.7)',
                         borderColor: 'rgba(255, 99, 132, 1)',
                         borderWidth: 1
                     },
                     {
                         label: 'Total Pembayaran',
-                        data: {!! json_encode($chartPembayaran) !!},
+                        data: [],
                         backgroundColor: 'rgba(75, 192, 192, 0.7)',
                         borderColor: 'rgba(75, 192, 192, 1)',
                         borderWidth: 1
@@ -291,9 +271,9 @@
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
+                indexAxis: 'x',
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
@@ -306,13 +286,120 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.dataset.label + ': Rp ' + new Intl.NumberFormat('id-ID').format(
-                                    context.raw);
+                                return context.dataset.label + ': Rp ' +
+                                    new Intl.NumberFormat('id-ID').format(context.raw);
                             }
                         }
                     }
                 }
             }
         });
+
+        // Ambil data chart dari backend
+        function fetchChartData(tahun, bulan, kelas = null) {
+            axios.get('/chart-bulanan', {
+                    params: {
+                        tahun: tahun, // contoh tahun
+                        kelas: kelas // contoh kelas
+                    }
+                })
+                .then(response => {
+                    const data = response.data;
+                    sppChart.data.labels = data.labels;
+                    sppChart.data.datasets[0].data = data.tagihan;
+                    sppChart.data.datasets[1].data = data.pembayaran;
+                    sppChart.update();
+                    console.log(response.data);
+                })
+                .catch(error => {
+                    console.error('Error fetching chart data:', error);
+                });
+        }
+
+        // Contoh panggil dengan tahun ini dan tanpa filter kelas
+        fetchChartData(new Date().getFullYear());
+    </script>
+    <script>
+        $(document).ready(function() {
+            const table = $('.yajra-datatable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: "{{ route('tagihan-spp.data') }}",
+                    data: function(d) {
+                        d.tahun = $('#tahun').val();
+                        d.bulan = $('#bulan').val();
+                        d.kelas = $('#kelas').val();
+                    }
+                },
+                columns: [{
+                        data: 'name',
+                        name: 'name'
+                    },
+                    {
+                        data: 'kelas',
+                        name: 'kelas'
+                    },
+                    {
+                        data: 'total_tagihan',
+                        name: 'total_tagihan',
+                        render: $.fn.dataTable.render.number('.', ',', 0, 'Rp ')
+                    },
+                    {
+                        data: 'total_bayar',
+                        name: 'total_bayar',
+                        render: $.fn.dataTable.render.number('.', ',', 0, 'Rp ')
+                    },
+                    {
+                        data: 'status',
+                        name: 'status',
+                        render: function(data, type, row) {
+                            if (data === 'lunas')
+                                return '<span class="badge bg-success">Lunas</span>';
+                            if (data === 'belum_lunas')
+                                return '<span class="badge bg-warning text-dark">Belum Lunas</span>';
+                            return '<span class="badge bg-secondary">Belum Ada Tagihan</span>';
+                        }
+                    },
+                    {
+                        data: 'aksi',
+                        name: 'aksi',
+                        render: function(data, type, row) {
+                            return `<a href="/tagihan-spp/${data}" class="btn btn-sm btn-info">Lihat Detail</a>`;
+                        },
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
+            });
+
+            // 🔁 Jalankan ulang DataTables saat tombol filter diklik
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+                table.ajax.reload();
+            });
+        });
+
+        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+            var n = !isFinite(+number) ? 0 : +number,
+                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+                s = '',
+                toFixedFix = function(n, prec) {
+                    var k = Math.pow(10, prec);
+                    return '' + Math.round(n * k) / k;
+                };
+            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+            if (s[0].length > 3) {
+                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            }
+            if ((s[1] || '').length < prec) {
+                s[1] = s[1] || '';
+                s[1] += new Array(prec - s[1].length + 1).join('0');
+            }
+            return s.join(dec);
+        }
     </script>
 @endpush

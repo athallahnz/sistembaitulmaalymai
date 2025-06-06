@@ -41,7 +41,7 @@ class Student extends Model
 
     public function eduClass()
     {
-        return $this->belongsTo(EduClass::class);
+        return $this->belongsTo(EduClass::class, 'edu_class_id');
     }
 
     public function edu_class()

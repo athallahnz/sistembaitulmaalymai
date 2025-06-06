@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\EduClass;
 use App\Models\TagihanSpp;
+use Yajra\DataTables\DataTables;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TagihanSppExport;
@@ -64,7 +65,7 @@ class TagihanSppController extends Controller
 
     public function create()
     {
-        $classes = \App\Models\EduClass::all();
+        $classes = EduClass::all();
         return view('bidang.pendidikan.payments.tagihan_spp.create', compact('classes'));
     }
 
@@ -95,6 +96,57 @@ class TagihanSppController extends Controller
         return redirect()->back()->with('success', 'Tagihan berhasil dibuat untuk semua siswa.');
     }
 
+    public function getData(Request $request)
+    {
+        $tahun = $request->tahun;
+        $bulan = $request->bulan;
+        $kelas = $request->kelas;
+
+        $students = Student::with('eduClass');
+
+        if ($kelas) {
+            $students->where('edu_class_id', $kelas);
+        }
+
+        $students = $students->get()->map(function ($student) use ($tahun, $bulan) {
+            $tagihanQuery = TagihanSpp::where('student_id', $student->id);
+            $bayarQuery = TagihanSpp::where('student_id', $student->id)->where('status', 'lunas');
+
+            if ($tahun) {
+                $tagihanQuery->where('tahun', $tahun);
+                $bayarQuery->where('tahun', $tahun);
+            }
+
+            if ($bulan) {
+                $tagihanQuery->where('bulan', $bulan);
+                $bayarQuery->where('bulan', $bulan);
+            }
+
+            $student->total_tagihan = $tagihanQuery->sum('jumlah');
+            $student->total_bayar = $bayarQuery->sum('jumlah');
+
+            return $student;
+        });
+
+        return DataTables::of($students)
+            ->addColumn('kelas', function ($row) {
+                return $row->eduClass->name ?? '-';
+            })
+            ->addColumn('status', function ($row) {
+                if ($row->total_tagihan == 0) {
+                    return 'belum_ada';
+                } elseif ($row->total_bayar >= $row->total_tagihan) {
+                    return 'lunas';
+                } else {
+                    return 'belum_lunas';
+                }
+            })
+            ->addColumn('aksi', function ($row) {
+                return $row->id; // Kirim ID untuk dipakai di JS
+            })
+            ->make(true);
+    }
+
     public function show($id)
     {
         $student = Student::with('eduClass', 'tagihanSpps')->findOrFail($id);
@@ -102,7 +154,6 @@ class TagihanSppController extends Controller
         return view('bidang.pendidikan.payments.tagihan_spp.show', compact('student'));
     }
 
-    // Export Excel
     public function export(Request $request)
     {
         $request->validate([
@@ -118,7 +169,6 @@ class TagihanSppController extends Controller
         );
     }
 
-    // API endpoint untuk fetch tagihan berdasarkan RFID
     public function getTagihanByRfid($uid)
     {
         $student = Student::where('rfid_uid', $uid)->first();
@@ -166,8 +216,6 @@ class TagihanSppController extends Controller
         ]);
     }
 
-
-    // Form submission untuk bayar tagihan
     public function bayar(Request $request)
     {
         $request->validate([
@@ -206,5 +254,58 @@ class TagihanSppController extends Controller
         return redirect()->back()->with('success', 'Pembayaran berhasil!');
     }
 
+    public function getChartBulanan(Request $request)
+    {
+        $tahun = $request->tahun;
+        $kelas = $request->kelas;
+
+        $bulanList = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember'
+        ];
+
+        $tagihanPerBulan = [];
+        $pembayaranPerBulan = [];
+
+        foreach ($bulanList as $num => $namaBulan) {
+            $students = Student::query();
+
+            if ($kelas) {
+                $students->where('edu_class_id', $kelas);
+            }
+
+            $studentIds = $students->pluck('id');
+
+            $totalTagihan = TagihanSpp::whereIn('student_id', $studentIds)
+                ->where('tahun', $tahun)
+                ->where('bulan', $num)
+                ->sum('jumlah');
+
+            $totalBayar = TagihanSpp::whereIn('student_id', $studentIds)
+                ->where('tahun', $tahun)
+                ->where('bulan', $num)
+                ->where('status', 'lunas')
+                ->sum('jumlah');
+
+            $tagihanPerBulan[] = $totalTagihan;
+            $pembayaranPerBulan[] = $totalBayar;
+        }
+
+        return response()->json([
+            'labels' => array_values($bulanList),
+            'tagihan' => $tagihanPerBulan,
+            'pembayaran' => $pembayaranPerBulan
+        ]);
+    }
 
 }

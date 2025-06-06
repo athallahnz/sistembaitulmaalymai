@@ -2,6 +2,13 @@
 
 @section('content')
 <div class="container">
+    <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('payment.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Detail</li>
+            </ol>
+        </nav>
     <h1 class="mb-4">Detail Pembayaran - <strong>{{ $student->name }} / {{ $student->eduClass->name}} - {{$student->eduClass->tahun_ajaran}}</strong></h1>
 
     {{-- Ringkasan Pembayaran --}}

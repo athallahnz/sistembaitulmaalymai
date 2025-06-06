@@ -89,6 +89,12 @@
             </div>
         </div>
     </div> --}}
+    <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a>Tagihan Page</a></li>
+            </ol>
+        </nav>
     <h1 class="mb-4">Buat <strong>Tagihan SPP Murid/Bulan</strong></h1>
     <div class="container my-3">
     <div class="row">
@@ -96,12 +102,6 @@
         <div class="col-md-6">
             <div class="card shadow rounded-4 border-0">
                 <div class="card-body">
-                    <h4 class="mb-4">🧾 Buat Tagihan SPP</h4>
-
-                    @if (session('success'))
-                        <div class="alert alert-success rounded-3">{{ session('success') }}</div>
-                    @endif
-
                     <form method="POST" action="{{ route('tagihan-spp.store') }}">
                         @csrf
 

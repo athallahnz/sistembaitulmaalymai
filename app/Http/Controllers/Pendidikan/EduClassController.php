@@ -14,9 +14,10 @@ class EduClassController extends Controller
      */
     public function index()
     {
-        $eduClasses = EduClass::orderBy('tahun_awal', 'desc')->get();
+        $kelasList = EduClass::withCount('students')->get();
+        $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
         $akunKeuangan = AkunKeuangan::where('parent_id', 202)->get();
-        return view('edu_classes.index', compact('eduClasses','akunKeuangan'));
+        return view('bidang.pendidikan.kelas.index', compact('kelasList','eduClasses','akunKeuangan'));
     }
 
     /**

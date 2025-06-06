@@ -2,6 +2,11 @@
 
 @section('content')
     <div class="container">
+        <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a>Edit</a></li>
+            </ol>
         <h1 class="mb-3">Form Edit Data Murid</h1>
 
         {{-- Flash Message --}}

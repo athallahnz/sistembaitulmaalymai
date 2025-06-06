@@ -2,6 +2,11 @@
 
 @section('content')
     <div class="container">
+        <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a>Detail</a></li>
+            </ol>
         <div class="row">
             <div class="col-md-6">
                 <h2 class="mb-4"><strong>{{ $student->no_induk }} - {{ $student->name }}</strong></h2>

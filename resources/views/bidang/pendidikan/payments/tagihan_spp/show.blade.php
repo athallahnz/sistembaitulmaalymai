@@ -2,6 +2,13 @@
 
 @section('content')
 <div class="container">
+    <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('payment.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a>Detail</a></li>
+            </ol>
+        </nav>
     <h1 class="mb-4">Detail <strong>Tagihan SPP Siswa</strong></h1>
 
     <div class="mb-4">
@@ -9,7 +16,6 @@
         <ul class="list-group">
             <li class="list-group-item"><strong>Nama:</strong> {{ $student->name }}</li>
             <li class="list-group-item"><strong>Kelas:</strong> {{ $student->eduClass->name ?? '-' }}</li>
-            <li class="list-group-item"><strong>NIS:</strong> {{ $student->nis ?? '-' }}</li>
         </ul>
     </div>
 
