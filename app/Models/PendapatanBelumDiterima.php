@@ -13,11 +13,12 @@ class PendapatanBelumDiterima extends Model
 
     protected $fillable = [
         'user_id',
+        'student_id',
         'jumlah',
         'tanggal_pencatatan',
         'deskripsi',
         'bidang_name'
-    ];  
+    ];
 
     public function user()
     {

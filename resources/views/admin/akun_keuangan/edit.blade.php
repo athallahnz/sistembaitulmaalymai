@@ -15,6 +15,14 @@
             @method('PUT')
 
             <div class="mb-3">
+                <label class="mb-2">ID Akun</label>
+                <input type="number" id="id" name="id" class="form-control" value="{{ old('id',$akunKeuangan->id) }}" required>
+                @error('id')
+                    <div class="text-danger">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="mb-3">
                 <label class="mb-2">Nama Akun</label>
                 <input type="text" name="nama_akun" class="form-control"
                     value="{{ old('nama_akun', $akunKeuangan->nama_akun) }}" required>
@@ -27,7 +35,8 @@
                 <label class="mb-2">Tipe Akun</label>
                 <select class="form-control" name="tipe_akun" required>
                     <option value="asset" {{ $akunKeuangan->tipe_akun == 'asset' ? 'selected' : '' }}>Asset</option>
-                    <option value="liability" {{ $akunKeuangan->tipe_akun == 'liability' ? 'selected' : '' }}>Liability</option>
+                    <option value="liability" {{ $akunKeuangan->tipe_akun == 'liability' ? 'selected' : '' }}>Liability
+                    </option>
                     <option value="revenue" {{ $akunKeuangan->tipe_akun == 'revenue' ? 'selected' : '' }}>Revenue</option>
                     <option value="expense" {{ $akunKeuangan->tipe_akun == 'expense' ? 'selected' : '' }}>Expense</option>
                     <option value="equity" {{ $akunKeuangan->tipe_akun == 'equity' ? 'selected' : '' }}>Equity</option>
@@ -65,8 +74,8 @@
 
             <div class="mb-3">
                 <label class="mb-2">Icon (Bootstrap Icons class)</label>
-                <input type="text" name="icon" class="form-control"
-                    value="{{ old('icon', $akunKeuangan->icon) }}" placeholder="Contoh: bi-cash">
+                <input type="text" name="icon" class="form-control" value="{{ old('icon', $akunKeuangan->icon) }}"
+                    placeholder="Contoh: bi-cash">
                 @error('icon')
                     <div class="text-danger">{{ $message }}</div>
                 @enderror
@@ -76,9 +85,12 @@
                 <label class="mb-2">Kategori Arus Kas (Opsional)</label>
                 <select class="form-control" name="cashflow_category">
                     <option value="">- Tidak Ada -</option>
-                    <option value="operasional" {{ $akunKeuangan->cashflow_category == 'operasional' ? 'selected' : '' }}>Operasional</option>
-                    <option value="investasi" {{ $akunKeuangan->cashflow_category == 'investasi' ? 'selected' : '' }}>Investasi</option>
-                    <option value="pendanaan" {{ $akunKeuangan->cashflow_category == 'pendanaan' ? 'selected' : '' }}>Pendanaan</option>
+                    <option value="operasional" {{ $akunKeuangan->cashflow_category == 'operasional' ? 'selected' : '' }}>
+                        Operasional</option>
+                    <option value="investasi" {{ $akunKeuangan->cashflow_category == 'investasi' ? 'selected' : '' }}>
+                        Investasi</option>
+                    <option value="pendanaan" {{ $akunKeuangan->cashflow_category == 'pendanaan' ? 'selected' : '' }}>
+                        Pendanaan</option>
                 </select>
             </div>
 
@@ -96,12 +108,12 @@
         });
     </script>
 @endif
-@if($errors->any())
+@if ($errors->any())
     <script>
         Swal.fire({
             icon: 'error',
             title: 'Oops...',
-            text: '{{ implode(", ", $errors->all()) }}'
+            text: '{{ implode(', ', $errors->all()) }}'
         });
     </script>
 @endif

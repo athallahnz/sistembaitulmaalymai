@@ -239,6 +239,8 @@
                                 return '<span class="badge bg-success">Penerimaan</span>'; // Green label
                             } else if (data === 'pengeluaran') {
                                 return '<span class="badge bg-danger">Pengeluaran</span>'; // Red label
+                            } else if (data === 'pendapatan belum diterima') {
+                                return '<span class="badge bg-warning">Belum Diterima</span>'; // Yellow label
                             } else {
                                 return '<span class="badge bg-secondary">Unknown</span>'; // Grey label for unknown
                             }

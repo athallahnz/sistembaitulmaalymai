@@ -118,7 +118,21 @@
     </div>
 @endsection
 @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('modalPembayaran');
+            const rfidInput = document.getElementById('rfid_uid_input');
+
+            if (modal && rfidInput) {
+                modal.addEventListener('shown.bs.modal', function() {
+                    rfidInput.focus();
+                });
+            }
+        });
+
+
         document.addEventListener('DOMContentLoaded', () => {
             const rfidInput = document.getElementById('rfid_uid_input');
             const studentCard = document.getElementById('student-card');
@@ -244,10 +258,7 @@
                 }, 300);
             });
         });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> <!-- Kalau pakai axios -->
-    <script>
+
         const sppCtx = document.getElementById('sppChart').getContext('2d');
         const sppChart = new Chart(sppCtx, {
             type: 'bar',
@@ -318,8 +329,7 @@
 
         // Contoh panggil dengan tahun ini dan tanpa filter kelas
         fetchChartData(new Date().getFullYear());
-    </script>
-    <script>
+
         $(document).ready(function() {
             const table = $('.yajra-datatable').DataTable({
                 processing: true,

@@ -12,6 +12,7 @@ class Piutang extends Model
 
     protected $fillable = [
         'user_id',
+        'student_id',
         'akun_keuangan_id',
         'parent_id',
         'jumlah',
@@ -25,7 +26,10 @@ class Piutang extends Model
     {
         return $this->belongsTo(User::class);
     }
-
+    public function student()
+    {
+        return $this->belongsTo(Student::class);
+    }
     public function akunKeuangan()
     {
         return $this->belongsTo(AkunKeuangan::class);
@@ -38,7 +42,6 @@ class Piutang extends Model
     {
         return $this->id;
     }
-
     public function bidang()
     {
         return $this->belongsTo(Bidang::class, 'bidang_name');

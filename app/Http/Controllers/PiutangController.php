@@ -244,7 +244,7 @@ class PiutangController extends Controller
             Log::info('User login:', ['id' => $user->id, 'bidang' => $user->bidang_name]);
 
             // Ambil semua piutang yang memiliki bidang_name sesuai dengan user login
-            $piutangs = Piutang::with('user')
+            $piutangs = Piutang::with('user', 'student')
                 ->where('bidang_name', $user->bidang_name);
 
             Log::info('Query piutang:', ['sql' => $piutangs->toSql(), 'bindings' => $piutangs->getBindings()]);
@@ -252,7 +252,9 @@ class PiutangController extends Controller
             return DataTables::of($piutangs)
                 ->addIndexColumn()
                 ->addColumn('user_name', function ($piutang) {
-                    return optional($piutang->user)->name ?? 'N/A';
+                    return optional($piutang->user)->name
+                        ?? optional($piutang->student)->name
+                        ?? 'N/A';
                 })
                 ->addColumn('jumlah_formatted', function ($piutang) {
                     return 'Rp ' . number_format($piutang->jumlah, 2, ',', '.');

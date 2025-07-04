@@ -50,138 +50,88 @@ class StudentController extends Controller
     public function store(Request $request)
     {
         $messages = [
-            // Data murid
+            'nisn.required' => 'No. Induk wajib diisi.',
+            'nisn.max' => 'NISN tidak boleh lebih dari 9 karakter.',
             'no_induk.required' => 'No. Induk wajib diisi.',
-            'no_induk.string' => 'No. Induk harus berupa teks.',
-
             'name.required' => 'Nama murid wajib diisi.',
-            'name.string' => 'Nama murid harus berupa teks.',
-
+            'nickname.required' => 'Nama Panggilan wajib diisi.',
             'jenis_kelamin.required' => 'Jenis kelamin wajib dipilih.',
             'jenis_kelamin.in' => 'Jenis kelamin harus L atau P.',
-
-            'tempat_lahir.required' => 'Tempat lahir wajib diisi.',
-            'tempat_lahir.string' => 'Tempat lahir harus berupa teks.',
-
+            'ttl.date' => 'Tanggal lahir tidak valid.',
             'usia.string' => 'Usia harus berupa teks.',
-            'usia.max' => 'Usia maksimal 100 karakter.',
-
-            'nik.string' => 'NIK harus berupa teks.',
-            'no_akte.string' => 'No. Akte harus berupa teks.',
-            'no_kk.string' => 'No. KK harus berupa teks.',
-            'alamat_kk.string' => 'Alamat KK harus berupa teks.',
-            'alamat_tinggal.string' => 'Alamat tinggal harus berupa teks.',
-
-            'pas_photo.image' => 'Pas foto harus berupa file gambar.',
-            'pas_photo.mimes' => 'Pas foto harus berformat jpeg, png, atau jpg.',
-            'pas_photo.max' => 'Pas foto maksimal berukuran 2MB.',
-
-            'akte.file' => 'File akte harus berupa file.',
-            'akte.mimes' => 'File akte harus berformat pdf, jpg, jpeg, atau png.',
-            'akte.max' => 'File akte maksimal 2MB.',
-
-            'kk.file' => 'File KK harus berupa file.',
-            'kk.mimes' => 'File KK harus berformat pdf, jpg, jpeg, atau png.',
-            'kk.max' => 'File KK maksimal 2MB.',
-
+            'nik.max' => 'NISN tidak boleh lebih dari 16 karakter.',
+            'no_kk.max' => 'NISN tidak boleh lebih dari 16 karakter.',
+            'rfid_uid.required' => 'RFID UID wajib diisi.',
+            'rfid_uid.unique' => 'RFID UID sudah digunakan.',
+            'total_biaya.required' => 'Total biaya wajib diisi.',
+            'total_biaya.numeric' => 'Total biaya harus berupa angka.',
             'edu_class_id.required' => 'Kelas pendidikan wajib dipilih.',
             'edu_class_id.exists' => 'Kelas pendidikan tidak valid.',
 
-            'rfid_uid.required' => 'RFID UID wajib diisi.',
-            'rfid_uid.unique' => 'RFID UID sudah digunakan.',
+            // Wali
+            'wali.nama.*' => 'Nama wali murid wajib diisi.',
+            'wali.jenis_kelamin.*' => 'Jenis kelamin wali murid wajib dipilih.',
+            'wali.nik.*.max' => 'NISN tidak boleh lebih dari 16 karakter.',
+            'wali.hubungan.*' => 'Hubungan wali harus Ayah atau Ibu.',
+            'wali.no_hp.*' => 'No HP wali wajib diisi.',
+            'wali.email.*' => 'Email wali wajib diisi dan valid.',
+            'wali.foto_ktp.*.image' => 'Foto KTP harus berupa gambar.',
+            'wali.foto_ktp.*.mimes' => 'Format KTP harus jpeg, png, atau jpg.',
+            'wali.foto_ktp.*.max' => 'Ukuran KTP maksimal 2MB.',
 
-            'total_biaya.required' => 'Total biaya wajib diisi.',
-            'total_biaya.numeric' => 'Total biaya harus berupa angka.',
-
-            // Data wali murid
-            'wali_nama.required' => 'Nama wali murid wajib diisi.',
-            'wali_nama.string' => 'Nama wali murid harus berupa teks.',
-
-            'wali_jenis_kelamin.required' => 'Jenis kelamin wali murid wajib dipilih.',
-            'wali_jenis_kelamin.in' => 'Jenis kelamin wali harus L atau P.',
-
-            'wali_hubungan.required' => 'Hubungan dengan murid wajib dipilih.',
-            'wali_hubungan.in' => 'Hubungan wali harus Ayah, Ibu, atau Wali.',
-
-            'wali_nik.string' => 'NIK wali harus berupa teks.',
-            'wali_no_hp.required' => 'No. Handphone wali wajib diisi.',
-            'wali_no_hp.string' => 'No. Handphone wali harus berupa teks.',
-
-            'wali_email.required' => 'Email wali wajib diisi.',
-            'wali_email.email' => 'Email wali harus berupa alamat email yang valid.',
-            'wali_email.unique' => 'Email wali sudah digunakan.',
-
-            'wali_pendidikan_terakhir.string' => 'Pendidikan terakhir wali harus berupa teks.',
-            'wali_pekerjaan.string' => 'Pekerjaan wali harus berupa teks.',
-            'wali_alamat.string' => 'Alamat wali harus berupa teks.',
-
-            'wali_foto_ktp.image' => 'Foto KTP wali harus berupa file gambar.',
-            'wali_foto_ktp.mimes' => 'Foto KTP wali harus berformat jpeg, png, atau jpg.',
-            'wali_foto_ktp.max' => 'Foto KTP wali maksimal 2MB.',
-
-            // Rincian biaya
-            'akun_keuangan_id.required' => 'Setidaknya satu akun keuangan wajib dipilih.',
-            'akun_keuangan_id.array' => 'Akun keuangan harus berupa array.',
-            'akun_keuangan_id.min' => 'Minimal satu akun keuangan harus dipilih.',
+            // Biaya
             'akun_keuangan_id.*.required' => 'Akun keuangan tidak boleh kosong.',
-            'akun_keuangan_id.*.distinct' => 'Terdapat akun keuangan yang duplikat.',
             'akun_keuangan_id.*.exists' => 'Akun keuangan tidak valid.',
-
-            'jumlah.required' => 'Jumlah nominal wajib diisi.',
-            'jumlah.array' => 'Jumlah nominal harus berupa array.',
-            'jumlah.min' => 'Minimal satu jumlah nominal harus diisi.',
-            'jumlah.*.required' => 'Jumlah nominal tidak boleh kosong.',
-            'jumlah.*.numeric' => 'Jumlah nominal harus berupa angka.',
-            'jumlah.*.min' => 'Jumlah nominal tidak boleh negatif.',
+            'jumlah.*.required' => 'Jumlah nominal wajib diisi.',
+            'jumlah.*.numeric' => 'Jumlah nominal harus angka.',
         ];
 
+        // Konversi TTL
         if ($request->filled('ttl')) {
             try {
-                // Konversi dari d/m/Y ke Y-m-d agar lolos validasi 'date'
                 $request->merge([
                     'ttl' => \Carbon\Carbon::createFromFormat('d/m/Y', $request->ttl)->format('Y-m-d'),
                 ]);
             } catch (\Exception $e) {
-                \Log::warning('Format TTL tidak valid: ' . $request->ttl);
-                return redirect()->back()
-                    ->withErrors(['ttl' => 'Format tanggal lahir tidak valid. Gunakan format dd/mm/yyyy.'])
-                    ->withInput();
+                return back()->withErrors(['ttl' => 'Format tanggal lahir tidak valid.'])->withInput();
             }
         }
 
+        // ✅ Validasi
         $validator = Validator::make($request->all(), [
-            // Data murid
             'no_induk' => 'required|string|unique:students,no_induk',
+            'nisn' => 'required|string|max:9',
             'name' => 'required|string',
+            'nickname' => 'required|string',
             'jenis_kelamin' => 'required|in:L,P',
-            'tempat_lahir' => 'required|string',
+            'tempat_lahir' => 'nullable|string',
             'ttl' => 'nullable|date',
-            'usia' => 'required|string|max:100',
-            'nik' => 'nullable|string',
+            'usia' => 'nullable|string|max:100',
+            'nik' => 'nullable|string|max:16',
             'no_akte' => 'nullable|string',
-            'no_kk' => 'nullable|string',
+            'no_kk' => 'nullable|string|max:16',
             'alamat_kk' => 'nullable|string',
             'alamat_tinggal' => 'nullable|string',
             'pas_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'akte' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'kk' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'edu_class_id' => 'required|exists:edu_classes,id',
             'rfid_uid' => 'required|unique:students,rfid_uid',
+            'edu_class_id' => 'required|exists:edu_classes,id',
             'total_biaya' => 'required|numeric',
 
-            // Data wali murid
-            'wali_nama' => 'required|string',
-            'wali_jenis_kelamin' => 'required|in:L,P',
-            'wali_hubungan' => 'required|in:Ayah,Ibu,Wali',
-            'wali_nik' => 'nullable|string',
-            'wali_no_hp' => 'required|string',
-            'wali_email' => 'required|email|unique:wali_murids,email',
-            'wali_pendidikan_terakhir' => 'nullable|string',
-            'wali_pekerjaan' => 'nullable|string',
-            'wali_alamat' => 'nullable|string',
-            'wali_foto_ktp' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            // Wali
+            'wali.nama.*' => 'required|string',
+            'wali.hubungan.*' => 'required|in:Ayah,Ibu',
+            'wali.jenis_kelamin.*' => 'required|in:L,P',
+            'wali.nik.*' => 'nullable|string|max:16',
+            'wali.no_hp.*' => 'required|string',
+            'wali.email.*' => 'required|email|distinct',
+            'wali.pendidikan_terakhir.*' => 'nullable|string',
+            'wali.pekerjaan.*' => 'nullable|string',
+            'wali.alamat.*' => 'nullable|string',
+            'wali.foto_ktp.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
 
-            // Rincian biaya
+            // Biaya
             'akun_keuangan_id' => 'required|array|min:1',
             'akun_keuangan_id.*' => 'required|distinct|exists:akun_keuangans,id',
             'jumlah' => 'required|array|min:1',
@@ -189,45 +139,26 @@ class StudentController extends Controller
         ], $messages);
 
         if ($validator->fails()) {
-            \Log::warning('Validasi gagal saat menyimpan siswa', [
-                'errors' => $validator->errors()->all(),
-            ]);
-
-            return redirect()->back()->withErrors($validator)->withInput();
+            return back()->withErrors($validator)->withInput();
         }
-
 
         if (count($request->akun_keuangan_id) !== count($request->jumlah)) {
-            return redirect()->back()->with('error', 'Data akun keuangan dan jumlah tidak seimbang.')->withInput();
+            return back()->with('error', 'Jumlah akun dan nominal tidak seimbang.')->withInput();
         }
-
-        // dd($request->all());
 
         DB::beginTransaction();
 
         try {
-            // Upload file wali murid
-            $fotoKtp = $request->file('wali_foto_ktp')
-                ? $request->file('wali_foto_ktp')->store('wali_ktp', 'public')
-                : null;
+            // Upload dokumen siswa
+            $pasPhoto = $request->file('pas_photo')?->store('students/photo', 'public');
+            $akte = $request->file('akte')?->store('students/akte', 'public');
+            $kk = $request->file('kk')?->store('students/kk', 'public');
 
-
-
-            // Upload dokumen murid
-            $pasPhoto = $request->file('pas_photo')
-                ? $request->file('pas_photo')->store('students/photo', 'public')
-                : null;
-            $akte = $request->file('akte')
-                ? $request->file('akte')->store('students/akte', 'public')
-                : null;
-            $kk = $request->file('kk')
-                ? $request->file('kk')->store('students/kk', 'public')
-                : null;
-
-            // 1. Simpan siswa terlebih dahulu
             $student = Student::create([
                 'no_induk' => $request->no_induk,
+                'nisn' => $request->nisn,
                 'name' => $request->name,
+                'nickname' => $request->nickname,
                 'jenis_kelamin' => $request->jenis_kelamin,
                 'tempat_lahir' => $request->tempat_lahir,
                 'ttl' => $request->ttl,
@@ -245,45 +176,49 @@ class StudentController extends Controller
                 'kk' => $kk,
             ]);
 
-            // 2. Simpan wali murid dan hubungkan dengan siswa yang baru dibuat
-            $wali = WaliMurid::create([
-                'nama' => $request->wali_nama,
-                'jenis_kelamin' => $request->wali_jenis_kelamin,
-                'hubungan' => $request->wali_hubungan,
-                'nik' => $request->wali_nik,
-                'no_hp' => $request->wali_no_hp,
-                'email' => $request->wali_email,
-                'pendidikan_terakhir' => $request->wali_pendidikan_terakhir,
-                'pekerjaan' => $request->wali_pekerjaan,
-                'alamat' => $request->wali_alamat,
-                'foto_ktp' => $fotoKtp,
-                'student_id' => $student->id,
-            ]);
+            // Simpan dua wali murid
+            foreach ($request->wali['nama'] as $i => $nama) {
+                $fotoKtp = null;
+                if ($request->hasFile("wali.foto_ktp.$i")) {
+                    $fotoKtp = $request->file("wali.foto_ktp.$i")->store('wali_ktp', 'public');
+                }
 
-            // Simpan rincian biaya
-            $pairs = array_combine($request->akun_keuangan_id, $request->jumlah);
-
-            foreach ($pairs as $akunId => $jumlah) {
-                StudentCost::create([
+                $wali = WaliMurid::create([
                     'student_id' => $student->id,
-                    'akun_keuangan_id' => $akunId,
-                    'jumlah' => $jumlah,
+                    'nama' => $nama,
+                    'hubungan' => $request->wali['hubungan'][$i],
+                    'jenis_kelamin' => $request->wali['jenis_kelamin'][$i],
+                    'nik' => $request->wali['nik'][$i] ?? null,
+                    'no_hp' => $request->wali['no_hp'][$i],
+                    'email' => $request->wali['email'][$i],
+                    'pendidikan_terakhir' => $request->wali['pendidikan_terakhir'][$i] ?? null,
+                    'pekerjaan' => $request->wali['pekerjaan'][$i] ?? null,
+                    'alamat' => $request->wali['alamat'][$i] ?? null,
+                    'foto_ktp' => $fotoKtp,
                 ]);
             }
 
+            // Pair akun dan nominal biaya
+            $biayaPairs = array_combine($request->akun_keuangan_id, $request->jumlah);
+
+            // Simpan ke student_cost
+            foreach ($biayaPairs as $akunId => $nominal) {
+                StudentCost::create([
+                    'student_id' => $student->id,
+                    'akun_keuangan_id' => $akunId,
+                    'jumlah' => $nominal,
+                ]);
+            }
+
+            // ✅ Trigger keuangan otomatis (refaktor di Service)
+            app(\App\Services\StudentFinanceService::class)->handleNewStudentFinance($student, $biayaPairs);
+
             DB::commit();
-            return redirect()->route('students.index')->with('success', 'Data murid dan rincian biaya berhasil disimpan.');
+            return redirect()->route('students.index')->with('success', 'Data murid dan wali beserta rincian biaya berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-
-            // Tambahkan log error detail
-            \Log::error('Gagal menyimpan data siswa: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
-                ->withInput();
+            \Log::error('Gagal simpan siswa: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->with('error', 'Terjadi kesalahan saat menyimpan data.')->withInput();
         }
     }
 
@@ -326,9 +261,16 @@ class StudentController extends Controller
 
     public function show($id)
     {
-        $student = Student::with('waliMurid')->findOrFail($id);
-        return view('bidang.pendidikan.student_show', compact('student'));
+        $student = Student::with('eduClass', 'waliMurids')->findOrFail($id);
+
+        // Ambil wali berdasarkan hubungan
+        $ayah = optional($student->wali_murids)->firstWhere('hubungan', 'Ayah');
+        $ibu = optional($student->wali_murids)->firstWhere('hubungan', 'Ibu');
+
+
+        return view('bidang.pendidikan.student_show', compact('student', 'ayah', 'ibu'));
     }
+
 
     // Form edit student
     public function edit(Student $student)

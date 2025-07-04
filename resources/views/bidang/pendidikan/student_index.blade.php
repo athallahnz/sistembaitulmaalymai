@@ -11,11 +11,8 @@
         <h1 class="mb-4">Dashboard Murid</h1>
 
         <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#studentModal">
-            Tambah Siswa
-        </button>
-
-        <button type="button" class="btn btn-success mb-3 text-end" data-bs-toggle="modal" data-bs-target="#eduClassModal">
-            Tambah Kelas
+            <i class="bi bi-person-plus"></i>
+            Tambah Murid
         </button>
 
         <div class="p-3 shadow table-responsive rounded">
@@ -49,40 +46,58 @@
                                 <div class="col-md-4">
                                     <h4 class="mb-3">Data Diri Murid</h4>
 
+                                    <div class="mb-3">
+                                        <label>Kelas <span class="text-danger">*</span></label>
+                                        <select name="edu_class_id" class="form-select" required>
+                                            <option value="">Pilih Kelas</option>
+                                            @foreach ($eduClasses as $class)
+                                                <option value="{{ $class->id }}"
+                                                    {{ old('edu_class_id') == $class->id ? 'selected' : '' }}>
+                                                    {{ $class->name }} -
+                                                    {{ $class->tahun_ajaran }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                     <div class="row mb-3">
                                         <div class="col-md-8">
-                                            <label>Kelas</label>
-                                            <select name="edu_class_id" class="form-select" required>
-                                                <option value="">Pilih Kelas</option>
-                                                @foreach ($eduClasses as $class)
-                                                    <option value="{{ $class->id }}"
-                                                        {{ old('edu_class_id') == $class->id ? 'selected' : '' }}>
-                                                        {{ $class->name }} -
-                                                        {{ $class->tahun_ajaran }}</option>
-                                                @endforeach
-                                            </select>
+                                            <label>NISN</label>
+                                            <input type="text" name="nisn" class="form-control"
+                                                value="{{ old('nisn') }}" placeholder="Masukkan NISN Murid.." required>
+                                            @error('nisn')
+                                                <div class="text-danger mt-1">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                         <div class="col-md-4">
-                                            <label>No. Induk</label>
+                                            <label>No. Induk <span class="text-danger">*</span></label>
                                             <input type="text" name="no_induk" class="form-control"
-                                                value="{{ old('no_induk') }}" placeholder="Ex: 001">
+                                                value="{{ old('no_induk') }}" placeholder="Ex: 001" required>
                                             @error('no_induk')
                                                 <div class="text-danger mt-1">{{ $message }}</div>
                                             @enderror
                                         </div>
                                     </div>
 
-                                    <div class="mb-3">
-                                        <label>Nama Lengkap</label>
-                                        <input type="text" name="name" class="form-control"
-                                            value="{{ old('name') }}" placeholder="Masukkan Nama Murid.." required>
-                                        @error('name')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label>Nama Lengkap <span class="text-danger">*</span></label>
+                                            <input type="text" name="name" class="form-control"
+                                                value="{{ old('name') }}" placeholder="Masukkan Nama Murid.." required>
+                                            @error('name')
+                                                <div class="text-danger mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label>Nama Panggilan <span class="text-danger">*</span></label>
+                                            <input type="text" name="nickname" class="form-control"
+                                                value="{{ old('nickname') }}" placeholder="Masukkan Nama Panggilan Murid.." required>
+                                            @error('nickname')
+                                                <div class="text-danger mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
 
                                     <div class="mb-3">
-                                        <label>Jenis Kelamin</label>
+                                        <label>Jenis Kelamin <span class="text-danger">*</span> </label>
                                         <select name="jenis_kelamin" class="form-select" required>
                                             <option value="L" {{ old('jenis_kelamin') == 'L' ? 'selected' : '' }}>
                                                 Laki-laki</option>
@@ -103,14 +118,14 @@
                                         <div class="col-md-6">
                                             <label>Tanggal Lahir</label>
                                             <input type="text" name="ttl" class="form-control"
-                                                placeholder="dd/mm/yyyy" value="{{ old('ttl') }}" required>
+                                                placeholder="dd/mm/yyyy" value="{{ old('ttl') }}">
                                         </div>
                                     </div>
 
                                     <div class="mb-3">
                                         <label>Usia</label>
                                         <input type="text" name="usia" class="form-control" readonly
-                                            placeholder="Akan dihitung otomatis..">
+                                            placeholder="Akan dihitung otomatis.." required>
                                         @error('usia')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -118,7 +133,8 @@
 
                                     <div class="mb-3">
                                         <label>NIK</label>
-                                        <input type="text" name="nik" class="form-control" placeholder="Masukkan NIK.." value="{{ old('nik') }}">
+                                        <input type="text" name="nik" class="form-control"
+                                            placeholder="Masukkan NIK.." value="{{ old('nik') }}">
                                         @error('nik')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -126,7 +142,8 @@
 
                                     <div class="mb-3">
                                         <label>No. Akta</label>
-                                        <input type="text" name="no_akte" class="form-control" placeholder="Masukkan No. Akta.." value="{{ old('no_akte') }}">
+                                        <input type="text" name="no_akte" class="form-control"
+                                            placeholder="Masukkan No. Akta.." value="{{ old('no_akte') }}">
                                         @error('no_akte')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -134,7 +151,8 @@
 
                                     <div class="mb-3">
                                         <label>No. Kartu Keluarga</label>
-                                        <input type="text" name="no_kk" class="form-control" placeholder="Masukkan No. Kartu Keluarga.." value="{{ old('no_kk') }}">
+                                        <input type="text" name="no_kk" class="form-control"
+                                            placeholder="Masukkan No. Kartu Keluarga.." value="{{ old('no_kk') }}">
                                         @error('no_kk')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
@@ -185,111 +203,58 @@
                                 {{-- Kolom 2: Data Wali Murid --}}
                                 <div class="col-md-4">
                                     <h4 class="mb-3">Data Wali Murid</h4>
+                                    <div class="accordion mb-4" id="waliAccordion">
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingAyah">
+                                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseAyah" aria-expanded="true"
+                                                    aria-controls="collapseAyah">
+                                                    Data Ayah
+                                                </button>
+                                            </h2>
+                                            <div id="collapseAyah" class="accordion-collapse collapse show"
+                                                aria-labelledby="headingAyah" data-bs-parent="#waliAccordion">
+                                                <div class="accordion-body">
+                                                    @include(
+                                                        'bidang.pendidikan.wali_murids.partials.form_wali_murid',
+                                                        [
+                                                            'hubungan' => 'Ayah',
+                                                            'jenis_kelamin' => 'L',
+                                                            'loopIndex' => 0,
+                                                        ]
+                                                    )
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                    <div class="mb-3">
-                                        <label>Nama</label>
-                                        <input type="text" name="wali_nama" class="form-control"
-                                            value="{{ old('wali_nama') }}" placeholder="Masukkan Nama Wali Murid.."
-                                            required>
-                                        @error('wali_nama')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>Jenis Kelamin</label>
-                                        <select name="wali_jenis_kelamin" class="form-select">
-                                            <option value="L"
-                                                {{ old('wali_jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki
-                                            </option>
-                                            <option value="P"
-                                                {{ old('wali_jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan
-                                            </option>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>Hubungan</label>
-                                        <select name="wali_hubungan" class="form-select" required>
-                                            <option value="Ayah" {{ old('wali_hubungan') == 'Ayah' ? 'selected' : '' }}>
-                                                Ayah</option>
-                                            <option value="Ibu" {{ old('wali_hubungan') == 'Ibu' ? 'selected' : '' }}>
-                                                Ibu</option>
-                                            <option value="Wali" {{ old('wali_hubungan') == 'Wali' ? 'selected' : '' }}>
-                                                Wali</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>NIK</label>
-                                        <input type="text" name="wali_nik" class="form-control"
-                                            value="{{ old('wali_nik') }}" placeholder="Masukkan NIK Wali Murid..">
-                                        @error('wali_nik')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>No. Handphone</label>
-                                        <input type="text" name="wali_no_hp" class="form-control"
-                                            value="{{ old('wali_no_hp') }}" placeholder="Masukkan No. Handphone..">
-                                        @error('wali_no_hp')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>E-Mail</label>
-                                        <input type="text" name="wali_email" class="form-control"
-                                            value="{{ old('wali_email') }}" placeholder="Masukkan E-Mail..">
-                                        @error('wali_email')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>Pendidikan Terakhir</label>
-                                        <input type="text" name="wali_pendidikan_terakhir" class="form-control"
-                                            value="{{ old('wali_pendidikan_terakhir') }}"
-                                            placeholder="Masukkan Pendidikan Terakhir..">
-                                        @error('wali_pendidikan_terakhir')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>Pekerjaan</label>
-                                        <input type="text" name="wali_pekerjaan" class="form-control"
-                                            value="{{ old('wali_pekerjaan') }}" placeholder="Masukkan Pekerjaan..">
-                                        @error('wali_pekerjaan')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="form-check mb-3">
-                                        <input type="checkbox" class="form-check-input" id="copyAlamatWali">
-                                        <label class="form-check-label" for="copyAlamatWali">
-                                            Gunakan Alamat Utama sbg Alamat Wali Murid
-                                        </label>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label>Alamat Wali</label>
-                                        <textarea name="wali_alamat" id="wali_alamat" class="form-control">{{ old('wali_alamat') }}</textarea>
-
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label>Foto KTP</label>
-                                        <input type="file" name="wali_foto_ktp" class="form-control">
-                                        @error('wali_foto_ktp')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingIbu">
+                                                <button class="accordion-button collapsed" type="button"
+                                                    data-bs-toggle="collapse" data-bs-target="#collapseIbu"
+                                                    aria-expanded="false" aria-controls="collapseIbu">
+                                                    Data Ibu
+                                                </button>
+                                            </h2>
+                                            <div id="collapseIbu" class="accordion-collapse collapse"
+                                                aria-labelledby="headingIbu" data-bs-parent="#waliAccordion">
+                                                <div class="accordion-body">
+                                                    @include(
+                                                        'bidang.pendidikan.wali_murids.partials.form_wali_murid',
+                                                        [
+                                                            'hubungan' => 'Ibu',
+                                                            'jenis_kelamin' => 'P',
+                                                            'loopIndex' => 1,
+                                                        ]
+                                                    )
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {{-- Kolom 3: Rincian Biaya & RFID --}}
                                 <div class="col-md-4">
-                                    <h4 class="mb-3">Rincian Biaya</h4>
+                                    <h4 class="mb-3">Rincian Biaya <span class="text-danger">*</span></h4>
 
                                     {{-- Template hidden untuk akun --}}
                                     <select class="akun-template" hidden>
@@ -321,7 +286,7 @@
                                     </div>
 
                                     <hr>
-                                    <h6 class="mb-3">Kartu RFID</h6>
+                                    <h6 class="mb-3">Kartu RFID <span class="text-danger">*</span></h6>
                                     <div class="mb-3">
                                         <input type="text" name="rfid_uid" class="form-control"
                                             placeholder="Tempelkan Kartu..." required>
@@ -336,86 +301,6 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                             <button type="submit" class="btn btn-primary">Daftarkan</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- Modal Form Tambah Edu Class -->
-        <div class="modal fade" id="eduClassModal" tabindex="-1" aria-labelledby="eduClassModalLabel"
-            aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="POST" action="{{ route('edu_classes.store') }}">
-                        @csrf
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="eduClassModalLabel">Tambah Kelas Baru</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                aria-label="Tutup"></button>
-                        </div>
-                        <div class="modal-body">
-                            <!-- Nama Kelas -->
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Nama Kelas:</label>
-                                <input type="text" class="form-control @error('name') is-invalid @enderror"
-                                    id="name" name="name" value="{{ old('name') }}"
-                                    placeholder="Masukkan Nama Kelas.." required>
-                                @error('name')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="row">
-                                <!-- Tahun Awal Ajaran -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="tahun_awal" class="form-label">Tahun Awal Ajaran:</label>
-                                    <select class="form-select" id="tahun_awal" name="tahun_awal" required>
-                                        <option value="" disabled selected>Pilih Tahun</option>
-                                        @php
-                                            $startYear = date('Y'); // tahun sekarang
-                                            $endYear = $startYear + 5; // 5 tahun ke depan
-                                        @endphp
-                                        @for ($year = $startYear; $year <= $endYear; $year++)
-                                            <option value="{{ $year }}"
-                                                {{ old('tahun_awal') == $year ? 'selected' : '' }}>
-                                                {{ $year }}
-                                            </option>
-                                        @endfor
-                                    </select>
-                                </div>
-
-                                <!-- Tahun Ajaran Preview -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="tahun_ajaran" class="form-label">Tahun Ajaran (Preview):</label>
-                                    <input type="text" class="form-control" id="tahun_ajaran" readonly>
-                                </div>
-                            </div>
-
-                            <!-- Tambah pilih akun keuangan -->
-                            <div class="mb-3">
-                                <label class="form-label">Pilih Akun Keuangan</label>
-                                @foreach ($akunKeuangans as $akun)
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akun_keuangan_ids[]"
-                                            id="akun{{ $akun->id }}" value="{{ $akun->id }}">
-                                        <label class="form-check-label" for="akun{{ $akun->id }}">
-                                            {{ $akun->nama_akun }}
-                                        </label>
-                                    </div>
-                                @endforeach
-                                @error('akun_keuangan_ids')
-                                    <div class="invalid-feedback d-block">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-
-
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                            <button type="submit" class="btn btn-success">Simpan Kelas</button>
                         </div>
                     </form>
                 </div>
@@ -438,19 +323,7 @@
             });
         </script>
     @endif
-    <script>
-        const tahunAwalInput = document.getElementById('tahun_awal');
-        const tahunAjaranInput = document.getElementById('tahun_ajaran');
-
-        tahunAwalInput.addEventListener('input', () => {
-            const tahunAwal = parseInt(tahunAwalInput.value);
-            if (!isNaN(tahunAwal)) {
-                tahunAjaranInput.value = `${tahunAwal}/${tahunAwal + 1}`;
-            } else {
-                tahunAjaranInput.value = '';
-            }
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         $(document).ready(function() {
             $('.yajra-datatable').DataTable({
@@ -514,8 +387,7 @@
             }
             return s.join(dec);
         }
-    </script>
-    <script>
+
         document.addEventListener('DOMContentLoaded', function() {
             const tbody = document.querySelector('#costTable tbody');
             const totalDisplay = document.getElementById('total_display');
@@ -614,42 +486,58 @@
 
             updateTotal(); // Inisialisasi awal
         });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script>
-        flatpickr("input[name='ttl']", {
-            dateFormat: "d/m/Y", // ini yang akan dikirim
-            altInput: true,
-            altFormat: "d/m/Y",
-            altInputClass: "form-control", // agar tetap pakai style Bootstrap
-            onChange: function(selectedDates) {
-                if (selectedDates.length > 0) {
-                    const birthDate = selectedDates[0];
-                    const today = new Date();
 
-                    let years = today.getFullYear() - birthDate.getFullYear();
-                    let months = today.getMonth() - birthDate.getMonth();
-                    let days = today.getDate() - birthDate.getDate();
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr("input[name='ttl']", {
+                dateFormat: "d/m/Y",
+                altInput: true,
+                altFormat: "d/m/Y",
+                altInputClass: "form-control", // tetap pakai bootstrap
+                onReady: function(selectedDates, dateStr, instance) {
+                    // Tambahkan required dan validasi HTML5 ke altInput
+                    instance.altInput.setAttribute('required', 'required');
+                    instance.altInput.setAttribute('name', 'ttl'); // agar nama tetap dikirim
 
-                    if (days < 0) {
-                        // Ambil jumlah hari bulan sebelumnya
-                        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-                        days += prevMonth;
-                        months--;
+                    // Hapus name di input asli agar tidak double
+                    instance.input.removeAttribute('name');
+
+                    // Pesan error kustom
+                    instance.altInput.addEventListener('invalid', function() {
+                        this.setCustomValidity('Tanggal lahir wajib diisi.');
+                    });
+
+                    instance.altInput.addEventListener('input', function() {
+                        this.setCustomValidity('');
+                    });
+                },
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const birthDate = selectedDates[0];
+                        const today = new Date();
+
+                        let years = today.getFullYear() - birthDate.getFullYear();
+                        let months = today.getMonth() - birthDate.getMonth();
+                        let days = today.getDate() - birthDate.getDate();
+
+                        if (days < 0) {
+                            const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+                                .getDate();
+                            days += prevMonth;
+                            months--;
+                        }
+
+                        if (months < 0) {
+                            months += 12;
+                            years--;
+                        }
+
+                        document.querySelector("input[name='usia']").value =
+                            `${years} tahun ${months} bulan ${days} hari`;
                     }
-
-                    if (months < 0) {
-                        months += 12;
-                        years--;
-                    }
-
-                    document.querySelector("input[name='usia']").value =
-                        `${years} tahun ${months} bulan ${days} hari`;
                 }
-            }
+            });
         });
-    </script>
-    <script>
+
         document.getElementById('copyAlamatTinggal').addEventListener('change', function() {
             const kk = document.getElementById('alamat_kk').value;
             document.getElementById('alamat_tinggal').value = this.checked ? kk : '';
@@ -669,5 +557,31 @@
                 document.getElementById('wali_alamat').value = this.value;
             }
         });
+
+        function setupAlamatWali(index) {
+            const checkbox = document.getElementById(`copyAlamatWali${index}`);
+            const alamatKK = document.getElementById('alamat_kk');
+            const alamatWali = document.getElementById(`alamat_wali_${index}`);
+
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    alamatWali.value = alamatKK.value;
+                    alamatWali.setAttribute('readonly', true);
+                } else {
+                    alamatWali.removeAttribute('readonly');
+                    alamatWali.value = '';
+                }
+            });
+
+            alamatKK.addEventListener('input', function() {
+                if (checkbox.checked) {
+                    alamatWali.value = alamatKK.value;
+                }
+            });
+        }
+
+        // Jalankan untuk dua wali (Ayah dan Ibu)
+        setupAlamatWali(0);
+        setupAlamatWali(1);
     </script>
 @endpush

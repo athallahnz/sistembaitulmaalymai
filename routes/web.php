@@ -23,6 +23,7 @@ use App\Http\Controllers\Pendidikan\EduClassController;
 use App\Http\Controllers\Pendidikan\StudentController;
 use App\Http\Controllers\Pendidikan\StudentCostController;
 use App\Http\Controllers\Pendidikan\TagihanSppController;
+use App\Http\Controllers\Pendidikan\WaliMuridController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -153,7 +154,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
     Route::get('/dashboard-tagihan/data', [TagihanSppController::class, 'getData'])->name('tagihan-spp.data');
     Route::get('/chart-bulanan', [TagihanSppController::class, 'getChartBulanan'])->name('tagihan-spp.chart-bulanan');
-    Route::get('/dashboard-tagihan/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
+    Route::get('/tagihan-spp/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
 
     //Student Route
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
@@ -164,13 +165,14 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::delete('students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
     Route::get('/data', [StudentController::class, 'getData'])->name('students.data');
 
+    Route::get('edu_classes/data', [EduClassController::class, 'data'])->name('edu_classes.data');
     Route::resource('edu_classes', EduClassController::class);
 
     Route::get('/students/{student}/costs/create', [StudentCostController::class, 'create'])->name('student_costs.create');
     Route::post('/students/{student}/costs', [StudentCostController::class, 'store'])->name('student_costs.store');
     Route::get('/kelas/{id}/akun-keuangan', [StudentController::class, 'getAkunKeuanganByClass']);
 
-    Route::resource('wali-murids', \App\Http\Controller\Pendidikan\WaliMuridController::class)->only(['index', 'show']);
+    Route::resource('wali-murids', \App\Http\Controllers\Pendidikan\WaliMuridController::class)->only(['index', 'show']);
 });
 
 // Route untuk home setelah login
@@ -190,11 +192,8 @@ Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.
 Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
-
 Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
-
-
 
 Route::get('/notifications/read', function () {
     if (Auth::check()) {

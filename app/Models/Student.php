@@ -9,8 +9,10 @@ use Carbon\Carbon;
 class Student extends Model
 {
     protected $fillable = [
+        'nisn',
         'no_induk',
         'name',
+        'nickname',
         'jenis_kelamin',
         'tempat_lahir',
         'ttl',
@@ -59,6 +61,11 @@ class Student extends Model
         return $this->hasOne(WaliMurid::class);
     }
 
+    public function waliMurids()
+    {
+        return $this->hasMany(WaliMurid::class);
+    }
+
     public function getTtlFormattedAttribute()
     {
         return Carbon::parse($this->ttl)->format('d/m/Y');
@@ -75,7 +82,7 @@ class Student extends Model
     }
     public function tagihanSpps()
     {
-        return $this->hasMany(TagihanSpp::class,'student_id');
+        return $this->hasMany(TagihanSpp::class, 'student_id');
     }
 }
 

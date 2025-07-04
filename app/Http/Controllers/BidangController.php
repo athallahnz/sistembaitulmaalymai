@@ -164,6 +164,10 @@ class BidangController extends Controller
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
 
+        $jumlahBiayadibayardimuka = Transaksi::whereIn('parent_akun_id', [3101])
+            ->where('bidang_name', auth()->user()->bidang_name)
+            ->sum('amount');
+
         // Kirimkan saldo terakhir ke view
         return view('bidang.index', compact(
             'totalKeuanganBidang',
@@ -185,7 +189,8 @@ class BidangController extends Controller
             'jumlahBiayaSosial',
             'jumlahBiayaPerlengkapanExtra',
             'jumlahBiayaSeragam',
-            'jumlahBiayaPeningkatanSDM'
+            'jumlahBiayaPeningkatanSDM',
+            'jumlahBiayadibayardimuka'
         ));
     }
 

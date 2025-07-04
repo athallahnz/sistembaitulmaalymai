@@ -37,130 +37,161 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Akun</th>
-                                <th>Debit</th>
-                                <th>Kredit</th>
+                                <th>Amount</th>
                             </tr>
                         </thead>
                         <tbody>
                             @if (Auth::user()->hasRole('Bidang'))
                                 <tr>
+                                    <td colspan="3"><strong>Aset</strong></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3">Aset Lancar</td>
+                                </tr>
+                                <tr>
                                     <td>101</td>
                                     <td>Kas</td>
                                     <td>Rp{{ number_format($saldoKas, 2, ',', '.') }}</td>
-                                    <td>-</td>
                                 </tr>
                                 <tr>
                                     <td>102</td>
                                     <td>Bank</td>
                                     <td>Rp{{ number_format($saldoBank, 2, ',', '.') }}</td>
-                                    <td>-</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3">Aset Tidak Lancar</td>
+                                </tr>
+                                <tr>
+                                    <td>103</td>
+                                    <td>Piutang</td>
+                                    <td>Rp{{ number_format($jumlahPiutang, 2, ',', '.') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>104</td>
+                                    <td>Tanah Bangunan</td>
+                                    <td>Rp0,-</td>
+                                </tr>
+                                <tr>
+                                    <td>105</td>
+                                    <td>Inventaris</td>
+                                    <td>Rp0,-</td>
                                 </tr>
                             @elseif(Auth::user()->hasRole('Bendahara'))
                                 <tr>
                                     <td>101</td>
                                     <td>Kas</td>
                                     <td>Rp{{ number_format($saldoKasTotal, 2, ',', '.') }}</td>
-                                    <td>-</td>
                                 </tr>
                                 <tr>
                                     <td>102</td>
                                     <td>Bank</td>
                                     <td>Rp{{ number_format($saldoBankTotal, 2, ',', '.') }}</td>
-                                    <td>-</td>
+                                </tr>
+                                <tr>
+                                    <td>103</td>
+                                    <td>Piutang</td>
+                                    <td>Rp{{ number_format($jumlahPiutang, 2, ',', '.') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>104</td>
+                                    <td>Tanah Bangunan</td>
+                                    <td>Rp0,-</td>
+                                </tr>
+                                <tr>
+                                    <td>105</td>
+                                    <td>Inventaris</td>
+                                    <td>Rp0,-</td>
                                 </tr>
                             @endif
+
+                            <body class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="2" class="text-center">Total</td>
+                                    @if (Auth::user()->hasRole('Bidang'))
+                                        <td>Rp
+                                            {{ number_format($saldoKas + $saldoBank + $jumlahPiutang, 2, ',', '.') }}
+                                        </td>
+                                    @elseif(Auth::user()->hasRole('Bendahara'))
+                                        <td>Rp
+                                            {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang, 2, ',', '.') }}
+                                        </td>
+                                    @endif
+                                </tr>
+                            </body>
                             <tr>
-                                <td>103</td>
-                                <td>Piutang</td>
-                                <td>Rp{{ number_format($jumlahPiutang, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td colspan="3"><strong>Liabilitas & Aset Bersih</strong></td>
                             </tr>
                             <tr>
-                                <td>104</td>
-                                <td>Tanah Bangunan</td>
-                                <td>Rp0,-</td>
-                                <td>-</td>
+                                <td colspan="3">Kewajiban</td>
                             </tr>
                             <tr>
-                                <td>105</td>
-                                <td>Inventaris</td>
-                                <td>Rp0,-</td>
-                                <td>-</td>
+                                <td>2021</td>
+                                <td>SPP (Pendidikan)</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>201</td>
-                                <td>Hutang</td>
-                                <td>-</td>
-                                <td>Rp{{ number_format($jumlahHutang, 2, ',', '.') }}</td>
+                                <td>2022</td>
+                                <td>Uang Gedung (Pendidikan)</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>202</td>
-                                <td>Donasi</td>
-                                <td>-</td>
-                                <td>Rp{{ number_format($jumlahDonasi, 2, ',', '.') }}</td>
+                                <td>2023</td>
+                                <td>Uang Kegiatan & Ekstra (Pendidikan)</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>203</td>
-                                <td>Pendapatan Belum Diterima</td>
-                                <td>-</td>
-                                <td>Rp{{ number_format($jumlahPendapatanBelumDiterima, 2, ',', '.') }}</td>
+                                <td>2024</td>
+                                <td>Uang Pendaftaran (Pendidikan)</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>301</td>
-                                <td>Beban Penyusutan</td>
-                                <td>Rp0,-</td>
-                                <td>-</td>
+                                <td>2025</td>
+                                <td>Uang Catering (Pendidikan)</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>302</td>
-                                <td>Beban Gaji dan Upah</td>
-                                <td>Rp{{ number_format($jumlahBebanGaji, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>2026</td>
+                                <td>Infaq</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>303</td>
-                                <td>Biaya Operasional</td>
-                                <td>Rp{{ number_format($jumlahBiayaOperasional, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>2027</td>
+                                <td>Wakaf</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>304</td>
-                                <td>Biaya Kegiatan Siswa</td>
-                                <td>Rp{{ number_format($jumlahBiayaKegiatanSiswa, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>2028</td>
+                                <td>Sumbangan/Donasi</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>305</td>
-                                <td>Biaya Pemeliharaan</td>
-                                <td>Rp{{ number_format($jumlahBiayaPemeliharaan, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>2031</td>
+                                <td>Pembangunan Masjid</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>306</td>
-                                <td>Biaya Sosial</td>
-                                <td>Rp{{ number_format($jumlahBiayaSosial, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>2032</td>
+                                <td>Pembangunan Day Care</td>
+                                <td>Rp.0,-</td>
                             </tr>
                             <tr>
-                                <td>307</td>
-                                <td>Biaya Perlengkapan Extra</td>
-                                <td>Rp{{ number_format($jumlahBiayaPerlengkapanExtra, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td colspan="3">Aset Netto</td>
                             </tr>
                             <tr>
-                                <td>308</td>
-                                <td>Biaya Seragam</td>
-                                <td>Rp{{ number_format($jumlahBiayaSeragam, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td colspan="3">Aset Tidak Terikat</td>
                             </tr>
                             <tr>
-                                <td>309</td>
-                                <td>Biaya Peningkatan SDM</td>
-                                <td>Rp{{ number_format($jumlahBiayaPeningkatanSDM, 2, ',', '.') }}</td>
-                                <td>-</td>
+                                <td>500</td>
+                                <td>Hasil Aktivitas</td>
+                                <td>Rp.0,-</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">Aset Terikat/ Dana Abadi</td>
+                                <td>Rp.0,-</td>
                             </tr>
                         </tbody>
-                        <tfoot class="table-light">
+
+                        <body class="table-light">
                             <tr class="fw-bold">
                                 <td colspan="2" class="text-center">Total</td>
                                 @if (Auth::user()->hasRole('Bidang'))
@@ -172,11 +203,8 @@
                                         {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra + $jumlahBiayaPeningkatanSDM, 2, ',', '.') }}
                                     </td>
                                 @endif
-                                <td>Rp
-                                    {{ number_format($jumlahDonasi + $jumlahPendapatanBelumDiterima + $jumlahHutang, 2, ',', '.') }}
-                                </td>
                             </tr>
-                        </tfoot>
+                        </body>
                     </table>
                 </div>
             </div>

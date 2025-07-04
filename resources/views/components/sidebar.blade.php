@@ -17,7 +17,7 @@
 
                 <li class="sidebar-item {{ request()->routeIs('admin.users.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('admin.users.index') }}">
-                        <i class="align-middle" data-feather="user"></i>
+                        <i class="align-middle" data-feather="users"></i>
                         <span class="align-middle">Users</span>
                     </a>
                 </li>
@@ -63,7 +63,7 @@
                 </li>
                 <li class="sidebar-item {{ request()->routeIs('transaksi.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('transaksi.index') }}">
-                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <i class="align-middle" data-feather="book"></i>
                         <span class="align-middle">Buku Harian</span>
                     </a>
                 </li>
@@ -146,7 +146,7 @@
                 </li>
                 <li class="sidebar-item {{ request()->routeIs('transaksi.index.bidang') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('transaksi.index.bidang') }}">
-                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <i class="align-middle" data-feather="book"></i>
                         <span class="align-middle">Buku Harian</span>
                     </a>
                 </li>
@@ -221,13 +221,13 @@
                     <li class="sidebar-header">Manajement Murid</li>
                     <li class="sidebar-item {{ request()->routeIs('students.index') ? 'active' : '' }}">
                         <a class="sidebar-link" href="{{ route('students.index') }}">
-                            <i class="align-middle" data-feather="user"></i>
+                            <i class="align-middle" data-feather="users"></i>
                             <span class="align-middle">Data Murid</span>
                         </a>
                     </li>
                     <li class="sidebar-item {{ request()->routeIs('edu_classes.index') ? 'active' : '' }}">
                         <a class="sidebar-link" href="{{ route('edu_classes.index') }}">
-                            <i class="align-middle" data-feather="user"></i>
+                            <i class="align-middle" data-feather="star"></i>
                             <span class="align-middle">Data Kelas</span>
                         </a>
                     </li>

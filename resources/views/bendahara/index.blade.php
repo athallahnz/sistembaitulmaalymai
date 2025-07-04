@@ -211,6 +211,17 @@
                         </div>
                     </a>
                 </div>
+                <div class="col-md-4 mb-5">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-cash"></div>
+                            <h5>Biaya Dibayar di Muka</h5>
+                            <div class="value {{ $jumlahBiayadibayardimuka >= 0 ? 'positive' : 'negative' }}">
+                                {{ number_format($jumlahBiayadibayardimuka, 0, ',', '.') }}</div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
             </div>
             <h4 class="mb-4 d-flex">
                 <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganSub3"

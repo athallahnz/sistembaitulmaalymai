@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Pendidikan;
 
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;// pastikan model sudah ada dan sesuai
+use Illuminate\Routing\Controller;
 use App\Models\EduClass;
 use App\Models\AkunKeuangan;
+use Yajra\DataTables\DataTables;
+
 
 class EduClassController extends Controller
 {
@@ -16,8 +18,31 @@ class EduClassController extends Controller
     {
         $kelasList = EduClass::withCount('students')->get();
         $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
-        $akunKeuangan = AkunKeuangan::where('parent_id', 202)->get();
-        return view('bidang.pendidikan.kelas.index', compact('kelasList','eduClasses','akunKeuangan'));
+        $akunKeuangans = AkunKeuangan::where('parent_id', 202)->get();
+        return view('bidang.pendidikan.kelas.index', compact('kelasList', 'eduClasses', 'akunKeuangans'));
+    }
+
+    public function data()
+    {
+        $data = EduClass::withCount('students')->get();
+
+        return DataTables::of($data)
+            ->addColumn('students_count', function ($row) {
+                \Log::info($row); // cek di storage/logs/laravel.log
+                return $row->students_count ?? 0;
+            })
+            ->addColumn('actions', function ($row) {
+                return '
+            <a href="' . route('edu_classes.show', $row->id) . '" class="btn btn-info btn-sm"><i class="bi bi-eye"></i></a>
+            <a href="' . route('edu_classes.edit', $row->id) . '" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square"></i></a>
+            <form action="' . route('edu_classes.destroy', $row->id) . '" method="POST" class="d-inline" onsubmit="return confirm(\'Yakin hapus kelas ini?\')">
+                ' . csrf_field() . method_field('DELETE') . '
+                <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
+            </form>
+        ';
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
     }
 
     /**
@@ -56,7 +81,7 @@ class EduClassController extends Controller
             $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids']);
         }
 
-        return redirect()->route('students.index')
+        return redirect()->route('edu_classes.index')
             ->with('success', 'Kelas baru berhasil ditambahkan.');
     }
 

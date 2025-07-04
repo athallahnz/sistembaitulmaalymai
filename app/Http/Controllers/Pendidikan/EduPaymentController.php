@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Pendidikan;
 
 use App\Http\Controllers\Controller;
+use App\Services\StudentPaymentService;
 use App\Models\EduPayment;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
@@ -73,7 +74,8 @@ class EduPaymentController extends Controller
     {
         $request->validate([
             'student_id' => 'required|exists:students,id',
-            'jumlah' => 'required|numeric|min:1000'
+            'jumlah' => 'required|numeric|min:1000',
+            'metode' => 'required|in:tunai,transfer'
         ]);
 
         // Ambil data student beserta relasi biaya dan pembayaran
@@ -101,8 +103,12 @@ class EduPaymentController extends Controller
             'tanggal' => now()
         ]);
 
+        // Trigger jurnal double-entry
+        StudentPaymentService::recordPayment($student, $request->jumlah, $request->metode);
+
         return back()->with('success', 'Pembayaran berhasil disimpan!');
     }
+
 
     public function getData(Request $request)
     {

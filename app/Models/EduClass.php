@@ -10,10 +10,11 @@ class EduClass extends Model
 {
     protected $fillable = ['name', 'tahun_ajaran'];
 
-    public function students(): HasMany
+    public function students()
     {
-        return $this->hasMany(Student::class);
+        return $this->hasMany(Student::class, 'edu_class_id');
     }
+
 
     public function akunKeuangans()
     {

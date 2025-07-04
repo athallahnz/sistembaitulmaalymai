@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controller\Pendidikan;
+namespace App\Http\Controllers\Pendidikan;
 
 use App\Http\Controllers\Controller;
 use App\Models\WaliMurid;

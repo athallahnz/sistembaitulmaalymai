@@ -106,6 +106,7 @@ class BendaharaController extends Controller
         $totalBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])->sum('amount');
         $totalBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])->sum('amount');
         $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])->sum('amount');
+        $jumlahBiayadibayardimuka = Transaksi::whereIn('parent_akun_id', [3101])->sum('amount');
 
         return view('bendahara.index', compact(
             'saldoKasTotal',
@@ -128,7 +129,8 @@ class BendaharaController extends Controller
             'totalBiayaSosial',
             'totalBiayaPerlengkapanExtra',
             'totalBiayaSeragam',
-            'jumlahBiayaPeningkatanSDM'
+            'jumlahBiayaPeningkatanSDM',
+            'jumlahBiayadibayardimuka'
         ));
     }
 

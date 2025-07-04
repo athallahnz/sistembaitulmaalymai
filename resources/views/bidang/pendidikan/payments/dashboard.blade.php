@@ -1,6 +1,43 @@
 @extends('layouts.app')
 
 @section('content')
+    <style>
+        .btn-outline-success,
+        .btn-outline-warning {
+            transition: all 0.2s ease-in-out;
+        }
+
+        #tunai:not(:checked)+.btn-outline-success:hover {
+            background-color: #198754;
+            /* Bootstrap success */
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.3rem rgba(25, 135, 84, 0.4);
+        }
+
+        #transfer:not(:checked)+.btn-outline-warning:hover {
+            background-color: #ffc107;
+            /* Bootstrap warning */
+            color: #fff;
+            border-color: #ffc107;
+            box-shadow: 0 0 0.3rem rgba(255, 193, 7, 0.4);
+        }
+
+        #tunai:checked+.btn-outline-success {
+            background-color: #198754;
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.4rem rgba(25, 135, 84, 0.5);
+        }
+
+        #transfer:checked+.btn-outline-warning {
+            background-color: #ffc107;
+            color: #fff;
+            border-color: #ffc107;
+            box-shadow: 0 0 0.4rem rgba(255, 193, 7, 0.5);
+        }
+    </style>
+
     <div class="container">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -44,6 +81,19 @@
                             <label for="jumlah" class="form-label">Jumlah Bayar</label>
                             <input type="number" name="jumlah" id="jumlah" class="form-control"
                                 placeholder="Masukkan jumlah" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label mb-2">Metode Pembayaran</label>
+                            <div class="d-flex gap-2" id="payment-method-buttons">
+                                <input type="radio" class="btn-check" name="metode" id="tunai" value="tunai"
+                                    autocomplete="off" required>
+                                <label class="btn btn-outline-success" for="tunai">Tunai (Cash)</label>
+
+                                <input type="radio" class="btn-check" name="metode" id="transfer" value="transfer"
+                                    autocomplete="off" required>
+                                <label class="btn btn-outline-warning" for="transfer">Transfer</label>
+                            </div>
                         </div>
 
                     </div>
@@ -91,8 +141,20 @@
 @endsection
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Modal Pembayaran -->
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('modalPembayaran');
+            const rfidInput = document.getElementById('rfid_uid_input');
+
+            if (modal && rfidInput) {
+                modal.addEventListener('shown.bs.modal', function() {
+                    rfidInput.focus();
+                });
+            }
+        });
+
         const rfidInput = document.getElementById('rfid_uid_input');
         const studentCard = document.getElementById('student-card');
         const studentCardBody = document.getElementById('student-card-body');
@@ -157,10 +219,7 @@
                     });
             }, 300);
         });
-    </script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
+
         const ctx = document.getElementById('paymentChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
@@ -203,8 +262,7 @@
                 }
             }
         });
-    </script>
-    <script>
+
         $(document).ready(function() {
             $('.yajra-datatable').DataTable({
                 processing: true,

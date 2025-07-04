@@ -3,10 +3,10 @@
 @section('content')
     <div class="container">
         <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item active" aria-current="page"><a>Detail</a></li>
-            </ol>
+            <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('students.index') }}">Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><a>Detail</a></li>
+        </ol>
         <div class="row">
             <div class="col-md-6">
                 <h2 class="mb-4"><strong>{{ $student->no_induk }} - {{ $student->name }}</strong></h2>
@@ -53,8 +53,8 @@
                                     <li class="list-group-item mb-3">
                                         <strong>Pas Foto:</strong><br>
                                         @if ($student->pas_photo)
-                                            <img class="mt-3" src="{{ asset('storage/' . $student->pas_photo) }}" alt="Pas Photo"
-                                                class="img-fluid rounded" style="max-width: 150px;">
+                                            <img class="mt-3" src="{{ asset('storage/' . $student->pas_photo) }}"
+                                                alt="Pas Photo" class="img-fluid rounded" style="max-width: 150px;">
                                         @else
                                             <em>Tidak ada</em>
                                         @endif
@@ -62,7 +62,8 @@
                                     <li class="list-group-item mb-3">
                                         <strong>Dokumen Akta:</strong><br>
                                         @if ($student->akte)
-                                            <a class="mt-3" href="{{ asset('storage/' . $student->akte) }}" target="_blank">Lihat
+                                            <a class="mt-3" href="{{ asset('storage/' . $student->akte) }}"
+                                                target="_blank">Lihat
                                                 Akta</a>
                                         @else
                                             <em>Tidak ada</em>
@@ -71,7 +72,8 @@
                                     <li class="list-group-item mb-3">
                                         <strong>Dokumen KK:</strong><br>
                                         @if ($student->kk)
-                                            <a class="mt-3" href="{{ asset('storage/' . $student->kk) }}" target="_blank">Lihat KK</a>
+                                            <a class="mt-3" href="{{ asset('storage/' . $student->kk) }}"
+                                                target="_blank">Lihat KK</a>
                                         @else
                                             <em>Tidak ada</em>
                                         @endif
@@ -93,35 +95,27 @@
                     <div id="collapseWali" class="accordion-collapse collapse" aria-labelledby="headingWali"
                         data-bs-parent="#accordionStudent">
                         <div class="accordion-body">
-                            <div class="row">
+
+                            {{-- Data Ayah --}}
+                            <h5 class="mb-3">Data Wali Ayah</h5>
+                            <div class="row mb-4">
                                 <div class="col-6">
                                     <ul class="list-group list-group-flush">
-                                        <li class="list-group-item"><strong>Nama:</strong>
-                                            {{ $student->waliMurid->nama ?? '-' }}
-                                        </li>
+                                        <li class="list-group-item"><strong>Nama:</strong> {{ $ayah->nama ?? '-' }}</li>
                                         <li class="list-group-item"><strong>Jenis Kelamin:</strong>
-                                            @if ($student->waliMurid)
-                                                {{ $student->waliMurid->jenis_kelamin == 'L' ? 'Laki-laki' : ($student->waliMurid->jenis_kelamin == 'P' ? 'Perempuan' : '-') }}
-                                            @else
-                                                -
-                                            @endif
+                                            {{ $ayah?->jenis_kelamin == 'L' ? 'Laki-laki' : ($ayah?->jenis_kelamin == 'P' ? 'Perempuan' : '-') }}
                                         </li>
-                                        <li class="list-group-item"><strong>Hubungan:</strong>
-                                            {{ $student->waliMurid->hubungan ?? '-' }}</li>
-                                        <li class="list-group-item"><strong>NIK:</strong>
-                                            {{ $student->waliMurid->nik ?? '-' }}
+                                        <li class="list-group-item"><strong>Hubungan:</strong> {{ $ayah->hubungan ?? '-' }}
                                         </li>
+                                        <li class="list-group-item"><strong>NIK:</strong> {{ $ayah->nik ?? '-' }}</li>
                                         <li class="list-group-item"><strong>No. Handphone:</strong>
-                                            {{ $student->waliMurid->no_hp ?? '-' }}</li>
-                                        <li class="list-group-item"><strong>Email:</strong>
-                                            {{ $student->waliMurid->email ?? '-' }}
-                                        </li>
+                                            {{ $ayah->no_hp ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Email:</strong> {{ $ayah->email ?? '-' }}</li>
                                         <li class="list-group-item"><strong>Pendidikan Terakhir:</strong>
-                                            {{ $student->waliMurid->pendidikan_terakhir ?? '-' }}</li>
+                                            {{ $ayah->pendidikan_terakhir ?? '-' }}</li>
                                         <li class="list-group-item"><strong>Pekerjaan:</strong>
-                                            {{ $student->waliMurid->pekerjaan ?? '-' }}</li>
-                                        <li class="list-group-item"><strong>Alamat:</strong>
-                                            {{ $student->waliMurid->alamat ?? '-' }}
+                                            {{ $ayah->pekerjaan ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Alamat:</strong> {{ $ayah->alamat ?? '-' }}
                                         </li>
                                     </ul>
                                 </div>
@@ -129,8 +123,46 @@
                                     <ul>
                                         <li class="list-group-item mb-3">
                                             <strong>Foto KTP:</strong><br>
-                                            @if ($student->waliMurid)
-                                                <img class="mt-3" src="{{ asset('storage/' . $student->waliMurid->foto_ktp) }}"
+                                            @if ($ayah && $ayah->foto_ktp)
+                                                <img class="mt-3" src="{{ asset('storage/' . $ayah->foto_ktp) }}"
+                                                    alt="Foto KTP" class="img-fluid rounded" style="max-width: 150px;">
+                                            @else
+                                                <em>Tidak ada</em>
+                                            @endif
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {{-- Data Ibu --}}
+                            <h5 class="mb-3">Data Wali Ibu</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item"><strong>Nama:</strong> {{ $ibu->nama ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Jenis Kelamin:</strong>
+                                            {{ $ibu?->jenis_kelamin == 'L' ? 'Laki-laki' : ($ibu?->jenis_kelamin == 'P' ? 'Perempuan' : '-') }}
+                                        </li>
+                                        <li class="list-group-item"><strong>Hubungan:</strong> {{ $ibu->hubungan ?? '-' }}
+                                        </li>
+                                        <li class="list-group-item"><strong>NIK:</strong> {{ $ibu->nik ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>No. Handphone:</strong>
+                                            {{ $ibu->no_hp ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Email:</strong> {{ $ibu->email ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Pendidikan Terakhir:</strong>
+                                            {{ $ibu->pendidikan_terakhir ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Pekerjaan:</strong>
+                                            {{ $ibu->pekerjaan ?? '-' }}</li>
+                                        <li class="list-group-item"><strong>Alamat:</strong> {{ $ibu->alamat ?? '-' }}
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="col-6">
+                                    <ul>
+                                        <li class="list-group-item mb-3">
+                                            <strong>Foto KTP:</strong><br>
+                                            @if ($ibu && $ibu->foto_ktp)
+                                                <img class="mt-3" src="{{ asset('storage/' . $ibu->foto_ktp) }}"
                                                     alt="Foto KTP" class="img-fluid rounded" style="max-width: 150px;">
                                             @else
                                                 <em>Tidak ada</em>
@@ -142,6 +174,7 @@
                         </div>
                     </div>
                 </div>
+
 
                 <div class="my-3 mx-3">
                     <a href="{{ route('students.index') }}" class="btn btn-secondary">Kembali</a>
