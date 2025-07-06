@@ -60,7 +60,7 @@
                 <form method="POST" action="{{ route('payment.store') }}" class="modal-content">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title" id="modalPembayaranLabel">Form Pembayaran Murid</h5>
+                        <h5 class="modal-title" id="modalPembayaranLabel">Form Pembayaran PMB Murid</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
                     </div>
                     <div class="modal-body">
@@ -79,8 +79,9 @@
 
                         <div class="mb-3 mt-4">
                             <label for="jumlah" class="form-label">Jumlah Bayar</label>
-                            <input type="number" name="jumlah" id="jumlah" class="form-control"
+                            <input type="text" id="formattedJumlah" class="form-control" oninput="formatInput(this)"
                                 placeholder="Masukkan jumlah" required>
+                            <input type="number" name="jumlah" id="jumlah" class="form-control d-none">
                         </div>
 
                         <div class="mb-3">
@@ -98,7 +99,7 @@
 
                     </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Bayar</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Bayar</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     </div>
                 </form>
@@ -158,6 +159,8 @@
         const rfidInput = document.getElementById('rfid_uid_input');
         const studentCard = document.getElementById('student-card');
         const studentCardBody = document.getElementById('student-card-body');
+        const submitBtn = document.querySelector('#submitBtn');
+        const jumlahInput = document.querySelector('#formattedJumlah');
 
         rfidInput?.addEventListener('input', function() {
             const uid = this.value.trim();
@@ -184,30 +187,49 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.name) {
+                            const isLunas = Number(data.sisa) <= 0;
                             studentCardBody.innerHTML = `
-                            <div class="mb-3">
-                                <label class="form-label">Nama</label>
-                                <input type="text" class="form-control" value="${data.name}" readonly>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Kelas</label>
-                                <input type="text" class="form-control" value="${data.edu_class} (${data.tahun_ajaran})" readonly>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Total Biaya</label>
-                                <input type="text" class="form-control" value="Rp ${Number(data.total_biaya).toLocaleString()}" readonly>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Sisa Tanggungan</label>
-                                <input type="text" class="form-control" value="Rp ${Number(data.sisa).toLocaleString()}" readonly>
-                            </div>
-                            <input type="hidden" name="student_id" value="${data.id}">
-                        `;
+                <div class="alert ${isLunas ? 'alert-success' : 'alert-warning'}">
+                    ${isLunas ? '✅ Semua tagihan sudah lunas.' : '⚠️ Masih ada tanggungan yang belum dibayar.'}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama</label>
+                    <input type="text" class="form-control" value="${data.name}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kelas</label>
+                    <input type="text" class="form-control" value="${data.edu_class} (${data.tahun_ajaran})" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Total Biaya</label>
+                    <input type="text" class="form-control" value="${Number(data.total_biaya).toLocaleString()}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Sisa Tanggungan</label>
+                    <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
+                </div>
+                <input type="hidden" name="student_id" value="${data.id}">
+            `;
+
+                            // Nonaktifkan jika lunas
+                            submitBtn.disabled = isLunas;
+                            document.getElementById('jumlah').disabled = isLunas;
+                            document.getElementById('formattedJumlah').disabled = isLunas;
+                            document.getElementById('tunai').disabled = isLunas;
+                            document.getElementById('transfer').disabled = isLunas;
+
+                            document.getElementById('jumlah').value = isLunas ? '' : data.sisa;
+
                         } else {
                             setTimeout(() => {
                                 if (rfidInput.value.trim() === uid) {
                                     studentCardBody.innerHTML =
                                         `<p class="text-danger">❌ Siswa tidak ditemukan!</p>`;
+                                    document.querySelector('button[type="submit"]').disabled =
+                                        true;
+                                    document.getElementById('jumlah').disabled = true;
+                                    document.getElementById('formattedJumlah').disabled = true;
+                                    document.getElementById('jumlah').value = '';
                                 }
                             }, 1000);
                         }
@@ -294,7 +316,15 @@
             });
         });
 
-        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+        function formatInput(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+
+            input.value = formatted; // Tampilkan angka dengan separator
+            document.getElementById("jumlah").value = rawValue; // Simpan angka asli tanpa separator
+        }
+
+        function number_format(number, decimals = 0, dec_point = '.', thousands_sep = '.') {
             number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
             var n = !isFinite(+number) ? 0 : +number,
                 prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),

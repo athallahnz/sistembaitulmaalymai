@@ -37,8 +37,9 @@
             "Barryvdh\\": "vendor/barryvdh/"
         },
         "files": [
-            "app/Helpers/KeuanganHelper.php"
-        ]
+            "app/Helpers/KeuanganHelper.php",
+            "app/Helpers/TagihanHelper.php"
+        ]   
     },
     "autoload-dev": {
         "psr-4": {

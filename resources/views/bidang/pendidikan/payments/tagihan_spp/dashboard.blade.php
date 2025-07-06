@@ -1,6 +1,42 @@
 @extends('layouts.app')
 
 @section('content')
+    <style>
+        .btn-outline-success,
+        .btn-outline-warning {
+            transition: all 0.2s ease-in-out;
+        }
+
+        #tunai:not(:checked)+.btn-outline-success:hover {
+            background-color: #198754;
+            /* Bootstrap success */
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.3rem rgba(25, 135, 84, 0.4);
+        }
+
+        #transfer:not(:checked)+.btn-outline-warning:hover {
+            background-color: #ffc107;
+            /* Bootstrap warning */
+            color: #fff;
+            border-color: #ffc107;
+            box-shadow: 0 0 0.3rem rgba(255, 193, 7, 0.4);
+        }
+
+        #tunai:checked+.btn-outline-success {
+            background-color: #198754;
+            color: #fff;
+            border-color: #198754;
+            box-shadow: 0 0 0.4rem rgba(25, 135, 84, 0.5);
+        }
+
+        #transfer:checked+.btn-outline-warning {
+            background-color: #ffc107;
+            color: #fff;
+            border-color: #ffc107;
+            box-shadow: 0 0 0.4rem rgba(255, 193, 7, 0.5);
+        }
+    </style>
     <div class="container">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -24,7 +60,7 @@
                     class="modal-content border rounded shadow-sm bg-light">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title" id="modalPembayaranLabel">Form Pembayaran Murid</h5>
+                        <h5 class="modal-title" id="modalPembayaranLabel">Form Pembayaran SPP Murid</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
                     </div>
 
@@ -46,6 +82,18 @@
                                 placeholder="Masukkan jumlah" required disabled>
                         </div>
                         <input type="hidden" name="student_id" id="student_id" value="">
+                        <div class="mb-3">
+                            <label class="form-label mb-2">Metode Pembayaran</label>
+                            <div class="d-flex gap-2" id="payment-method-buttons">
+                                <input type="radio" class="btn-check" name="metode" id="tunai" value="tunai"
+                                    autocomplete="off" required>
+                                <label class="btn btn-outline-success" for="tunai">Tunai (Cash)</label>
+
+                                <input type="radio" class="btn-check" name="metode" id="transfer" value="transfer"
+                                    autocomplete="off" required>
+                                <label class="btn btn-outline-warning" for="transfer">Transfer</label>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="modal-footer">
@@ -75,7 +123,8 @@
                 <select name="bulan" id="bulan" class="form-select">
                     <option value="">Semua Bulan</option>
                     @for ($i = 1; $i <= 12; $i++)
-                        <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
+                        <option value="{{ $i }}">
+                            {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
                         </option>
                     @endfor
                 </select>
@@ -191,10 +240,12 @@
                             return res.json();
                         })
                         .then(data => {
+                            console.log("Data dari server:", data); // ⬅️ DEBUG
                             if (data && data.name) {
-                                if (data.total === 0) {
+                                if (data.tagihan_count === 0) {
+                                    // ✅ Belum ada tagihan sama sekali
                                     studentCardBody.innerHTML = `
-                            <div class="alert alert-success">✅ Semua tagihan sudah lunas.</div>
+                    <div class="alert alert-danger">Saat ini belum ada tangihan!</div>
                     <div class="mb-3">
                         <label class="form-label">Nama</label>
                         <input type="text" class="form-control" value="${data.name}" readonly>
@@ -205,41 +256,68 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Total Tagihan</label>
-                        <input type="text" class="form-control" value="Rp 0" readonly>
+                        <input type="text" class="form-control" value="0" readonly>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Sisa Tagihan</label>
-                        <input type="text" class="form-control" value="Rp 0" readonly>
+                        <input type="text" class="form-control" value="0" readonly>
                     </div>
                 `;
                                     submitBtn.disabled = true;
                                     jumlahInput.disabled = true;
                                     studentIdInput.value = '';
                                     jumlahInput.value = '';
-                                    return;
-                                } // Jika masih ada tagihan belum lunas
-                                studentCardBody.innerHTML = `
-                <div class="mb-3">
-                    <label class="form-label">Nama</label>
-                    <input type="text" class="form-control" value="${data.name}" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Kelas</label>
-                    <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Total Tagihan</label>
-                    <input type="text" class="form-control" value="Rp ${Number(data.total).toLocaleString()}" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Sisa Tagihan</label>
-                    <input type="text" class="form-control" value="Rp ${Number(data.sisa).toLocaleString()}" readonly>
-                </div>
-            `;
-                                studentIdInput.value = data.id;
-                                submitBtn.disabled = false;
-                                jumlahInput.disabled = false;
-                                jumlahInput.value = data.sisa; // default bayar sisa tagihan
+                                } else if (data.total === 0) {
+                                    // ✅ Semua tagihan sudah lunas
+                                    studentCardBody.innerHTML = `
+                    <div class="alert alert-danger">Saat ini belum ada tangihan!</div>
+                    <div class="mb-3">
+                        <label class="form-label">Nama</label>
+                        <input type="text" class="form-control" value="${data.name}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kelas</label>
+                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Total Tagihan</label>
+                        <input type="text" class="form-control" value="0" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sisa Tagihan</label>
+                        <input type="text" class="form-control" value="0" readonly>
+                    </div>
+                `;
+                                    submitBtn.disabled = true;
+                                    jumlahInput.disabled = true;
+                                    studentIdInput.value = '';
+                                    jumlahInput.value = '';
+                                } else {
+                                    // ⚠️ Masih ada tagihan belum lunas
+                                    studentCardBody.innerHTML = `
+                    <div class="alert alert-warning">⚠️ Tagihan belum lunas, silahkan melakukan pelunasan. 😊🙏🏻</div>
+                    <div class="mb-3">
+                        <label class="form-label">Nama</label>
+                        <input type="text" class="form-control" value="${data.name}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kelas</label>
+                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Total Tagihan</label>
+                        <input type="text" class="form-control" value="${Number(data.total).toLocaleString()}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sisa Tagihan</label>
+                        <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
+                    </div>
+                `;
+                                    studentIdInput.value = data.id;
+                                    submitBtn.disabled = false;
+                                    jumlahInput.disabled = false;
+                                    jumlahInput.value = data.sisa;
+                                }
                             } else {
                                 studentCardBody.innerHTML =
                                     `<p class="text-danger mb-0">❌ Siswa tidak ditemukan!</p>`;
@@ -288,7 +366,7 @@
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return 'Rp ' + new Intl.NumberFormat('id-ID').format(value);
+                                return ' ' + new Intl.NumberFormat('id-ID').format(value);
                             }
                         }
                     }
@@ -297,7 +375,7 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.dataset.label + ': Rp ' +
+                                return context.dataset.label + ':  ' +
                                     new Intl.NumberFormat('id-ID').format(context.raw);
                             }
                         }

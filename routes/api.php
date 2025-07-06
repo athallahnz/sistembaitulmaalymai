@@ -46,13 +46,18 @@ Route::get('/spp-tagihan-by-rfid/{uid}', function ($uid) {
         return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
     }
 
-    $tagihans = $student->tagihanSpps()->get();
+    $result = App\Helpers\TagihanHelper::getStatusTagihan($student->id);
 
+    // ✅ Logging helper result secara aman
+    Log::info('Helper result: ' . json_encode($result));
+    Log::info('Test log berhasil');
+
+    // ✅ Gabungkan data student + hasil tagihan
     return response()->json([
-        'student_id' => $student->id,
-        'student_name' => $student->name,
-        'tagihan_count' => $tagihans->count(),
-        'tagihan' => $tagihans
+        'id' => $student->id,
+        'name' => $student->name,
+        'edu_class' => $student->edu_class ?? '-',
+        'tahun_ajaran' => $student->tahun_ajaran ?? '-',
+        ...$result // ✅ pastikan $result benar-benar array biasa!
     ]);
 });
-

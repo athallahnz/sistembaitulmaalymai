@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Pendidikan;
 
 use App\Http\Controllers\Controller;
+use App\Services\StudentPaymentSPPService;
 use App\Models\Student;
 use App\Models\EduClass;
 use App\Models\TagihanSpp;
@@ -93,6 +94,7 @@ class TagihanSppController extends Controller
             ]);
         }
 
+
         return redirect()->back()->with('success', 'Tagihan berhasil dibuat untuk semua siswa.');
     }
 
@@ -132,17 +134,19 @@ class TagihanSppController extends Controller
             ->addColumn('kelas', function ($row) {
                 return $row->eduClass->name ?? '-';
             })
-            ->addColumn('status', function ($row) {
-                if ($row->total_tagihan == 0) {
-                    return 'belum_ada';
-                } elseif ($row->total_bayar >= $row->total_tagihan) {
-                    return 'lunas';
+            ->addColumn('status', function ($row): string {
+                if ($row->total_tagihan > 1) {
+                    if ($row->total_bayar >= $row->total_tagihan) {
+                        return 'lunas';
+                    } else {
+                        return 'belum_lunas';
+                    }
                 } else {
-                    return 'belum_lunas';
+                    return 'belum_ada';
                 }
             })
             ->addColumn('aksi', function ($row) {
-                return $row->id; // Kirim ID untuk dipakai di JS
+                return $row->id;
             })
             ->make(true);
     }
@@ -221,9 +225,12 @@ class TagihanSppController extends Controller
         $request->validate([
             'student_id' => 'required|exists:students,id',
             'jumlah' => 'required|numeric|min:1',
+            'metode' => 'required|in:tunai,transfer'
         ]);
 
         $student = Student::findOrFail($request->student_id);
+
+        StudentPaymentSPPService::recordPayment($student, $request->jumlah, $request->metode);
 
         // Ambil tagihan spp yang belum lunas, urut dari yang paling lama
         $tagihan = $student->tagihanSpps()

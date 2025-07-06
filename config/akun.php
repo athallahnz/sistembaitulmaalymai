@@ -10,5 +10,6 @@ return [
     'kas_pendidikan' => 1013,
     'bank_pendidikan' => 1023,
     'pendapatan_pmb' => 2022,
+    'pendapatan_spp' => 2021,
 
 ];
