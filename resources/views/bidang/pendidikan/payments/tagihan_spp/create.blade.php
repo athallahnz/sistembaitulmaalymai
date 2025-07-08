@@ -90,134 +90,148 @@
         </div>
     </div> --}}
     <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page"><a>Tagihan Page</a></li>
-            </ol>
-        </nav>
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><a>Tagihan Page</a></li>
+        </ol>
+    </nav>
     <h1 class="mb-4">Buat <strong>Tagihan SPP Murid/Bulan</strong></h1>
     <div class="container my-3">
-    <div class="row">
-        <!-- Form Input Tagihan -->
-        <div class="col-md-6">
-            <div class="card shadow rounded-4 border-0">
-                <div class="card-body">
-                    <form method="POST" action="{{ route('tagihan-spp.store') }}">
-                        @csrf
+        <div class="row">
+            <!-- Form Input Tagihan -->
+            <div class="col-md-6">
+                <div class="card shadow rounded-4 border-0">
+                    <div class="card-body">
+                        <form method="POST" action="{{ route('tagihan-spp.store') }}">
+                            @csrf
 
-                        <!-- Pilih Kelas -->
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Pilih Kelas</strong></label>
-                            <div class="row">
-                                @foreach ($classes as $class)
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input create-check" type="checkbox" name="edu_class_ids[]"
-                                        value="{{ $class->id }}" id="class-{{ $class->id }}">
-                                        <label class="form-check-label" for="class-{{ $class->id }}">
-                                            {{ $class->name }} - {{ $class->tahun_ajaran }}
-                                        </label>
-                                    </div>
+                            <!-- Pilih Kelas -->
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Pilih Kelas</strong></label>
+                                <div class="row">
+                                    @foreach ($classes as $class)
+                                        <div class="col-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input create-check" type="checkbox"
+                                                    name="edu_class_ids[]" value="{{ $class->id }}"
+                                                    id="class-{{ $class->id }}">
+                                                <label class="form-check-label" for="class-{{ $class->id }}">
+                                                    {{ $class->name }} - {{ $class->tahun_ajaran }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
-                                @endforeach
+                                <div class="form-check my-2">
+                                    <input type="checkbox" class="form-check-input" id="selectAllCreate">
+                                    <label class="form-check-label" for="selectAllCreate">Pilih Semua</label>
+                                </div>
                             </div>
-                            <div class="form-check my-2">
-                                <input type="checkbox" class="form-check-input" id="selectAllCreate">
-                                <label class="form-check-label" for="selectAllCreate">Pilih Semua</label>
-                            </div>
-                        </div>
 
-                        <!-- Tahun, Bulan -->
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Pilih Tahun</label>
-                                <input type="number" name="tahun" min="2025" placeholder="Tahun" class="form-control" required>
+                            <!-- Tahun, Bulan -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Pilih Tahun</label>
+                                    <input type="number" name="tahun" min="2025" placeholder="Tahun"
+                                        class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Pilih Bulan</label>
+                                    <input type="number" name="bulan" min="1" max="12"
+                                        placeholder="Bulan (1-12)" class="form-control" required>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Pilih Bulan</label>
-                                <input type="number" name="bulan" min="1" max="12" placeholder="Bulan (1-12)"
-                                    class="form-control" required>
-                            </div>
-                        </div>
 
-                        <!-- Nominal dan Tanggal -->
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-6">
-                                <label class="form-label">Jumlah Tagihan / Siswa</label>
-                                <input type="number" name="jumlah" required class="form-control"
-                                    placeholder="Masukkan Nominal...">
+                            <!-- Nominal dan Tanggal -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Jumlah Tagihan / Siswa</label>
+                                    <input type="text" id="formattedJumlah" class="form-control"
+                                        oninput="formatInput(this)" placeholder="Masukkan Nominal..." required>
+                                    <input type="number" name="jumlah" id="jumlah" class="form-control d-none">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tanggal Aktif</label>
+                                    <input type="date" name="tanggal_aktif" required class="form-control">
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Tanggal Aktif</label>
-                                <input type="date" name="tanggal_aktif" required class="form-control">
-                            </div>
-                        </div>
 
-                        <button type="submit" class="btn btn-primary mt-4 w-100">🚀 Buat Tagihan</button>
-                    </form>
+                            <button type="submit" class="btn btn-primary mt-4 w-100">🚀 Buat Tagihan</button>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Form Export -->
-        <div class="col-md-6 mt-4 mt-md-0">
-            <div class="card shadow rounded-4 border-0">
-                <div class="card-body">
-                    <h4 class="mb-4">📤 Export Tagihan Excel</h4>
+            <!-- Form Export -->
+            <div class="col-md-6 mt-4 mt-md-0">
+                <div class="card shadow rounded-4 border-0">
+                    <div class="card-body">
+                        <h4 class="mb-4">📤 Export Tagihan Excel</h4>
 
-                    <form action="{{ route('tagihan-spp.export') }}" method="GET">
-                        <!-- Pilih Kelas -->
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Pilih Kelas</strong></label>
-                            <div class="row">
-                                @foreach ($classes as $class)
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input export-check" type="checkbox" name="edu_class_ids[]"
-                                        value="{{ $class->id }}" id="export-class-{{ $class->id }}">
-                                        <label class="form-check-label" for="export-class-{{ $class->id }}">
-                                            {{ $class->name }} - {{ $class->tahun_ajaran }}
-                                        </label>
-                                    </div>
+                        <form action="{{ route('tagihan-spp.export') }}" method="GET">
+                            <!-- Pilih Kelas -->
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Pilih Kelas</strong></label>
+                                <div class="row">
+                                    @foreach ($classes as $class)
+                                        <div class="col-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input export-check" type="checkbox"
+                                                    name="edu_class_ids[]" value="{{ $class->id }}"
+                                                    id="export-class-{{ $class->id }}">
+                                                <label class="form-check-label" for="export-class-{{ $class->id }}">
+                                                    {{ $class->name }} - {{ $class->tahun_ajaran }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
-                                @endforeach
+                                <div class="form-check my-2">
+                                    <input type="checkbox" class="form-check-input" id="selectAllExport">
+                                    <label class="form-check-label" for="selectAllExport">Pilih Semua</label>
+                                </div>
                             </div>
-                            <div class="form-check my-2">
-                                <input type="checkbox" class="form-check-input" id="selectAllExport">
-                                <label class="form-check-label" for="selectAllExport">Pilih Semua</label>
-                            </div>
-                        </div>
 
-                        <!-- Tahun, Bulan -->
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Pilih Tahun</label>
-                                <input type="number" name="tahun" placeholder="Tahun" min="2025" class="form-control" required>
+                            <!-- Tahun, Bulan -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Pilih Tahun</label>
+                                    <input type="number" name="tahun" placeholder="Tahun" min="2025"
+                                        class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Pilih Bulan</label>
+                                    <input type="number" name="bulan" placeholder="Bulan (1-12)" class="form-control"
+                                        required>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Pilih Bulan</label>
-                                <input type="number" name="bulan" placeholder="Bulan (1-12)" class="form-control" required>
-                            </div>
-                        </div>
 
-                        <button class="btn btn-success mt-4 w-100">📥 Export Excel</button>
-                    </form>
+                            <button class="btn btn-success mt-4 w-100">📥 Export Excel</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 @endsection
 @push('scripts')
-<script>
-    // Checkbox "Pilih Semua" untuk form create
-    document.getElementById('selectAllCreate').addEventListener('change', function () {
-        document.querySelectorAll('.create-check').forEach(cb => cb.checked = this.checked);
-    });
+    <script>
+        // Checkbox "Pilih Semua" untuk form create
+        document.getElementById('selectAllCreate').addEventListener('change', function() {
+            document.querySelectorAll('.create-check').forEach(cb => cb.checked = this.checked);
+        });
 
-    // Checkbox "Pilih Semua" untuk form export
-    document.getElementById('selectAllExport').addEventListener('change', function () {
-        document.querySelectorAll('.export-check').forEach(cb => cb.checked = this.checked);
-    });
-</script>
+        // Checkbox "Pilih Semua" untuk form export
+        document.getElementById('selectAllExport').addEventListener('change', function() {
+            document.querySelectorAll('.export-check').forEach(cb => cb.checked = this.checked);
+        });
+
+        function formatInput(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+
+            input.value = formatted; // Tampilkan angka dengan separator
+            document.getElementById("jumlah").value = rawValue; // Simpan angka asli tanpa separator
+        }
+    </script>
 @endpush

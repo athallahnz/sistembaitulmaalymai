@@ -84,5 +84,10 @@ class Student extends Model
     {
         return $this->hasMany(TagihanSpp::class, 'student_id');
     }
+
+    public function transaksis()
+    {
+        return $this->hasMany(Transaksi::class, 'student_id');
+    }
 }
 

@@ -234,13 +234,14 @@
 
                 clearTimeout(window.fetchTimeout);
                 window.fetchTimeout = setTimeout(() => {
-                    fetch(`/api/spp-tagihan-by-rfid/${uid}`)
+                    fetch('/api/spp-tagihan-by-rfid/' + uid + '?t=' + Date.now())
                         .then(res => {
                             if (!res.ok) throw new Error('Siswa tidak ditemukan');
                             return res.json();
                         })
                         .then(data => {
-                            console.log("Data dari server:", data); // ⬅️ DEBUG
+                            console.log("Status:", data.status);
+                            console.log("Full JSON:", JSON.stringify(data, null, 2));
                             if (data && data.name) {
                                 if (data.tagihan_count === 0) {
                                     // ✅ Belum ada tagihan sama sekali

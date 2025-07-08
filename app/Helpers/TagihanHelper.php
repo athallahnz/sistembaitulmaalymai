@@ -24,7 +24,7 @@ class TagihanHelper
 
         $total = $tagihans->sum('jumlah');
         $totalBayar = $tagihans->where('status', 'lunas')->sum('jumlah');
-        $sisa = max($total - $totalBayar, 0);
+        $sisa = $tagihans->where('status', 'belum_lunas')->sum('jumlah');
 
         if ($tagihans->every(fn($t) => $t->status === 'lunas')) {
             $status = 'lunas';
@@ -44,5 +44,4 @@ class TagihanHelper
             'tagihan' => $tagihans,
         ];
     }
-
 }

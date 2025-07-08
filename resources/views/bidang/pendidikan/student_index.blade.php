@@ -28,7 +28,10 @@
                 </thead>
             </table>
         </div>
-
+        <form id="delete-form" method="POST" style="display: none;">
+            @csrf
+            @method('DELETE')
+        </form>
         {{-- Modal Form Tambah Student --}}
         <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl">
@@ -62,7 +65,7 @@
                                         <div class="col-md-8">
                                             <label>NISN</label>
                                             <input type="text" name="nisn" class="form-control"
-                                                value="{{ old('nisn') }}" placeholder="Masukkan NISN Murid.." required>
+                                                value="{{ old('nisn') }}" placeholder="Masukkan NISN Murid..">
                                             @error('nisn')
                                                 <div class="text-danger mt-1">{{ $message }}</div>
                                             @enderror
@@ -89,7 +92,8 @@
                                         <div class="col-md-6">
                                             <label>Nama Panggilan <span class="text-danger">*</span></label>
                                             <input type="text" name="nickname" class="form-control"
-                                                value="{{ old('nickname') }}" placeholder="Masukkan Nama Panggilan Murid.." required>
+                                                value="{{ old('nickname') }}" placeholder="Masukkan Nama Panggilan Murid.."
+                                                required>
                                             @error('nickname')
                                                 <div class="text-danger mt-1">{{ $message }}</div>
                                             @enderror
@@ -212,8 +216,9 @@
                                                     Data Ayah
                                                 </button>
                                             </h2>
-                                            <div id="collapseAyah" class="accordion-collapse collapse show"
-                                                aria-labelledby="headingAyah" data-bs-parent="#waliAccordion">
+                                            <div id="collapseAyah"
+                                                class="accordion-collapse collapse show"aria-labelledby="headingAyah"
+                                                data-bs-parent="#waliAccordion">
                                                 <div class="accordion-body">
                                                     @include(
                                                         'bidang.pendidikan.wali_murids.partials.form_wali_murid',
@@ -310,22 +315,64 @@
     </div>
 @endsection
 @push('scripts')
-    @if ($errors->any())
-        <script>
-            window.addEventListener('DOMContentLoaded', () => {
-                var myModal = new bootstrap.Modal(document.getElementById('studentModal'));
-                myModal.show();
-
-                // Fokus ke input RFID saat modal ditampilkan
-                document.getElementById('studentModal').addEventListener('shown.bs.modal', function() {
-                    document.getElementById('rfid_uid_input').focus();
-                });
-            });
-        </script>
-    @endif
+    {{-- CDN untuk Flatpickr --}}
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            // === Modal: Buka otomatis jika ada error ===
+            @if ($errors->any())
+                const studentModal = new bootstrap.Modal(document.getElementById('studentModal'));
+                studentModal.show();
+
+                // Fokus ke input RFID saat modal terbuka
+                document.getElementById('studentModal').addEventListener('shown.bs.modal', function() {
+                    document.getElementById('rfid_uid_input')?.focus();
+                });
+            @endif
+
+            // === Inisialisasi Flatpickr untuk TTL dan Hitung Usia ===
+            flatpickr("input[name='ttl']", {
+                dateFormat: "d/m/Y",
+                altInput: true,
+                altFormat: "d/m/Y",
+                altInputClass: "form-control",
+                onReady: function(selectedDates, dateStr, instance) {
+                    instance.altInput.setAttribute('required', 'required');
+                    instance.altInput.setAttribute('name', 'ttl');
+                    instance.input.removeAttribute('name');
+
+                    instance.altInput.addEventListener('invalid', function() {
+                        this.setCustomValidity('Tanggal lahir wajib diisi.');
+                    });
+                    instance.altInput.addEventListener('input', function() {
+                        this.setCustomValidity('');
+                    });
+                },
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const birthDate = selectedDates[0];
+                        const today = new Date();
+                        let years = today.getFullYear() - birthDate.getFullYear();
+                        let months = today.getMonth() - birthDate.getMonth();
+                        let days = today.getDate() - birthDate.getDate();
+
+                        if (days < 0) {
+                            days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+                            months--;
+                        }
+                        if (months < 0) {
+                            months += 12;
+                            years--;
+                        }
+                        document.querySelector("input[name='usia']").value =
+                            `${years} tahun ${months} bulan ${days} hari`;
+                    }
+                }
+            });
+
+            // === DataTable Yajra ===
             $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -343,8 +390,8 @@
                         name: 'total_biaya',
                         orderable: false,
                         searchable: false,
-                        render: function(data, type, row) {
-                            return number_format(data); // Format debit
+                        render: function(data) {
+                            return number_format(data);
                         }
                     },
                     {
@@ -360,47 +407,44 @@
                         searchable: false
                     }
                 ],
-                error: function(xhr, status, error) {
+                error: function(xhr) {
                     console.log(xhr.responseText);
                 }
             });
-        });
 
-        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-            var n = !isFinite(+number) ? 0 : +number,
-                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
-                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
-                s = '',
-                toFixedFix = function(n, prec) {
-                    var k = Math.pow(10, prec);
-                    return '' + Math.round(n * k) / k;
-                };
-            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-            if (s[0].length > 3) {
-                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            // === Fungsi Format Angka ===
+            function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+                let n = !isFinite(+number) ? 0 : +number,
+                    prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                    sep = thousands_sep,
+                    dec = dec_point,
+                    s = '',
+                    toFixedFix = function(n, prec) {
+                        return '' + Math.round(n * Math.pow(10, prec)) / Math.pow(10, prec);
+                    };
+                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+                if (s[0].length > 3) {
+                    s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+                }
+                if ((s[1] || '').length < prec) {
+                    s[1] = s[1] || '';
+                    s[1] += new Array(prec - s[1].length + 1).join('0');
+                }
+                return s.join(dec);
             }
-            if ((s[1] || '').length < prec) {
-                s[1] = s[1] || '';
-                s[1] += new Array(prec - s[1].length + 1).join('0');
-            }
-            return s.join(dec);
-        }
 
-        document.addEventListener('DOMContentLoaded', function() {
+            // === Dinamis Rincian Biaya ===
             const tbody = document.querySelector('#costTable tbody');
             const totalDisplay = document.getElementById('total_display');
             const totalInput = document.getElementById('total_biaya');
+            const akunTemplate = document.querySelector('.akun-template');
             const classSelect = document.querySelector('[name="edu_class_id"]');
-            const akunSelectTemplate = document.querySelector('select.akun-template');
 
-            // Format angka ke rupiah
             function formatRupiah(angka) {
                 return new Intl.NumberFormat('id-ID').format(angka);
             }
 
-            // Hitung dan update total
             function updateTotal() {
                 let total = 0;
                 document.querySelectorAll('input.jumlah-hidden').forEach(input => {
@@ -410,28 +454,26 @@
                 totalInput.value = total;
             }
 
-            // Tambah baris biaya baru
-            document.getElementById('addRow').addEventListener('click', function() {
-                const akunOptions = akunSelectTemplate.innerHTML;
+            document.getElementById('addRow')?.addEventListener('click', () => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                <td>
-                    <select name="akun_keuangan_id[]" class="form-select" required>
-                        ${akunOptions}
-                    </select>
-                </td>
-                <td>
-                    <input type="text" class="form-control jumlah" required>
-                    <input type="hidden" name="jumlah[]" class="jumlah-hidden">
-                </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-danger btn-sm remove-row"><i class="bi bi-trash3"></i></button>
-                </td>
-            `;
+                    <td>
+                        <select name="akun_keuangan_id[]" class="form-select" required>
+                            ${akunTemplate.innerHTML}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control jumlah" required>
+                        <input type="hidden" name="jumlah[]" class="jumlah-hidden">
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm remove-row">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </td>`;
                 tbody.appendChild(row);
             });
 
-            // Event Delegation: hapus baris dan hitung total
             tbody.addEventListener('click', function(e) {
                 if (e.target.closest('.remove-row')) {
                     e.target.closest('tr').remove();
@@ -439,26 +481,21 @@
                 }
             });
 
-            // Format input jumlah dan isi hidden input
             tbody.addEventListener('input', function(e) {
                 if (e.target.classList.contains('jumlah')) {
                     const angka = e.target.value.replace(/\D/g, '');
                     e.target.value = formatRupiah(angka);
-                    const hiddenInput = e.target.closest('td').querySelector('.jumlah-hidden');
-                    if (hiddenInput) hiddenInput.value = angka;
+                    const hidden = e.target.closest('td').querySelector('.jumlah-hidden');
+                    if (hidden) hidden.value = angka;
                     updateTotal();
                 }
             });
 
-
-            // AJAX: saat kelas berubah, ambil akun keuangan default
-            console.log('Template:', akunSelectTemplate?.innerHTML);
-            classSelect.addEventListener('change', function() {
-                const classId = this.value;
-                fetch(`/kelas/${classId}/akun-keuangan`)
+            // AJAX Ambil Akun Keuangan Default Berdasarkan Kelas
+            classSelect?.addEventListener('change', function() {
+                fetch(`/kelas/${this.value}/akun-keuangan`)
                     .then(res => res.json())
                     .then(data => {
-                        console.log(data);
                         tbody.innerHTML = '';
                         data.forEach(akun => {
                             const row = document.createElement('tr');
@@ -476,112 +513,83 @@
                                     <button type="button" class="btn btn-danger btn-sm remove-row">
                                         <i class="bi bi-trash3"></i>
                                     </button>
-                                </td>
-                            `;
+                                </td>`;
                             tbody.appendChild(row);
                         });
                         updateTotal();
                     });
             });
 
-            updateTotal(); // Inisialisasi awal
+            updateTotal();
+
+            // === Alamat: Salin Alamat KK ke Alamat Tinggal & Wali ===
+            const alamatKK = document.getElementById('alamat_kk');
+            const alamatTinggal = document.getElementById('alamat_tinggal');
+            const copyAlamatTinggal = document.getElementById('copyAlamatTinggal');
+
+            copyAlamatTinggal?.addEventListener('change', function() {
+                alamatTinggal.value = this.checked ? alamatKK.value : '';
+            });
+
+            alamatKK?.addEventListener('input', function() {
+                if (copyAlamatTinggal.checked) {
+                    alamatTinggal.value = this.value;
+                }
+            });
+
+            // Fungsi untuk Wali (Ayah/Ibu)
+            function setupAlamatWali(index) {
+                const checkbox = document.getElementById(`copyAlamatWali${index}`);
+                const alamat = document.getElementById(`alamat_wali_${index}`);
+                if (!checkbox || !alamat) return;
+
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        alamat.value = alamatKK.value;
+                        alamat.setAttribute('readonly', true);
+                    } else {
+                        alamat.removeAttribute('readonly');
+                        alamat.value = '';
+                    }
+                });
+
+                alamatKK.addEventListener('input', function() {
+                    if (checkbox.checked) {
+                        alamat.value = alamatKK.value;
+                    }
+                });
+            }
+
+            // Inisialisasi untuk Ayah (0) dan Ibu (1)
+            setupAlamatWali(0);
+            setupAlamatWali(1);
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            flatpickr("input[name='ttl']", {
-                dateFormat: "d/m/Y",
-                altInput: true,
-                altFormat: "d/m/Y",
-                altInputClass: "form-control", // tetap pakai bootstrap
-                onReady: function(selectedDates, dateStr, instance) {
-                    // Tambahkan required dan validasi HTML5 ke altInput
-                    instance.altInput.setAttribute('required', 'required');
-                    instance.altInput.setAttribute('name', 'ttl'); // agar nama tetap dikirim
+            const deleteForm = document.getElementById('delete-form');
 
-                    // Hapus name di input asli agar tidak double
-                    instance.input.removeAttribute('name');
+            document.body.addEventListener('click', function(e) {
+                const btn = e.target.closest('.btn-hapus');
+                if (!btn) return;
 
-                    // Pesan error kustom
-                    instance.altInput.addEventListener('invalid', function() {
-                        this.setCustomValidity('Tanggal lahir wajib diisi.');
-                    });
+                const url = btn.getAttribute('data-url');
 
-                    instance.altInput.addEventListener('input', function() {
-                        this.setCustomValidity('');
-                    });
-                },
-                onChange: function(selectedDates) {
-                    if (selectedDates.length > 0) {
-                        const birthDate = selectedDates[0];
-                        const today = new Date();
-
-                        let years = today.getFullYear() - birthDate.getFullYear();
-                        let months = today.getMonth() - birthDate.getMonth();
-                        let days = today.getDate() - birthDate.getDate();
-
-                        if (days < 0) {
-                            const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0)
-                                .getDate();
-                            days += prevMonth;
-                            months--;
-                        }
-
-                        if (months < 0) {
-                            months += 12;
-                            years--;
-                        }
-
-                        document.querySelector("input[name='usia']").value =
-                            `${years} tahun ${months} bulan ${days} hari`;
+                Swal.fire({
+                    title: 'Yakin ingin menghapus?',
+                    text: "Data siswa akan dihapus permanen.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        deleteForm.setAttribute('action', url);
+                        deleteForm.submit();
                     }
-                }
+                });
             });
         });
-
-        document.getElementById('copyAlamatTinggal').addEventListener('change', function() {
-            const kk = document.getElementById('alamat_kk').value;
-            document.getElementById('alamat_tinggal').value = this.checked ? kk : '';
-        });
-
-        document.getElementById('copyAlamatWali').addEventListener('change', function() {
-            const kk = document.getElementById('alamat_kk').value;
-            document.getElementById('wali_alamat').value = this.checked ? kk : '';
-        });
-
-        // Optional: update textarea if alamat_kk changes and checkbox is checked
-        document.getElementById('alamat_kk').addEventListener('input', function() {
-            if (document.getElementById('copyAlamatTinggal').checked) {
-                document.getElementById('alamat_tinggal').value = this.value;
-            }
-            if (document.getElementById('copyAlamatWali').checked) {
-                document.getElementById('wali_alamat').value = this.value;
-            }
-        });
-
-        function setupAlamatWali(index) {
-            const checkbox = document.getElementById(`copyAlamatWali${index}`);
-            const alamatKK = document.getElementById('alamat_kk');
-            const alamatWali = document.getElementById(`alamat_wali_${index}`);
-
-            checkbox.addEventListener('change', function() {
-                if (this.checked) {
-                    alamatWali.value = alamatKK.value;
-                    alamatWali.setAttribute('readonly', true);
-                } else {
-                    alamatWali.removeAttribute('readonly');
-                    alamatWali.value = '';
-                }
-            });
-
-            alamatKK.addEventListener('input', function() {
-                if (checkbox.checked) {
-                    alamatWali.value = alamatKK.value;
-                }
-            });
-        }
-
-        // Jalankan untuk dua wali (Ayah dan Ibu)
-        setupAlamatWali(0);
-        setupAlamatWali(1);
     </script>
 @endpush

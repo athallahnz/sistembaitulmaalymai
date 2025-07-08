@@ -201,3 +201,8 @@ Route::get('/notifications/read', function () {
     }
     return redirect()->back();
 })->name('notifications.markAsRead');
+
+Route::get('/logtest', function () {
+    Log::debug('🚨 Log test: ini harus muncul di laravel.log');
+    return 'Cek log';
+});

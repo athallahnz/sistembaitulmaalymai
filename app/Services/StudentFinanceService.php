@@ -11,6 +11,7 @@ use App\Models\Ledger;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class StudentFinanceService
 {
@@ -65,5 +66,48 @@ class StudentFinanceService
                 'bidang_name' => 2,
             ]);
         }
+    }
+
+    public function deleteWithAllRelations(Student $student): void
+    {
+        DB::transaction(function () use ($student) {
+
+            // Hapus file siswa
+            if ($student->pas_photo) {
+                Storage::disk('public')->delete($student->pas_photo);
+            }
+            if ($student->akte) {
+                Storage::disk('public')->delete($student->akte);
+            }
+            if ($student->kk) {
+                Storage::disk('public')->delete($student->kk);
+            }
+
+            // Hapus wali murid dan file KTP-nya
+            foreach ($student->waliMurids as $wali) {
+                if ($wali->foto_ktp) {
+                    Storage::disk('public')->delete($wali->foto_ktp);
+                }
+                $wali->delete();
+            }
+
+            // Hapus rincian biaya
+            $student->costs()->delete();
+
+            // Hapus transaksi keuangan & ledgers
+            Transaksi::where('deskripsi', 'like', '%' . $student->name . '%')->each(function ($transaksi) {
+                $transaksi->ledgers()->delete();
+                $transaksi->delete();
+            });
+
+            // (Opsional) Hapus piutang dan pendapatan belum diterima jika punya relasi
+            $student->tagihanSpps()->each(function ($tagihan) {
+                $tagihan->delete();
+            });
+
+
+            // Hapus murid
+            $student->delete();
+        });
     }
 }
