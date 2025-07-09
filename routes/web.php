@@ -118,6 +118,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit'); // Edit transaction form
         Route::put('{id}/update', [TransaksiController::class, 'update'])->name('transaksi.update'); // Update transaction
         Route::put('{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBank'); // Update bank transaction
+        Route::delete('{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
 
         // Route untuk Cetak Pdf
         Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf'); // Export single transaction PDF
@@ -205,4 +206,8 @@ Route::get('/notifications/read', function () {
 Route::get('/logtest', function () {
     Log::debug('🚨 Log test: ini harus muncul di laravel.log');
     return 'Cek log';
+});
+
+Route::get('/my-ip', function () {
+    return request()->ip(); // Ini hanya IP client, bukan IP server
 });

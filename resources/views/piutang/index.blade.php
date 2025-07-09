@@ -12,7 +12,7 @@
                         <th>No.</th>
                         <th>Nama Penghutang</th>
                         <th>Jumlah</th>
-                        <th>Jatuh Tempo</th>
+                        <th>Deskripsi</th>
                         <th>Status</th>
                         <th>Aksi</th>
                     </tr>
@@ -54,8 +54,8 @@
                         name: 'jumlah'
                     },
                     {
-                        data: 'tanggal_jatuh_tempo',
-                        name: 'tanggal_jatuh_tempo'
+                        data: 'deskripsi',
+                        name: 'deskripsi'
                     },
                     {
                         data: 'status_badge',

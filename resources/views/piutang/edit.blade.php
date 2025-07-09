@@ -17,15 +17,27 @@
             <!-- Dropdown User -->
             <div class="mb-3">
                 <label for="user_id" class="form-label mb-2">Nama Pengutang</label>
-                <select name="user_id" id="user_id" class="form-control">
-                    <option value="">Pilih Tujuan</option>
-                    @foreach ($users as $user)
-                        <option value="{{ $user->id }}" {{ $piutang->user_id == $user->id ? 'selected' : '' }}>
-                            {{ $user->name }} - {{ $user->roles->pluck('name')->implode(', ') }}
-                            {{ $user->bidang->name ?? '' }}
-                        </option>
-                    @endforeach
+                <select name="pengutang_id" id="pengutang_id" class="form-control">
+                    <option value="">Pilih Pengutang</option>
+
+                    <optgroup label="User">
+                        @foreach ($users as $user)
+                            <option value="user-{{ $user->id }}" @if (old('pengutang_id') == 'user-' . $user->id || (isset($piutang) && $piutang->user_id == $user->id)) selected @endif>
+                                {{ $user->name }} - {{ $user->roles->pluck('name')->implode(', ') }}
+                                {{ $user->bidang->name ?? '' }}
+                            </option>
+                        @endforeach
+                    </optgroup>
+
+                    <optgroup label="Siswa">
+                        @foreach ($students as $student)
+                            <option value="student-{{ $student->id }}" @if (old('pengutang_id') == 'student-' . $student->id || (isset($piutang) && $piutang->student_id == $student->id)) selected @endif>
+                                {{ $student->name }} - {{ $student->kelas->nama ?? '' }}
+                            </option>
+                        @endforeach
+                    </optgroup>
                 </select>
+
             </div>
 
             <!-- Akun Keuangan -->

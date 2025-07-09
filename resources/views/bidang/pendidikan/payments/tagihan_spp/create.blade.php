@@ -89,14 +89,14 @@
             </div>
         </div>
     </div> --}}
+    <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
-            <li class="breadcrumb-item active" aria-current="page"><a>Tagihan Page</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><a>Tagihan SPP Murid</a></li>
         </ol>
     </nav>
     <h1 class="mb-4">Buat <strong>Tagihan SPP Murid/Bulan</strong></h1>
-    <div class="container my-3">
         <div class="row">
             <!-- Form Input Tagihan -->
             <div class="col-md-6">
@@ -156,7 +156,7 @@
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary mt-4 w-100">🚀 Buat Tagihan</button>
+                            <button type="submit" class="btn btn-primary btn-lg mt-4 w-100">🚀 Buat Tagihan</button>
                         </form>
                     </div>
                 </div>
@@ -166,8 +166,6 @@
             <div class="col-md-6 mt-4 mt-md-0">
                 <div class="card shadow rounded-4 border-0">
                     <div class="card-body">
-                        <h4 class="mb-4">📤 Export Tagihan Excel</h4>
-
                         <form action="{{ route('tagihan-spp.export') }}" method="GET">
                             <!-- Pilih Kelas -->
                             <div class="mb-3">
@@ -206,7 +204,7 @@
                                 </div>
                             </div>
 
-                            <button class="btn btn-success mt-4 w-100">📥 Export Excel</button>
+                            <button class="btn btn-success btn-lg mt-4 w-100">📥 Export Excel</button>
                         </form>
                     </div>
                 </div>

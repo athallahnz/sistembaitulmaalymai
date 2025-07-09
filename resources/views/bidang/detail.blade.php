@@ -7,8 +7,20 @@
                 <i class="bi bi-arrow-left-short fs-1"></i>
             </a>
             <h1 class="mb-0">
-                Detail Transaksi <strong>{{ $parentAkun->nama_akun ?? 'Tidak Ditemukan' }}</strong>
+                Detail Transaksi:
+                <strong>
+                    @if ($parentAkun?->nama_akun && $type)
+                        {{ $parentAkun->nama_akun }} ({{ ucfirst($type) }})
+                    @elseif ($parentAkun?->nama_akun)
+                        {{ $parentAkun->nama_akun }}
+                    @elseif ($type)
+                        {{ ucfirst($type) }}
+                    @else
+                        Tidak Ditemukan
+                    @endif
+                </strong>
             </h1>
+
         </div>
         <div class="p-3 shadow table-responsive rounded">
             <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
@@ -37,7 +49,8 @@
                 ajax: {
                     url: "{{ route('bidang.detail.data') }}",
                     data: function(d) {
-                        d.parent_akun_id = {{ $parentAkunId }}; // Kirim parent_akun_id ke server
+                        d.parent_akun_id = @json($parentAkunId);
+                        d.type = @json($type);
                     }
                 },
                 columns: [{

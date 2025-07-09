@@ -87,6 +87,58 @@ class StudentPaymentSPPService
                 ],
             ]);
 
+            // 3. Tandai piutang sebagai lunas (jika sudah terbayar sebagian/seluruhnya)
+            $piutang = Piutang::where('student_id', $student->id)
+                ->where('status', 'belum_lunas')
+                ->first();
+
+            if ($piutang) {
+                $sisa = $piutang->jumlah - $jumlah;
+
+                // Tetap hapus tagihan tambahan, meskipun belum lunas
+                $piutang->deskripsi = preg_replace('/\s\+\sTagihan SPP siswa\s\d{1,2}\/\d{4}/', '', $piutang->deskripsi);
+
+                $piutang->jumlah = max(0, $sisa);
+
+                // Jika lunas semua
+                if ($piutang->jumlah <= 0) {
+                    $piutang->status = 'lunas';
+                    $piutang->deskripsi = 'Lunas semua';
+                }
+
+                $piutang->save();
+            }
+
+
+            // 4. Kurangi jumlah pada pendapatan belum diterima
+            $jumlahPembayaran = $jumlah;
+
+            $pendapatans = PendapatanBelumDiterima::where('student_id', $student->id)
+                ->where('jumlah', '>', 0)
+                ->orderBy('tanggal_pencatatan', 'asc')
+                ->get();
+
+            foreach ($pendapatans as $pendapatan) {
+                if ($jumlahPembayaran <= 0)
+                    break;
+
+                $kurangi = min($pendapatan->jumlah, $jumlahPembayaran);
+
+                // Tetap hapus tagihan tambahan
+                $pendapatan->deskripsi = preg_replace('/\s\+\sTagihan SPP siswa\s\d{1,2}\/\d{4}/', '', $pendapatan->deskripsi);
+
+                $pendapatan->jumlah -= $kurangi;
+
+                // Jika sisa = 0 → Lunas semua
+                if ($pendapatan->jumlah <= 0) {
+                    $pendapatan->deskripsi = 'Lunas semua';
+                }
+
+                $pendapatan->save();
+                $jumlahPembayaran -= $kurangi;
+            }
+
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

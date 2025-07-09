@@ -92,8 +92,9 @@ class TagihanSppController extends Controller
                 'status' => 'belum_lunas',
                 'tanggal_aktif' => \Carbon\Carbon::parse($request->tanggal_aktif),
             ]);
-        }
 
+            app(\App\Services\StudentFinanceService::class)->handleNewStudentSPPFinance($student, $request->jumlah, $request->bulan, $request->tahun,);
+        }
 
         return redirect()->back()->with('success', 'Tagihan berhasil dibuat untuk semua siswa.');
     }

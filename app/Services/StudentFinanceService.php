@@ -67,6 +67,83 @@ class StudentFinanceService
             ]);
         }
     }
+    public function handleNewStudentSPPFinance(Student $student, int $jumlah, int $bulan, int $tahun)
+    {
+        // Buat transaksi
+        $transaksi = Transaksi::create([
+            'kode_transaksi' => 'SPP-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5)),
+            'tanggal_transaksi' => now()->format('Y-m-d'),
+            'type' => 'pendapatan belum diterima',
+            'deskripsi' => "Tagihan SPP siswa {$student->name} - {$bulan}/{$tahun}",
+            'akun_keuangan_id' => 103,
+            'parent_akun_id' => config('akun.piutang_spp'),
+            'bidang_name' => 2,
+            'amount' => $jumlah,
+            'saldo' => $jumlah,
+        ]);
+
+        // Jurnal
+        Ledger::create([
+            'transaksi_id' => $transaksi->id,
+            'akun_keuangan_id' => config('akun.piutang_spp'),
+            'debit' => $jumlah,
+            'credit' => 0,
+        ]);
+
+        Ledger::create([
+            'transaksi_id' => $transaksi->id,
+            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima'),
+            'debit' => 0,
+            'credit' => $jumlah,
+        ]);
+
+        // Piutang
+        $existingPiutang = Piutang::where([
+            ['student_id', '=', $student->id],
+        ])->first();
+
+        if ($existingPiutang) {
+            $existingPiutang->update([
+                'jumlah' => $existingPiutang->jumlah + $jumlah,
+                'tanggal_jatuh_tempo' => now()->addMonths(1),
+                'deskripsi' => $existingPiutang->deskripsi . " + Tagihan SPP siswa {$bulan}/{$tahun}",
+                'status' => 'belum_lunas',
+                'bidang_name' => 2,
+            ]);
+        } else {
+            Piutang::create([
+                'student_id' => $student->id,
+                'akun_keuangan_id' => config('akun.piutang_spp'),
+                'jumlah' => $jumlah,
+                'tanggal_jatuh_tempo' => now()->addMonths(1),
+                'deskripsi' => "Tagihan SPP siswa {$student->name} - {$bulan}/{$tahun}",
+                'status' => 'belum_lunas',
+                'bidang_name' => 2,
+            ]);
+        }
+
+        // Pendapatan Belum Diterima
+        $existingPBD = PendapatanBelumDiterima::where([
+            ['student_id', '=', $student->id],
+        ])->first();
+
+        if ($existingPBD) {
+            $existingPBD->update([
+                'jumlah' => $existingPBD->jumlah + $jumlah,
+                'tanggal_pencatatan' => now()->format('Y-m-d'),
+                'deskripsi' => $existingPBD->deskripsi . " + Tagihan SPP siswa {$bulan}/{$tahun}",
+                'bidang_name' => 2,
+            ]);
+        } else {
+            PendapatanBelumDiterima::create([
+                'student_id' => $student->id,
+                'jumlah' => $jumlah,
+                'tanggal_pencatatan' => now()->format('Y-m-d'),
+                'deskripsi' => "Tagihan SPP siswa {$student->name} - {$bulan}/{$tahun}",
+                'bidang_name' => 2,
+            ]);
+        }
+    }
 
     public function deleteWithAllRelations(Student $student): void
     {

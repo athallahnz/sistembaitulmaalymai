@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Transaksi;
 use App\Models\AkunKeuangan;
 use App\Models\PendapatanBelumDiterima;
+use App\Models\Student;
 use App\Notifications\HutangJatuhTempo; // Sesuaikan dengan notifikasi yang dibuat
 use Illuminate\Notifications\DatabaseNotification;
 use Yajra\DataTables\Facades\DataTables;
@@ -282,7 +283,7 @@ class PiutangController extends Controller
     public function edit(Piutang $piutang)
     {
         $users = User::all();
-
+        $students = Student::all();
         $akunPiutang = AkunKeuangan::where('id', 103)->first();
         $parentAkunPiutang = AkunKeuangan::where('parent_id', 103)->get();
 
@@ -345,7 +346,7 @@ class PiutangController extends Controller
             $saldos[$akunId] = $lastSaldo ? $lastSaldo->saldo : 0;
         }
 
-        return view('piutang.edit', compact('piutang', 'akunKeuangans', 'akunPiutang', 'parentAkunPiutang', 'users', 'akunKeuanganOptions', 'saldos'));
+        return view('piutang.edit', compact('piutang', 'akunKeuangans', 'akunPiutang', 'parentAkunPiutang', 'users', 'students', 'akunKeuanganOptions', 'saldos'));
     }
 
     public function update(Request $request, Piutang $piutang)

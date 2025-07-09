@@ -76,16 +76,12 @@
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 103]) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-wallet"></div>
                             <h6><strong>Piutang</strong></h6>
                             <div class="value {{ $jumlahPiutang >= 0 ? 'positive' : 'negative' }}">
-                                Rp <span class="hidden-value"
-                                    style="display: none;">{{ number_format($jumlahPiutang, 0, ',', '.') }}</span>
-                                <span class="masked-value">***</span>
-                                <i class="bi bi-eye toggle-eye" style="cursor: pointer; margin-left: 10px;"
-                                    onclick="toggleVisibility(this)"></i>
+                                {{ number_format($jumlahPiutang, 0, ',', '.') }}</span>
                             </div>
                             <div class="description">Total s/d Bulan ini</div>
                         </div>
@@ -117,7 +113,8 @@
                     </a>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bidang.detail', ['type' => 'pendapatan belum diterima']) }}"
+                        class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h6><strong>Pendapatan Belum Diterima</strong></h6>

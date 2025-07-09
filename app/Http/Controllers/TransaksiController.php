@@ -867,14 +867,29 @@ class TransaksiController extends Controller
 
     public function destroy($id)
     {
+        // Ambil transaksi utama
         $transaksi = Transaksi::findOrFail($id);
+
+        // Cek dan ambil transaksi lawan berdasarkan pola kode_transaksi
+        $kodeLawan = $transaksi->kode_transaksi . '-LAWAN';
+        $transaksiLawan = Transaksi::where('kode_transaksi', $kodeLawan)->first();
+
+        // Hapus ledger untuk transaksi utama
+        Ledger::where('transaksi_id', $transaksi->id)->delete();
+
+        // Hapus ledger untuk transaksi lawan jika ada
+        if ($transaksiLawan) {
+            Ledger::where('transaksi_id', $transaksiLawan->id)->delete();
+            $transaksiLawan->delete(); // Hapus transaksi lawan
+        }
+
+        // Hapus transaksi utama
         $transaksi->delete();
 
-        return response()->json([
-            'message' => 'Data berhasil dihapus!'
-        ]);
-
+        return redirect()->route('transaksi.index.bidang')->with('success', 'Transaksi dan data terkait berhasil dihapus.');
     }
+
+
 
     public function exportNota($id)
     {
