@@ -197,6 +197,7 @@ class BendaharaController extends Controller
     public function showDetailBendahara(Request $request)
     {
         $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL
+        $type = $request->input('type');
 
         // Ambil semua ID anak (sub-akun) dari tabel akun_keuangans berdasarkan parent_id
         $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
@@ -210,30 +211,31 @@ class BendaharaController extends Controller
         // Ambil nama_akun dari parent_akun_id
         $parentAkun = AkunKeuangan::find($parentAkunId);
 
-        return view('bendahara.detail', compact('transaksiData', 'jumlahBiayaOperasional', 'parentAkunId', 'parentAkun'));
+        return view('bendahara.detail', compact('transaksiData', 'jumlahBiayaOperasional', 'parentAkunId', 'parentAkun', 'type'));
     }
 
     public function getDetailDataBendahara(Request $request)
     {
-        $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL
+        $parentAkunId = $request->input('parent_akun_id');
+        $type = $request->input('type');
 
-        // Ambil semua ID anak (sub-akun) dari tabel akun_keuangans berdasarkan parent_id
-        $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
+        $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']);
 
-        // Ambil data transaksi terkait sub-akun (tanpa filter bidang_name)
-        $transaksiData = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']) // Include relasi
-            ->whereIn('parent_akun_id', $subAkunIds) // Filter berdasarkan sub-akun
-            ->get();
+        if ($type) {
+            $query->where('type', $type);
+        }
 
-        return DataTables::of($transaksiData)
-            ->addColumn(
-                'akun_keuangan',
-                function ($row) {
-                    return $row->akunKeuangan ? $row->akunKeuangan->nama_akun : 'N/A';
-                }
-            )
+        if ($parentAkunId) {
+            $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
+            $query->whereIn('parent_akun_id', $subAkunIds);
+        }
+
+        return DataTables::of($query)
+            ->addColumn('akun_keuangan', function ($row) {
+                return $row->akunKeuangan?->nama_akun ?? 'N/A';
+            })
             ->addColumn('parent_akun_keuangan', function ($row) {
-                return $row->parentAkunKeuangan ? $row->parentAkunKeuangan->nama_akun : 'N/A';
+                return $row->parentAkunKeuangan?->nama_akun ?? 'N/A';
             })
             ->make(true);
     }

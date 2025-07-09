@@ -159,7 +159,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 mb-5">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 103]) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-wallet"></div>
                             <h5>Piutang</h5>
@@ -190,7 +190,7 @@
                     </a>
                 </div>
                 <div class="col-md-4 mb-5">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Donasi (Pendapatan)</h5>
@@ -201,7 +201,7 @@
                     </a>
                 </div>
                 <div class="col-md-4 mb-5">
-                    <a href="#" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['type' => 'pendapatan belum diterima']) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Pendapatan Belum Diterima</h5>
