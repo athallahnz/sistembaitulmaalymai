@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\EduPayment;
+use App\Models\TagihanSpp;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
@@ -142,20 +143,28 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         return view('bidang.pendidikan.payments.form');
     })->name('pendidikan.payment.form');
 
-    Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
-    Route::get('/payment/history/{student_id}', [EduPaymentController::class, 'history'])->name('payment.history');
-    Route::get('/payments/data', [EduPaymentController::class, 'getData'])->name('payments.data');
     Route::get('/payment-dashboard', [EduPaymentController::class, 'index'])->name('payment.dashboard');
     Route::get('/payment-dashboard/{student}', [EduPaymentController::class, 'show'])->name('payment.show');
+    Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
+    Route::get('/payments/data', [EduPaymentController::class, 'getData'])->name('payments.data');
+    Route::get('/payment/history/{student_id}', [EduPaymentController::class, 'history'])->name('payment.history');
+    Route::get('/kwitansi/verifikasi/{token}', [EduPaymentController::class, 'verifikasiKwitansi'])->name('payments.verifikasi');
+    Route::get('/payments/{payment}/kwitansi', [EduPaymentController::class, 'cetakKwitansiPerTransaksi'])->name('payments.kwitansi.per');
+
+
     Route::get('/pendidikan/tagihan-spp/create', [TagihanSppController::class, 'create'])->name('tagihan-spp.create');
+    Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
+    Route::get('/dashboard-tagihan/data', [TagihanSppController::class, 'getData'])->name('tagihan-spp.data');
     Route::post('/tagihan-spp/store', [TagihanSppController::class, 'store'])->name('tagihan-spp.store');
     Route::get('/tagihan-spp/export', [TagihanSppController::class, 'export'])->name('tagihan-spp.export');
     Route::post('/tagihan-spp/bayar', [TagihanSppController::class, 'bayar'])->name('tagihan-spp.bayar');
-    Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
-    Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
-    Route::get('/dashboard-tagihan/data', [TagihanSppController::class, 'getData'])->name('tagihan-spp.data');
     Route::get('/chart-bulanan', [TagihanSppController::class, 'getChartBulanan'])->name('tagihan-spp.chart-bulanan');
+    Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
     Route::get('/tagihan-spp/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
+    Route::get('/tagihan-spp/kwitansi/{id}', [TagihanSppController::class, 'printReceipt'])->name('tagihan-spp.kwitansi.per');
+    Route::get('/spp/verifikasi/{id}', function ($id) {$tagihan = TagihanSpp::with('student')->findOrFail($id);return "Kwitansi ini valid untuk: " . $tagihan->student->name . ", Bulan: " . $tagihan->bulan;})->name('spp.verifikasi');
+
+
 
     //Student Route
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
@@ -173,7 +182,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::post('/students/{student}/costs', [StudentCostController::class, 'store'])->name('student_costs.store');
     Route::get('/kelas/{id}/akun-keuangan', [StudentController::class, 'getAkunKeuanganByClass']);
 
-    Route::resource('wali-murids', \App\Http\Controllers\Pendidikan\WaliMuridController::class)->only(['index', 'show']);
+    Route::resource('wali-murids', WaliMuridController::class)->only(['index', 'show']);
 });
 
 // Route untuk home setelah login

@@ -7,9 +7,13 @@ use App\Services\StudentPaymentService;
 use App\Models\EduPayment;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EduPaymentController extends Controller
 {
@@ -100,7 +104,8 @@ class EduPaymentController extends Controller
         EduPayment::create([
             'student_id' => $request->student_id,
             'jumlah' => $request->jumlah,
-            'tanggal' => now()
+            'tanggal' => now(),
+            'verifikasi_token' => Str::random(20),
         ]);
 
         // Trigger jurnal double-entry
@@ -108,7 +113,6 @@ class EduPaymentController extends Controller
 
         return back()->with('success', 'Pembayaran berhasil disimpan!');
     }
-
 
     public function getData(Request $request)
     {
@@ -139,5 +143,85 @@ class EduPaymentController extends Controller
         $sisa = $totalBiaya - $totalBayar;
 
         return view('payment.history', compact('student', 'totalBiaya', 'totalBayar', 'sisa'));
+    }
+
+    public function exportKwitansi(Student $student)
+    {
+        $totalBiaya = DB::table('student_costs')
+            ->where('student_id', $student->id)
+            ->sum('jumlah');
+
+        $totalBayar = DB::table('edu_payments')
+            ->where('student_id', $student->id)
+            ->sum('jumlah');
+
+        $sisa = $totalBiaya - $totalBayar;
+
+        $payments = DB::table('edu_payments')
+            ->where('student_id', $student->id)
+            ->orderBy('tanggal', 'desc')
+            ->get();
+
+        $pdf = pdf::loadView('pdf.kwitansi', compact('student', 'totalBiaya', 'totalBayar', 'sisa', 'payments'));
+
+        return $pdf->download('kwitansi_' . $student->name . '.pdf');
+    }
+
+    public function verifikasiKwitansi($token)
+    {
+        $payment = EduPayment::with('student')->where('verifikasi_token', $token)->firstOrFail();
+
+        return view('bidang.pendidikan.payments.verifikasi', compact('payment'));
+    }
+
+    public function cetakKwitansiPerTransaksi($payment_id)
+    {
+        $payment = EduPayment::with('student')->findOrFail($payment_id);
+        $tahunAjaran = $payment->student->eduClass->tahun_ajaran;
+        $nomorInduk = $payment->student->no_induk;
+        $logo = public_path('img/photos/logo_yys.png');
+
+        $pembayaranKe = EduPayment::where('student_id', $payment->student_id)
+            ->where('id', '<=', $payment->id)
+            ->count();
+
+        $urlVerifikasi = route('payments.verifikasi', $payment->verifikasi_token);
+
+        // Lokasi file QR sementara
+        $qrFileName = 'qr_' . $payment->id . '.svg';
+        $qrFilePath = storage_path('app/public/qrcodes/' . $qrFileName);
+
+        // Pastikan foldernya ada
+        if (!file_exists(dirname($qrFilePath))) {
+            mkdir(dirname($qrFilePath), 0755, true);
+        }
+
+        // Simpan QR Code sebagai SVG
+        file_put_contents($qrFilePath, QrCode::format('svg')->size(100)->generate($urlVerifikasi));
+
+        $nomorKwitansi = 'PMB/' . $tahunAjaran . '/' . $nomorInduk . str_pad($pembayaranKe, 3, '0', STR_PAD_LEFT);
+
+        // sisa tagihan
+        $totalBiaya = DB::table('student_costs')->where('student_id', $payment->student_id)->sum('jumlah');
+        $totalBayar = DB::table('edu_payments')->where('student_id', $payment->student_id)->sum('jumlah');
+        $sisa = $totalBiaya - $totalBayar;
+        $keterangan = $sisa <= 0 ? 'Lunas' : 'Cicilan PMB, sisa pembayaran Rp ' . number_format($sisa, 0, ',', '.');
+
+        $tahunAjaranBersih = str_replace(['/', '\\'], '-', $tahunAjaran);
+        $namaSiswaBersih = preg_replace('/[^A-Za-z0-9\-]/', '_', $payment->student->name);
+
+        $namaFile = 'PMB-' . $tahunAjaranBersih . '-' . $nomorInduk . str_pad($pembayaranKe, 3, '0', STR_PAD_LEFT) . '-' . $namaSiswaBersih . '.pdf';
+
+        return PDF::loadView('bidang.pendidikan.payments.kwitansi-per-pembayaran', [
+            'payment' => $payment,
+            'nomorKwitansi' => $nomorKwitansi,
+            'keterangan' => $keterangan,
+            'urlVerifikasi' => $urlVerifikasi,
+            'qrPath' => $qrFilePath,
+            'logo' => $logo,
+        ])
+        ->setPaper([0, 0, 227, 600]) // ➜ 80mm x ±210mm tinggi
+        // ->setPaper([0, 0, 164, 500]) // Lebar 58mm, tinggi 176mm
+        ->stream($namaFile);
     }
 }

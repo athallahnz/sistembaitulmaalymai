@@ -208,7 +208,7 @@ class StudentController extends Controller
             }
 
             // ✅ Trigger keuangan otomatis (refaktor di Service)
-            app(\App\Services\StudentFinanceService::class)->handleNewStudentFinance($student, $biayaPairs);
+            app(StudentFinanceService::class)->handleNewStudentFinance($student, $biayaPairs);
 
             DB::commit();
             return redirect()->route('students.index')->with('success', 'Data murid dan wali beserta rincian biaya berhasil disimpan.');

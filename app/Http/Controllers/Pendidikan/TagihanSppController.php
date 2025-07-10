@@ -7,10 +7,13 @@ use App\Services\StudentPaymentSPPService;
 use App\Models\Student;
 use App\Models\EduClass;
 use App\Models\TagihanSpp;
-use Yajra\DataTables\DataTables;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TagihanSppExport;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use Yajra\DataTables\DataTables;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class TagihanSppController extends Controller
 {
@@ -93,7 +96,7 @@ class TagihanSppController extends Controller
                 'tanggal_aktif' => \Carbon\Carbon::parse($request->tanggal_aktif),
             ]);
 
-            app(\App\Services\StudentFinanceService::class)->handleNewStudentSPPFinance($student, $request->jumlah, $request->bulan, $request->tahun,);
+            app(\App\Services\StudentFinanceService::class)->handleNewStudentSPPFinance($student, $request->jumlah, $request->bulan, $request->tahun, );
         }
 
         return redirect()->back()->with('success', 'Tagihan berhasil dibuat untuk semua siswa.');
@@ -316,4 +319,43 @@ class TagihanSppController extends Controller
         ]);
     }
 
+    public function printReceipt($id)
+    {
+        $tagihan = TagihanSpp::with('student.eduClass')->findOrFail($id);
+        $tahunAjaran = $tagihan->student->eduClass->tahun_ajaran;
+        $nomorInduk = $tagihan->student->no_induk;
+        $logo = public_path('img/photos/logo_yys.png');
+
+        if ($tagihan->status !== 'lunas') {
+            abort(403, 'Kwitansi hanya tersedia untuk tagihan yang lunas.');
+        }
+
+        $nomorKwitansi = 'SPP/' . $tahunAjaran . '/' . $nomorInduk . '/' . str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT);
+        $keterangan = 'Pembayaran SPP bulan ' . \Carbon\Carbon::create()->month($tagihan->bulan)->translatedFormat('F');
+        $urlVerifikasi = route('spp.verifikasi', $tagihan->id);
+
+        $filename = 'spp_' . $tagihan->id . '.svg';
+        $qrPath = storage_path('app/public/qrcodes/' . $filename); // path fisik
+        
+        // Pastikan foldernya ada
+        if (!file_exists(dirname($qrPath))) {
+            mkdir(dirname($qrPath), 0755, true);
+        }
+        file_put_contents($qrPath, QrCode::format('svg')->size(100)->generate($urlVerifikasi));
+
+        $tahunAjaranBersih = str_replace(['/', '\\'], '-', $tahunAjaran);
+        $namaSiswaBersih = preg_replace('/[^A-Za-z0-9\-]/', '_', $tagihan->student->name);
+        $namaFile = 'SPP-' . $tahunAjaranBersih . '-' . $nomorInduk . str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT) . '-' . $namaSiswaBersih . '.pdf';
+
+        // Versi HTML untuk cetak langsung atau PDF
+        $pdf = Pdf::loadView('bidang.pendidikan.payments.tagihan_spp.kwitansi-per-pembayaran', compact(
+            'tagihan',
+            'nomorKwitansi',
+            'keterangan',
+            'qrPath',
+            'logo'
+        ))->setPaper([0, 0, 227, 600]); // 80mm x ±210mm
+
+        return $pdf->stream($namaFile);
+    }
 }

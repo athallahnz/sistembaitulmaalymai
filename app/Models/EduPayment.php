@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EduPayment extends Model {
-    protected $fillable = ['student_id', 'jumlah', 'tanggal'];
+    protected $fillable = ['student_id', 'jumlah', 'tanggal','verifikasi_token'];
 
     public function student()
     {
