@@ -1,8 +1,97 @@
-<nav id="sidebar" class="sidebar js-sidebar">
-    <div class="sidebar-content js-simplebar">
-        <div class="sidebar-brand">
-            <span class="align-middle">Sistem Baitul Maal</span>
-            <p> Yayasan Masjid Al Iman Surabaya</p>
+@php
+    $setting = \App\Models\SidebarSetting::first();
+@endphp
+
+@push('styles')
+    @if ($setting)
+        <style>
+            .sidebar,
+            .sidebar-content {
+                background-color: {{ $setting->background_color ?? '#7A3E16' }};
+            }
+
+            .sidebar {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .sidebar-cta {
+                flex-shrink: 0;
+            }
+
+            .sidebar-content {
+                flex: 1 1 auto;
+                overflow-y: auto;
+                padding-bottom: 6rem;
+            }
+
+            .sidebar-link,
+            .sidebar-link i,
+            .sidebar-link svg {
+                color: {{ $setting->link_color ?? 'rgba(233, 236, 239, 0.5)' }};
+            }
+
+            .sidebar-link:hover,
+            .sidebar-link:hover i,
+            .sidebar-link:hover svg {
+                color: {{ $setting->link_hover_color ?? 'rgba(233, 236, 239, 0.75)' }};
+            }
+
+            .sidebar-item.active>.sidebar-link {
+                background-image: linear-gradient(to right, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0)) !important;
+                color: {{ $setting->link_active_color ?? '#e9ecef' }};
+                border-left-color: {{ $setting->link_active_border_color ?? '#f2c89d' }};
+            }
+
+            .sidebar-item.active>.sidebar-link i,
+            .sidebar-item.active>.sidebar-link svg {
+                color: {{ $setting->link_active_color ?? '#e9ecef' }};
+            }
+
+            .sidebar-cta-content-box {
+                background-color: {{ $setting->cta_background_color ?? '#8D4720' }};
+            }
+
+            .sidebar-cta-content-box .btn {
+                background-color: {{ $setting->cta_button_color ?? '#81431E' }};
+                color: {{ $setting->cta_button_text_color ?? '#fff5e1' }};
+            }
+
+            .sidebar-cta-content-box .btn:hover {
+                background-color: {{ $setting->cta_button_hover_color ?? '#984F23' }};
+            }
+
+            .floating-heart {
+                position: absolute;
+                font-size: 1.5rem;
+                pointer-events: none;
+            }
+
+            .sidebar-cta {
+                position: relative;
+                overflow: hidden;
+            }
+        </style>
+    @endif
+@endpush
+
+<nav id="sidebar" class="sidebar js-sidebar d-flex flex-column" style="height: 100vh;">
+    <div class="sidebar-content js-sidebar flex-grow-1 overflow-auto d-flex flex-column" data-simplebar>
+        @php
+            $sidebarSetting = \App\Models\SidebarSetting::first();
+        @endphp
+
+        <div class="sidebar-brand text-center py-3">
+            @if ($sidebarSetting?->logo_path)
+                <img src="{{ asset('storage/' . $sidebarSetting->logo_path) }}" alt="Logo" class="img-fluid mb-2"
+                    style="height: 75px;">
+            @endif
+            <div>
+                <span>{{ $sidebarSetting->title }}</span>
+                <p>{{ $sidebarSetting->subtitle }}</p>
+            </div>
         </div>
 
         <ul class="sidebar-nav">
@@ -28,8 +117,8 @@
                         <span class="align-middle">Akun Keuangan</span>
                     </a>
                 </li>
-                <li class="sidebar-item {{ request()->routeIs('add_bidangs.index') ? 'active' : '' }}">
-                    <a class="sidebar-link" href="{{ route('add_bidangs.index') }}">
+                <li class="sidebar-item {{ request()->routeIs('admin.add_bidangs.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('admin.add_bidangs.index') }}">
                         <i class="align-middle" data-feather="briefcase"></i>
                         <span class="align-middle">Tambah Bidang</span>
                     </a>
@@ -237,7 +326,7 @@
                             <span class="align-middle">Data Pembayaran Murid</span>
                         </a>
                         <ul id="dataPembayaran"
-                            class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('payment.dashboard','tagihan-spp.dashboard') ? 'show' : '' }}">
+                            class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('payment.dashboard', 'tagihan-spp.dashboard') ? 'show' : '' }}">
                             <li class="sidebar-item {{ request()->routeIs('payment.dashboard') ? 'active' : '' }}">
                                 <a class="sidebar-link" href="{{ route('payment.dashboard') }}">
                                     <i class="align-middle ms-3" data-feather="trending-up"></i>
@@ -263,17 +352,15 @@
         </ul>
 
 
-        <div class="sidebar-cta">
-            <div class="sidebar-cta-content">
+        <div class="sidebar-cta mt-3">
+            <div class="sidebar-cta-content-box">
                 <strong class="d-inline-block mb-2">Sudah bersyukur hari ini?</strong>
                 <div class="mb-3 text-sm">
                     Are you looking for more happiness? Check out your heart now!
                 </div>
                 <div class="d-grid">
                     <a class="btn"
-                        style="background-color: #81431E; color: #fff5e1; padding: 0.5rem 1rem; border-radius: 0.25rem; text-decoration: none; display: inline-block;"
-                        onmouseover="this.style.backgroundColor='#984F23';"
-                        onmouseout="this.style.backgroundColor='#81431E';">
+                        style="padding: 0.5rem 1rem; border-radius: 0.25rem; text-decoration: none; display: inline-block;">
                         Bersyukurlah!
                     </a>
                 </div>
@@ -281,3 +368,44 @@
         </div>
     </div>
 </nav>
+
+@push('script')
+    <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+
+    <script>
+        const btn = document.querySelector('.sidebar-cta .btn');
+        const box = document.querySelector('.sidebar-cta-content-box');
+
+        btn.addEventListener('click', () => {
+            for (let i = 0; i < 6; i++) {
+                spawnHeart();
+            }
+        });
+
+        function spawnHeart() {
+            const heart = document.createElement('div');
+            heart.classList.add('floating-heart');
+            heart.innerHTML = '🤲🏻';
+
+            // Posisi acak horizontal dalam box
+            const x = Math.random() * box.clientWidth;
+            const y = box.clientHeight - 20;
+
+            heart.style.left = `${x}px`;
+            heart.style.top = `${y}px`;
+
+            box.appendChild(heart);
+
+            // Animasi dengan anime.js
+            anime({
+                targets: heart,
+                translateY: -80 - Math.random() * 40, // naik ke atas
+                scale: [1, 1.8],
+                opacity: [1, 0],
+                duration: 1200 + Math.random() * 300,
+                easing: 'easeOutQuad',
+                complete: () => heart.remove()
+            });
+        }
+    </script>
+@endpush

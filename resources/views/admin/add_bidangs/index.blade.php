@@ -18,7 +18,7 @@
                     </div>
                     <div class="modal-body">
                         <!-- Form Create -->
-                        <form id="akunForm" action="{{ route('add_bidangs.store') }}" method="POST">
+                        <form id="akunForm" action="{{ route('admin.add_bidangs.store') }}" method="POST">
                             @csrf
                             <div class="mb-3">
                                 <label for="name">Nama Bidang</label>
@@ -61,7 +61,7 @@
             $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('add_bidangs.data') }}",
+                ajax: "{{ route('admin.add_bidangs.data') }}",
                 columns: [{
                         data: 'name',
                         name: 'name'

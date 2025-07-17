@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Models\Bidang;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -44,8 +45,8 @@ class AddBidangController extends Controller
 
         return DataTables::of($data)
             ->addColumn('actions', function ($row) {
-                $editUrl = route('add_bidangs.edit', $row->id);
-                $deleteUrl = route('add_bidangs.destroy', $row->id);
+                $editUrl = route('admin.add_bidangs.edit', $row->id);
+                $deleteUrl = route('admin.add_bidangs.destroy', $row->id);
                 $csrf = csrf_field();
                 $method = method_field('DELETE');
 

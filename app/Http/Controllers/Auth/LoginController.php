@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 use Carbon\Carbon;
 
 class LoginController extends Controller
@@ -33,7 +32,33 @@ class LoginController extends Controller
 
     public function showLoginForm()
     {
+        // Jika bukan sedang input PIN, reset sesi
+        if (!session('step')) {
+            session()->forget(['step', 'nomor']);
+        }
+
         return view('auth.login');
+    }
+
+    public function verifyNomor(Request $request)
+    {
+        $request->validate([
+            'nomor' => 'required|string|max:15'
+        ]);
+
+        $user = User::where('nomor', $request->nomor)->first();
+
+        if (!$user) {
+            return back()->with('error', 'Nomor tidak terdaftar!');
+        }
+
+        // Simpan ke session agar lanjut ke input PIN
+        session([
+            'step' => 'pin',
+            'nomor' => $user->nomor,
+        ]);
+
+        return redirect()->route('login');
     }
 
     public function login(Request $request)
@@ -70,6 +95,7 @@ class LoginController extends Controller
                 'is_active' => true,
             ]);
 
+            session()->forget(['step', 'nomor']); // Hapus sesi setelah login
             session()->flash('login success', 'Selamat datang, ' . $user->name . '.');
 
             switch ($user->role) {

@@ -20,6 +20,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
 
     <!-- Custom CSS -->
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
@@ -31,11 +33,16 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.1/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.4.2/tinycolor.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.min.js"></script>
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
+@php
+    $sidebarSetting = \App\Models\SidebarSetting::first();
+@endphp
 
 <body>
     <div class="wrapper">
@@ -51,64 +58,48 @@
             <footer class="footer">
                 <div class="container-fluid">
                     <div class="row text-muted">
-                    <div class="col-6 text-start">
-                        <p class="mb-0">
-                        <a
-                            {{-- href="https://adminkit.io/" --}}
-                            target="_blank"
-                            ><strong>Sistem Baitul Maal</strong></a
-                        >
-                        -
-                        <a
-                            class="text-muted"
-                            href="https://alimansurabaya.com/"
-                            target="_blank"
-                            ><strong>Yayasan Masjid Al Iman Surabaya</strong></a
-                        >
-                        &copy; 2025
-                        </p>
-                    </div>
-                    <div class="col-6 text-end">
-                        <ul class="list-inline">
-                        <li class="list-inline-item">
-                            <a
-                            {{-- href="https://adminkit.io/" --}}
-                            target="_blank"
-                            >Support</a
-                            >
-                        </li>
-                        <li class="list-inline-item">
-                            <a
-                            {{-- href="https://adminkit.io/" --}}
-                            target="_blank"
-                            >Help Center</a
-                            >
-                        </li>
-                        <li class="list-inline-item">
-                            <a
-                            {{-- href="https://adminkit.io/" --}}
-                            target="_blank"
-                            >Privacy</a
-                            >
-                        </li>
-                        <li class="list-inline-item">
-                            <a
-                            {{-- href="https://adminkit.io/" --}}
-                            target="_blank"
-                            >Terms</a
-                            >
-                        </li>
-                        </ul>
-                    </div>
+                        <div class="col-12 col-md-6 text-start">
+                            <p class="mb-0">
+                                @if ($sidebarSetting?->footer_text)
+                                    {!! $sidebarSetting->footer_text !!}
+                                @else
+                                    <strong>{{ $sidebarSetting->title ?? 'Sistem Baitul Maal' }}</strong> -
+                                    <a class="text-muted"
+                                        href="{{ $sidebarSetting->footer_link ?? 'https://alimansurabaya.com/' }}"
+                                        target="_blank">
+                                        <strong>{{ $sidebarSetting->subtitle ?? 'Yayasan Masjid Al Iman Surabaya' }}</strong>
+                                    </a>
+                                    &copy; {{ now()->year }}
+                                @endif
+                            </p>
+                        </div>
+                        <div class="col-12 col-md-6 text-end">
+                            <ul class="list-inline mb-0">
+                                @if (!empty($sidebarSetting?->footer_links))
+                                    @foreach ($sidebarSetting->footer_links as $label => $url)
+                                        <li class="list-inline-item">
+                                            <a href="{{ $url }}" target="_blank">{{ $label }}</a>
+                                        </li>
+                                    @endforeach
+                                @else
+                                    <li class="list-inline-item"><a href="#">Support</a></li>
+                                    <li class="list-inline-item"><a href="#">Help Center</a></li>
+                                    <li class="list-inline-item"><a href="#">Privacy</a></li>
+                                    <li class="list-inline-item"><a href="#">Terms</a></li>
+                                @endif
+                            </ul>
+                        </div>
                     </div>
                 </div>
-                </footer>
+            </footer>
+
         </div>
     </div>
 
     <script src="{{ asset('js/app.js') }}"></script>
-
+    @stack('script')
     @stack('scripts')
+    @stack('styles')
 
     <!-- SweetAlert2 Notifications -->
     @if (session('login success'))

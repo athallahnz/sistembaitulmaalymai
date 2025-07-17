@@ -6,22 +6,41 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="Login Baitul Maal Yayasan Masjid Al Iman">
-    <meta name="author" content="AdminKit">
+    <meta name="author" content="AnzArt Studio">
 
     <title>Login | Baitul Maal Yayasan Masjid Al Iman</title>
 
-    <!-- Stylesheets -->
     <link rel="shortcut icon" href="{{ asset('img/icons/favicon.ico') }}" />
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-
-    <!-- SweetAlert -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    @php
+        $sidebarSetting = \App\Models\SidebarSetting::first();
+    @endphp
+
     <style>
+        :root {
+            --primary-color: {{ $sidebarSetting->background_color ?? '#622200' }};
+        }
+
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+
+        .btn-primary:hover {
+            background-color: darken(var(--primary-color), 5%);
+            border-color: darken(var(--primary-color), 5%);
+        }
+
         body {
-            background: url("{{ asset('img/photos/img-background-login.webp') }}") no-repeat center center fixed;
+            background: url("{{ $sidebarSetting?->background_login ? asset('storage/' . $sidebarSetting->background_login) : asset('img/photos/img-background-login.webp') }}") no-repeat center center fixed;
             background-size: cover;
         }
 
@@ -50,13 +69,15 @@
         }
 
         .btn-outline-dark {
-            color: #622200;
+            color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+            background-color: transparent !important;
         }
 
         .btn-outline-dark:hover {
-            background-color: #622200;
-            /* Warna coklat saat hover */
-            color: white;
+            color: white !important;
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
         }
 
         .pin-dots {
@@ -74,7 +95,23 @@
         }
 
         .dot.active {
-            background-color: #622200;
+            background-color: var(--primary-color);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.9s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
@@ -85,69 +122,86 @@
             <div class="row vh-100">
                 <div class="col-md-6 col-lg-5 mx-auto d-table h-100">
                     <div class="d-table-cell align-middle">
-
                         <div class="card mx-auto">
-                            <div class="card-body">
-                                <div class="m-sm-3">
-                                    <form method="POST" action="{{ route('login') }}">
-                                        @csrf
+                            <div class="card-body fade-in">
+                                <div class="m-sm">
+                                    @if (session('step') === 'pin' && session('nomor'))
+                                        {{-- FORM PIN --}}
+                                        <form method="POST" action="{{ route('login') }}">
+                                            @csrf
+                                            <input type="hidden" name="nomor" value="{{ session('nomor') }}">
 
-                                        <!-- Nomor -->
-                                        <div class="mb-3">
-                                            <input type="tel" class="form-control" name="nomor" id="nomor"
-                                                placeholder="Masukkan Nomor Handphone" value="{{ old('nomor') }}"
-                                                required>
-                                        </div>
+                                            <h6 class="mb-3">Masukkan PIN untuk:
+                                                <strong>{{ session('nomor') }}</strong>
+                                            </h6>
 
-                                        <h6 class="mb-3">Masukkan PIN Anda</h6>
+                                            <div class="pin-dots">
+                                                @for ($i = 1; $i <= 6; $i++)
+                                                    <div class="dot" id="dot{{ $i }}"></div>
+                                                @endfor
+                                            </div>
 
-                                        <!-- PIN Dots -->
-                                        <div class="pin-dots">
-                                            <div class="dot" id="dot1"></div>
-                                            <div class="dot" id="dot2"></div>
-                                            <div class="dot" id="dot3"></div>
-                                            <div class="dot" id="dot4"></div>
-                                            <div class="dot" id="dot5"></div>
-                                            <div class="dot" id="dot6"></div>
-                                        </div>
+                                            <input type="password" name="pin" id="pin"
+                                                class="form-control text-center" hidden readonly>
 
-                                        <!-- Input PIN (Hidden) -->
-                                        <input type="password" class="form-control text-center" name="pin"
-                                            id="pin" readonly hidden>
-
-                                        <!-- Tombol Angka -->
-                                        <div class="text-center">
-                                            <div class="d-flex flex-column align-items-center gap-2">
-                                                @foreach ([['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']] as $row)
+                                            <div class="text-center">
+                                                <div class="d-flex flex-column align-items-center gap-2">
+                                                    @foreach ([['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']] as $row)
+                                                        <div class="d-flex gap-2">
+                                                            @foreach ($row as $num)
+                                                                <button type="button"
+                                                                    class="btn btn-outline-dark btn-circle"
+                                                                    onclick="appendPin('{{ $num }}')">{{ $num }}</button>
+                                                            @endforeach
+                                                        </div>
+                                                    @endforeach
                                                     <div class="d-flex gap-2">
-                                                        @foreach ($row as $num)
-                                                            <button type="button"
-                                                                class="btn btn-outline-dark btn-circle"
-                                                                onclick="appendPin('{{ $num }}')">{{ $num }}</button>
-                                                        @endforeach
+                                                        <button type="button" class="btn btn-danger btn-circle"
+                                                            onclick="clearPin()">
+                                                            <i class="bi bi-backspace"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-dark btn-circle"
+                                                            onclick="appendPin('0')">0</button>
+                                                        <button type="submit" class="btn btn-primary btn-circle"
+                                                            id="submitBtn" disabled>
+                                                            <i class="bi bi-arrow-right"></i>
+                                                        </button>
                                                     </div>
-                                                @endforeach
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" class="btn btn-danger btn-circle"
-                                                        onclick="clearPin()">
-                                                        <i class="bi bi-backspace"></i>
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-dark btn-circle"
-                                                        onclick="appendPin('0')">0</button>
-                                                    <button type="submit" class="btn btn-primary btn-circle">
-                                                        <i class="bi bi-arrow-right"></i>
-                                                    </button>
+                                                    <a href="#" onclick="resetStep()"
+                                                        class="btn btn-primary w-100 py-2 fs-6 mt-3">
+                                                        <i class="bi bi-arrow-left-circle ms-1"></i> Kembali</a>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </form>
+                                    @else
+                                        {{-- FORM NOMOR --}}
+                                        <form method="POST" action="{{ route('login.nomor') }}">
+                                            @csrf
+                                            <div class="text-center mb-4">
+                                                @if ($sidebarSetting?->logo_path)
+                                                    <img src="{{ asset('storage/' . $sidebarSetting->logo_path) }}"
+                                                        alt="Logo" class="img-fluid mb-3" style="max-height: 90px;">
+                                                @endif
 
-                                    </form>
+                                                <h4 class="fw-bold mb-1">Selamat Datang di</h4>
+                                                <h2 class="fw-bold text-primary mb-1">{{ $sidebarSetting->title }}</h2>
+                                                <h6 class="fw-light">{{ $sidebarSetting->subtitle }}</h6>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <input type="tel" class="form-control" name="nomor" id="nomor"
+                                                    placeholder="Masukkan Nomor Handphone" value="{{ old('nomor') }}"
+                                                    required>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100 py-2 fs-6">
+                                                Lanjut <i class="bi bi-arrow-right-circle ms-1"></i>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </div>
                         </div>
-
                         <!-- SweetAlert Notifications -->
-
                         @if (session('success'))
                             <script>
                                 Swal.fire({
@@ -169,9 +223,6 @@
                                 });
                             </script>
                         @endif
-
-
-
                     </div>
                 </div>
             </div>
@@ -179,53 +230,77 @@
     </main>
 
     <!-- JavaScript -->
+    <script src="{{ asset('js/app.js') }}"></script>
     <script>
-        // Simpan nomor ke localStorage setiap kali diubah
-        document.getElementById('nomor').addEventListener('input', function() {
-            localStorage.setItem('savedNumber', this.value);
-        });
-
-        // Ambil nomor dari localStorage saat halaman dimuat
+        function resetStep() {
+            Swal.fire({
+                title: 'Yakin ganti nomor?',
+                text: "PIN yang Anda ketik akan dihapus.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, ganti',
+                confirmButtonColor: '#28a745',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "{{ route('login.reset') }}";
+                }
+            });
+        }
         document.addEventListener('DOMContentLoaded', function() {
-            let savedNumber = localStorage.getItem('savedNumber');
-            if (savedNumber) {
-                document.getElementById('nomor').value = savedNumber;
+            // Handle input nomor hanya jika inputnya ada di halaman
+            const nomorInput = document.getElementById('nomor');
+            if (nomorInput) {
+                // Isi nomor dari localStorage
+                let savedNumber = localStorage.getItem('savedNumber');
+                if (savedNumber) {
+                    nomorInput.value = savedNumber;
+                }
+
+                // Simpan ke localStorage setiap perubahan
+                nomorInput.addEventListener('input', function() {
+                    localStorage.setItem('savedNumber', this.value);
+                });
+            }
+
+            // Logika PIN
+            let pin = '';
+
+            window.appendPin = function(num) {
+                if (pin.length < 6) {
+                    pin += num;
+                    updatePin();
+                }
+            }
+
+            window.clearPin = function() {
+                pin = pin.slice(0, -1);
+                updatePin();
+            }
+
+            function updatePin() {
+                const pinInput = document.getElementById('pin');
+                const submitBtn = document.getElementById('submitBtn');
+
+                if (!pinInput || !submitBtn) return; // jika tidak ada elemen, skip
+
+                pinInput.value = pin;
+
+                for (let i = 1; i <= 6; i++) {
+                    const dot = document.getElementById('dot' + i);
+                    if (dot) dot.classList.remove('active');
+                }
+
+                for (let i = 1; i <= pin.length; i++) {
+                    const dot = document.getElementById('dot' + i);
+                    if (dot) dot.classList.add('active');
+                }
+
+                submitBtn.disabled = pin.length !== 6;
             }
         });
-
-        let pin = '';
-
-        function appendPin(num) {
-            if (pin.length < 6) {
-                pin += num;
-                document.getElementById('pin').value = pin;
-                updateDots();
-                checkSubmit();
-            }
-        }
-
-        function clearPin() {
-            pin = pin.slice(0, -1);
-            document.getElementById('pin').value = pin;
-            updateDots();
-            checkSubmit();
-        }
-
-        function updateDots() {
-            for (let i = 1; i <= 6; i++) {
-                document.getElementById('dot' + i).classList.remove('active');
-            }
-            for (let i = 1; i <= pin.length; i++) {
-                document.getElementById('dot' + i).classList.add('active');
-            }
-        }
-
-        function checkSubmit() {
-            document.getElementById('submitBtn').disabled = pin.length !== 6;
-        }
     </script>
 
-    <script src="{{ asset('js/app.js') }}"></script>
 </body>
 
 </html>

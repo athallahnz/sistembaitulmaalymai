@@ -5,10 +5,11 @@ use App\Models\TagihanSpp;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AddBidangController;
-use App\Http\Controllers\AkunKeuanganController;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\SidebarSettingController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\AddBidangController;
+use App\Http\Controllers\Admin\AkunKeuanganController;
 use App\Http\Controllers\BendaharaController;
 use App\Http\Controllers\ManajerController;
 use App\Http\Controllers\BidangController;
@@ -43,25 +44,47 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::middleware(['role:Admin'])->prefix('admin')->group(function () {
-    // Dashboard Admin
-    Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.index');
+// Route untuk Verifikasi Kwitansi Murid oleh Wali Murid
+Route::get('/spp/verifikasi/{id}', function ($id) {
+    $tagihan = TagihanSpp::with('student')->findOrFail($id);
+    return "Kwitansi ini valid untuk: " . $tagihan->student->name . ", Bulan: " . $tagihan->bulan;
+})->name('spp.verifikasi');
 
-    // Manajemen Users
-    Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
-    Route::get('/users/data', [UserController::class, 'data'])->name('admin.users.data');
-    Route::put('/users/restore/{id}', [UserController::class, 'restore'])->name('admin.users.restore');
-    Route::delete('/users/force-delete/{id}', [UserController::class, 'forceDelete'])->name('admin.users.forceDelete');
+Route::get('/kwitansi/verifikasi/{token}', [EduPaymentController::class, 'verifikasiKwitansi'])->name('payments.verifikasi');
 
-    // Manajemen Akun Keuangan
-    Route::get('/akun-keuangan', [AkunKeuanganController::class, 'index'])->name('admin.akun_keuangan.index');
-    Route::get('/akun-keuangan/create', [AkunKeuanganController::class, 'create'])->name('admin.akun_keuangan.create');
-    Route::post('/akun-keuangan', [AkunKeuanganController::class, 'store'])->name('admin.akun_keuangan.store');
-    Route::get('/akun-keuangan/{akunKeuangan}/edit', [AkunKeuanganController::class, 'edit'])->name('admin.akun_keuangan.edit');
-    Route::put('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'update'])->name('admin.akun_keuangan.update');
-    Route::delete('/akun-keuangan/{akunKeuangan}', [AkunKeuanganController::class, 'destroy'])->name('admin.akun_keuangan.destroy');
+// Route untuk Update Profile Pengguna
+Route::middleware('auth')->group(function () {
+    Route::get('/profile/edit', [UserController::class, 'editProfile'])->name('profile.edit');
+    Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
+});
 
-    // Manajemen Bidang
+// Route User Manajemen
+Route::resource('users', UserController::class)->middleware('auth');
+Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+
+Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->group(function () {
+
+    Route::get('setting/edit', [SidebarSettingController::class, 'edit'])->name('sidebar_setting.edit');
+    Route::post('setting/update', [SidebarSettingController::class, 'update'])->name('sidebar_setting.update');
+
+    Route::get('/dashboard', [AdminController::class, 'index'])->name('index'); // admin.index
+
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/data', [UserController::class, 'data'])->name('data');
+        Route::put('/restore/{id}', [UserController::class, 'restore'])->name('restore');
+        Route::delete('/force-delete/{id}', [UserController::class, 'forceDelete'])->name('forceDelete');
+    });
+
+    Route::prefix('akun-keuangan')->name('akun_keuangan.')->group(function () {
+        Route::get('/', [AkunKeuanganController::class, 'index'])->name('index');
+        Route::get('/create', [AkunKeuanganController::class, 'create'])->name('create');
+        Route::post('/', [AkunKeuanganController::class, 'store'])->name('store');
+        Route::get('/{akunKeuangan}/edit', [AkunKeuanganController::class, 'edit'])->name('edit');
+        Route::put('/{akunKeuangan}', [AkunKeuanganController::class, 'update'])->name('update');
+        Route::delete('/{akunKeuangan}', [AkunKeuanganController::class, 'destroy'])->name('destroy');
+    });
+
     Route::prefix('add_bidangs')->name('add_bidangs.')->group(function () {
         Route::get('/', [AddBidangController::class, 'index'])->name('index');
         Route::get('/create', [AddBidangController::class, 'create'])->name('create');
@@ -71,8 +94,6 @@ Route::middleware(['role:Admin'])->prefix('admin')->group(function () {
         Route::delete('/{bidang}', [AddBidangController::class, 'destroy'])->name('destroy');
         Route::get('/data', [AddBidangController::class, 'getData'])->name('data');
     });
-
-
 });
 
 // Ketua routes
@@ -96,6 +117,7 @@ Route::middleware(['role:Bendahara'])->group(function () {
 
 // Bidang routes
 Route::middleware(['role:Bendahara|Bidang'])->group(function () {
+
     Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
     // Route untuk dashboard Bidang
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
@@ -148,9 +170,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
     Route::get('/payments/data', [EduPaymentController::class, 'getData'])->name('payments.data');
     Route::get('/payment/history/{student_id}', [EduPaymentController::class, 'history'])->name('payment.history');
-    Route::get('/kwitansi/verifikasi/{token}', [EduPaymentController::class, 'verifikasiKwitansi'])->name('payments.verifikasi');
     Route::get('/payments/{payment}/kwitansi', [EduPaymentController::class, 'cetakKwitansiPerTransaksi'])->name('payments.kwitansi.per');
-
 
     Route::get('/pendidikan/tagihan-spp/create', [TagihanSppController::class, 'create'])->name('tagihan-spp.create');
     Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
@@ -162,11 +182,7 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
     Route::get('/tagihan-spp/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
     Route::get('/tagihan-spp/kwitansi/{id}', [TagihanSppController::class, 'printReceipt'])->name('tagihan-spp.kwitansi.per');
-    Route::get('/spp/verifikasi/{id}', function ($id) {$tagihan = TagihanSpp::with('student')->findOrFail($id);return "Kwitansi ini valid untuk: " . $tagihan->student->name . ", Bulan: " . $tagihan->bulan;})->name('spp.verifikasi');
 
-
-
-    //Student Route
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
     Route::post('students', [StudentController::class, 'store'])->name('students.store');
     Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
@@ -185,21 +201,14 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::resource('wali-murids', WaliMuridController::class)->only(['index', 'show']);
 });
 
-// Route untuk home setelah login
-Route::get('/home', [HomeController::class, 'index'])->name('home');
-
-// Route untuk Update Profile Pengguna
-Route::middleware('auth')->group(function () {
-    Route::get('/profile/edit', [UserController::class, 'editProfile'])->name('profile.edit');
-    Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
-});
-
-// Route User Manajemen
-Route::resource('users', UserController::class)->middleware('auth');
-Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
-
 // Login routes
-Route::post('login', [LoginController::class, 'login']);
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login/nomor', [LoginController::class, 'verifyNomor'])->name('login.nomor');
+Route::post('/login', [LoginController::class, 'login']);
+Route::get('/login/reset', function () {
+    session()->forget(['step', 'nomor']);
+    return redirect()->route('login');
+})->name('login.reset');
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::resource('piutangs', PiutangController::class);
@@ -212,11 +221,3 @@ Route::get('/notifications/read', function () {
     return redirect()->back();
 })->name('notifications.markAsRead');
 
-Route::get('/logtest', function () {
-    Log::debug('🚨 Log test: ini harus muncul di laravel.log');
-    return 'Cek log';
-});
-
-Route::get('/my-ip', function () {
-    return request()->ip(); // Ini hanya IP client, bukan IP server
-});

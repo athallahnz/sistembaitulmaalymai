@@ -391,6 +391,7 @@ select:disabled {
 [type="reset"],
 [type="submit"],
 button {
+    appearance: button;
     -webkit-appearance: button;
 }
 [type="button"]:not(:disabled),
@@ -436,6 +437,7 @@ legend + * {
     height: auto;
 }
 [type="search"] {
+    appearance: textfield;
     -webkit-appearance: textfield;
     outline-offset: -2px;
 }
@@ -450,6 +452,7 @@ legend + * {
     font: inherit;
 }
 ::file-selector-button {
+    appearance: button;
     -webkit-appearance: button;
     font: inherit;
 }
@@ -2258,8 +2261,8 @@ textarea.form-control-lg {
     -webkit-print-color-adjust: exact;
     vertical-align: top;
     width: 1em;
-    color-adjust: exact;
     print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
 }
 .form-check-input[type="checkbox"] {
     border-radius: 0.25em;
@@ -12114,26 +12117,7 @@ body {
     margin-bottom: 0;
     padding-left: 0;
 }
-.sidebar-link,
-a.sidebar-link {
-    background: #222e3c;
-    border-left: 3px solid transparent;
-    color: rgba(233, 236, 239, 0.5);
-    cursor: pointer;
-    display: block;
-    font-weight: 400;
-    padding: 0.625rem 1.625rem;
-    position: relative;
-    text-decoration: none;
-    transition: background 0.1s ease-in-out;
-}
-.sidebar-link i,
-.sidebar-link svg,
-a.sidebar-link i,
-a.sidebar-link svg {
-    color: rgba(233, 236, 239, 0.5);
-    margin-right: 0.75rem;
-}
+
 .sidebar-link:focus {
     outline: 0;
 }
@@ -12209,10 +12193,9 @@ a.sidebar-link svg {
     top: 14px;
     z-index: 1;
 }
-.sidebar-cta-content {
-    background: #2b3947;
+.sidebar-cta-content-box {
     border-radius: 0.3rem;
-    color: #e9ecef;
+    color: #fff5e1;
     margin: 1.75rem;
     padding: 1.5rem;
 }

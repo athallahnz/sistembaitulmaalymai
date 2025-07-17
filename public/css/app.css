@@ -391,6 +391,7 @@ select:disabled {
 [type="reset"],
 [type="submit"],
 button {
+    appearance: button;
     -webkit-appearance: button;
 }
 [type="button"]:not(:disabled),
@@ -436,6 +437,7 @@ legend + * {
     height: auto;
 }
 [type="search"] {
+    appearance: textfield;
     -webkit-appearance: textfield;
     outline-offset: -2px;
 }
@@ -450,6 +452,7 @@ legend + * {
     font: inherit;
 }
 ::file-selector-button {
+    appearance: button;
     -webkit-appearance: button;
     font: inherit;
 }
@@ -2258,8 +2261,8 @@ textarea.form-control-lg {
     -webkit-print-color-adjust: exact;
     vertical-align: top;
     width: 1em;
-    color-adjust: exact;
     print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
 }
 .form-check-input[type="checkbox"] {
     border-radius: 0.25em;
@@ -11767,7 +11770,7 @@ fieldset:disabled .btn {
     height: auto;
     max-width: 100%;
 }
-@media (-ms-high-contrast: none) {
+@media (forced-colors: active) {
     .card-img,
     .card-img-bottom,
     .card-img-top {
@@ -12043,7 +12046,7 @@ a.list-group-item {
 .nav-item a:focus {
     outline: 0;
 }
-@media (-ms-high-contrast: none), screen and (-ms-high-contrast: active) {
+@media (forced-colors: active), screen and (forced-colors: activeve) {
     .navbar .avatar {
         max-height: 47px;
     }
@@ -12087,7 +12090,7 @@ body {
     opacity: 1 !important;
     overflow-y: scroll;
 }
-@media (-ms-high-contrast: none), screen and (-ms-high-contrast: active) {
+@media (forced-colors: active), screen and (forced-colors: active) {
     html {
         overflow-x: hidden;
     }
@@ -12116,7 +12119,6 @@ body {
 }
 .sidebar-link,
 a.sidebar-link {
-    background: #793715 ;
     border-left: 3px solid transparent;
     color: rgba(233, 236, 239, 0.5);
     cursor: pointer;
@@ -12137,10 +12139,10 @@ a.sidebar-link svg {
 .sidebar-link:focus {
     outline: 0;
 }
-.sidebar-link:hover {
+/* .sidebar-link:hover {
     background: #793715 ;
     border-left-color: transparent;
-}
+} */
 .sidebar-link:hover,
 .sidebar-link:hover i,
 .sidebar-link:hover svg {
@@ -12209,13 +12211,7 @@ a.sidebar-link svg {
     top: 14px;
     z-index: 1;
 }
-.sidebar-cta-content {
-    background: linear-gradient(
-    180deg,
-    rgba(255, 204, 153, 0.2),  /* Warna emas muda */
-    rgba(255, 170, 102, 0.15) 50%, /* Warna oranye lembut */
-    transparent
-    );
+.sidebar-cta-content-box {
     border-radius: 0.3rem;
     color: #fff5e1; /* Putih krem agar tetap terbaca */
     margin: 1.75rem;

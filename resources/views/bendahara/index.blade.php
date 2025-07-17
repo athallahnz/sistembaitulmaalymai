@@ -3,7 +3,7 @@
 @section('content')
     <div class="container">
         <h1 class="mb-4">Selamat Datang, <strong>{{ auth()->user()->role }} Yayasan!</strong></h1>
-        {{-- <h3 class="mb-4 d-flex">
+        <h3 class="mb-4 d-flex">
             <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuanganbendahara" role="button"
                 aria-expanded="true" aria-controls="dataKeuanganbendahara"> Dashboard Keuangan
                 <strong>{{ auth()->user()->role }}!</strong>
@@ -94,7 +94,7 @@
                     </a>
                 </div>
             </div>
-        </div> --}}
+        </div>
         <h3 class="mb-4 d-flex">
             <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#dataKeuangan" role="button"
                 aria-expanded="true" aria-controls="dataKeuangan">
@@ -201,7 +201,8 @@
                     </a>
                 </div>
                 <div class="col-md-4 mb-5">
-                    <a href="{{ route('bendahara.detail', ['type' => 'pendapatan belum diterima']) }}" class="text-decoration-none">
+                    <a href="{{ route('bendahara.detail', ['type' => 'pendapatan belum diterima']) }}"
+                        class="text-decoration-none">
                         <div class="card">
                             <div class="icon bi bi-cash"></div>
                             <h5>Pendapatan Belum Diterima</h5>
@@ -347,18 +348,22 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             // main section bendahara
-            const mainCollapse = document.getElementById('dataKeuanganbendahara');
-            const mainChevron = document.querySelector('h3 a[href="#dataKeuanganbendahara"] i.chevron');
+            const mainCollapseBendahara = document.getElementById('dataKeuanganbendahara');
+            const mainChevronBendahara = document.querySelector('h3 a[href="#dataKeuanganbendahara"] i.chevron');
 
-            mainCollapse.addEventListener('shown.bs.collapse', () => mainChevron.classList.add('rotated'));
-            mainCollapse.addEventListener('hidden.bs.collapse', () => mainChevron.classList.remove('rotated'));
+            mainCollapseBendahara.addEventListener('shown.bs.collapse', () => mainChevronBendahara.classList.add(
+                'rotated'));
+            mainCollapseBendahara.addEventListener('hidden.bs.collapse', () => mainChevronBendahara.classList
+                .remove('rotated'));
 
             // main section yayasan
-            const mainCollapse = document.getElementById('dataKeuangan');
-            const mainChevron = document.querySelector('h3 a i.chevron');
+            const mainCollapseYayasan = document.getElementById('dataKeuangan');
+            const mainChevronYayasan = document.querySelector('h3 a[href="#dataKeuangan"] i.chevron');
 
-            mainCollapse.addEventListener('shown.bs.collapse', () => mainChevron.classList.add('rotated'));
-            mainCollapse.addEventListener('hidden.bs.collapse', () => mainChevron.classList.remove('rotated'));
+            mainCollapseYayasan.addEventListener('shown.bs.collapse', () => mainChevronYayasan.classList.add(
+                'rotated'));
+            mainCollapseYayasan.addEventListener('hidden.bs.collapse', () => mainChevronYayasan.classList.remove(
+                'rotated'));
 
             // sub‑section 1
             const sub1Collapse = document.getElementById('dataKeuanganSub1');

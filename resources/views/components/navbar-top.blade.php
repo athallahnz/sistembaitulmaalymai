@@ -83,27 +83,53 @@
                     <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="align-middle me-1"
                             data-feather="user"></i>
                         Profile</a>
-                    <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="pie-chart"></i>
-                        Analytics</a>
-                    <div class="dropdown-divider"></div>
-                    <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="settings"></i>
-                        Settings & Privacy</a>
-                    <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="help-circle"></i>
-                        Help Center</a>
-                    <div class="dropdown-divider"></div>
-                    <form action="{{ route('logout') }}" onclick="logoutClear()" method="POST" id="logout-form">
-                        @csrf
-                        <button type="submit" class="dropdown-item" style="border: none; background: none;">
-                            <i class="align-middle me-1" data-feather="log-out"></i> Log Out
-                        </button>
-                    </form>
-                    <script>
-                        function logoutClear() {
-                            localStorage.removeItem('savedNumber'); // Hapus nomor sebelum logout
-                        }
-                    </script>
-                </div>
-            </li>
-        </ul>
-    </div>
-</nav>
+                        @role('Admin')
+                        <a class="dropdown-item" href="{{ route('admin.index') }}"><i class="align-middle me-1"
+                                data-feather="pie-chart"></i>
+                            Analytics</a>
+                        @endrole
+                        @role('Ketua Yayasan')
+                        <a class="dropdown-item" href="{{ route('ketua.index') }}"><i class="align-middle me-1"
+                                data-feather="pie-chart"></i>
+                            Analytics</a>
+                        @endrole
+                        @role('Manajer Keuangan')
+                        <a class="dropdown-item" href="{{ route('manajer.index') }}"><i class="align-middle me-1"
+                                data-feather="pie-chart"></i>
+                            Analytics</a>
+                        @endrole
+                        @role('Bendahara')
+                        <a class="dropdown-item" href="{{ route('bendahara.index') }}"><i class="align-middle me-1"
+                                data-feather="pie-chart"></i>
+                            Analytics</a>
+                        @endrole
+                        @role('Bidang')
+                        <a class="dropdown-item" href="{{ route('bidang.index') }}"><i class="align-middle me-1"
+                                data-feather="pie-chart"></i>
+                            Analytics</a>
+                        @endrole
+                        <div class="dropdown-divider"></div>
+                        @role('Admin')
+                            <a class="dropdown-item" href="{{ route('admin.sidebar_setting.edit') }}">
+                                <i class="align-middle me-1" data-feather="settings"></i> Settings
+                            </a>
+                        @endrole
+                        <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="help-circle"></i>
+                            Help Center</a>
+                        <div class="dropdown-divider"></div>
+                        <form action="{{ route('logout') }}" onclick="logoutClear()" method="POST" id="logout-form">
+                            @csrf
+                            <button type="submit" class="dropdown-item" style="border: none; background: none;">
+                                <i class="align-middle me-1" data-feather="log-out"></i> Log Out
+                            </button>
+                        </form>
+                        <script>
+                            function logoutClear() {
+                                localStorage.removeItem('savedNumber'); // Hapus nomor sebelum logout
+                            }
+                        </script>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
