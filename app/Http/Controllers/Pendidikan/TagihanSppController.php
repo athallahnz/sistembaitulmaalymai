@@ -69,7 +69,7 @@ class TagihanSppController extends Controller
 
     public function create()
     {
-        $classes = EduClass::all();
+        $classes = EduClass::orderBy('name')->orderBy('tahun_ajaran', 'desc')->get();
         return view('bidang.pendidikan.payments.tagihan_spp.create', compact('classes'));
     }
 
@@ -336,7 +336,7 @@ class TagihanSppController extends Controller
 
         $filename = 'spp_' . $tagihan->id . '.svg';
         $qrPath = storage_path('app/public/qrcodes/' . $filename); // path fisik
-        
+
         // Pastikan foldernya ada
         if (!file_exists(dirname($qrPath))) {
             mkdir(dirname($qrPath), 0755, true);

@@ -32,14 +32,24 @@ class EduClassController extends Controller
                 return $row->students_count ?? 0;
             })
             ->addColumn('actions', function ($row) {
-                return '
-            <a href="' . route('edu_classes.show', $row->id) . '" class="btn btn-info btn-sm"><i class="bi bi-eye"></i></a>
-            <a href="' . route('edu_classes.edit', $row->id) . '" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square"></i></a>
-            <form action="' . route('edu_classes.destroy', $row->id) . '" method="POST" class="d-inline" onsubmit="return confirm(\'Yakin hapus kelas ini?\')">
-                ' . csrf_field() . method_field('DELETE') . '
-                <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
-            </form>
+                $showUrl = route('edu_classes.show', $row->id);
+                $editUrl = route('edu_classes.edit', $row->id);
+                $deleteUrl = route('edu_classes.destroy', $row->id);
+
+                $deleteButton = '';
+                if ($row->students_count == 0) {
+                    $deleteButton = '
+            <button type="button" class="btn btn-danger btn-sm btn-delete" data-url="' . $deleteUrl . '" title="Hapus">
+                <i class="bi bi-trash"></i>
+            </button>
         ';
+                }
+
+                return '
+        <a href="' . $showUrl . '" class="btn btn-info btn-sm" title="Lihat"><i class="bi bi-eye"></i></a>
+        <a href="' . $editUrl . '" class="btn btn-warning btn-sm" title="Edit"><i class="bi bi-pencil-square"></i></a>
+        ' . $deleteButton . '
+    ';
             })
             ->rawColumns(['actions'])
             ->make(true);
@@ -91,7 +101,7 @@ class EduClassController extends Controller
      */
     public function show(EduClass $eduClass)
     {
-        return view('edu_classes.show', compact('eduClass'));
+        return view('bidang.pendidikan.kelas.show', compact('eduClass'));
     }
 
     /**
@@ -99,7 +109,7 @@ class EduClassController extends Controller
      */
     public function edit(EduClass $eduClass)
     {
-        return view('edu_classes.edit', compact('eduClass'));
+        return view('bidang.pendidikan.kelas.edit', compact('eduClass'));
     }
 
     /**
@@ -129,9 +139,17 @@ class EduClassController extends Controller
      */
     public function destroy(EduClass $eduClass)
     {
+        // Cek apakah kelas masih memiliki murid
+        if ($eduClass->students()->count() > 0) {
+            return redirect()->route('edu_classes.index')
+                ->with('error', 'Kelas tidak dapat dihapus karena masih terdapat murid di dalamnya.');
+        }
+
+        // Jika tidak ada murid, hapus kelas
         $eduClass->delete();
 
         return redirect()->route('edu_classes.index')
             ->with('success', 'Data kelas berhasil dihapus.');
     }
+
 }

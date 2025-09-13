@@ -25,7 +25,7 @@ class StudentController extends Controller
     public function index()
     {
         $students = Student::orderBy('name');
-        $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
+        $eduClasses = EduClass::orderBy('name')->orderBy('tahun_ajaran', 'desc')->get();
         $akunKeuangans = AkunKeuangan::where('parent_id', 202)->get();
         return view('bidang.pendidikan.student_index', compact('students', 'eduClasses', 'akunKeuangans'));
     }
@@ -45,7 +45,7 @@ class StudentController extends Controller
         return view('bidang.pendidikan.student_create');
     }
 
-    public function store(Request $request)
+    public function store(request $request)
     {
         $messages = [
             'nisn.max' => 'NISN tidak boleh lebih dari 9 karakter.',

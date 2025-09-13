@@ -155,4 +155,34 @@
             });
         });
     </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            $(document).on('click', '.btn-delete', function() {
+                let url = $(this).data('url');
+
+                Swal.fire({
+                    title: 'Yakin hapus kelas ini?',
+                    text: "Tindakan ini tidak bisa dibatalkan!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Buat form dinamis lalu submit
+                        let form = $('<form>', {
+                            action: url,
+                            method: 'POST',
+                            style: 'display:none'
+                        }).append('@csrf', '@method('DELETE')');
+
+                        $('body').append(form);
+                        form.submit();
+                    }
+                });
+            });
+        });
+    </script>
 @endpush

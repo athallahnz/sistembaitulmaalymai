@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Ledger;
 use App\Models\Transaksi;
 use App\Models\Bidang;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,46 @@ class LedgerController extends Controller
         $user = auth()->user();
         $bidang_name = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
         $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
+
+        // Ambil akun tanpa parent (parent_id = null)
+        $akunTanpaParent = DB::table('akun_keuangans')
+            ->whereNull('parent_id') // Ambil akun tanpa parent
+            ->whereNotIn('id', [101, 103, 104, 105, 201]) // Kecualikan ID tertentu
+            ->get();
+
+        // Ambil semua akun sebagai referensi untuk child dan konversi ke array
+        $akunDenganParent = DB::table('akun_keuangans')
+            ->whereNotNull('parent_id')
+            ->get()
+            ->groupBy('parent_id')
+            ->toArray();
+
+        $role = $user->role;
+        // Tentukan prefix berdasarkan bidang_id
+        $prefix = '';
+        if ($role === 'Bidang') {
+            switch ($bidang_id) {
+                case 1: // Pendidikan
+                    $prefix = 'SJD';
+                    break;
+                case 2: // Kemasjidan
+                    $prefix = 'PND';
+                    break;
+                case 3: // Sosial
+                    $prefix = 'SOS';
+                    break;
+                case 4: // Usaha
+                    $prefix = 'UHA';
+                    break;
+                case 5: // Pembangunan
+                    $prefix = 'BGN';
+                    break;
+            }
+        } elseif ($role === 'Bendahara') {
+            $prefix = 'BDH'; // Prefix untuk Bendahara
+        }
+
+        $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // Cek apakah pengguna adalah Bendahara
         if ($user->role === 'Bendahara') {
@@ -58,7 +99,7 @@ class LedgerController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('ledger.index', compact('ledgers', 'saldoKas'));
+        return view('ledger.index', compact('ledgers','akunTanpaParent', 'akunDenganParent', 'saldoKas', 'kodeTransaksi'));
     }
 
     public function getData()

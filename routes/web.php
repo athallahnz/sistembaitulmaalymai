@@ -3,6 +3,7 @@
 use App\Models\EduPayment;
 use App\Models\TagihanSpp;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminController;
@@ -44,9 +45,12 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Route untuk Verifikasi Kwitansi Murid oleh Wali Murid
+// Route untuk home setelah login
+Route::get('/home', [HomeController::class, 'index'])->name('home');
+
 Route::get('/spp/verifikasi/{id}', function ($id) {
-    $tagihan = TagihanSpp::with('student')->findOrFail($id);
+    $tagihan = TagihanSpp::with('student')->findOrFail($id); // ini akan return 1 model, bukan collection
+
     return "Kwitansi ini valid untuk: " . $tagihan->student->name . ", Bulan: " . $tagihan->bulan;
 })->name('spp.verifikasi');
 
@@ -77,12 +81,23 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     });
 
     Route::prefix('akun-keuangan')->name('akun_keuangan.')->group(function () {
+        // Index (utama)
         Route::get('/', [AkunKeuanganController::class, 'index'])->name('index');
-        Route::get('/create', [AkunKeuanganController::class, 'create'])->name('create');
-        Route::post('/', [AkunKeuanganController::class, 'store'])->name('store');
-        Route::get('/{akunKeuangan}/edit', [AkunKeuanganController::class, 'edit'])->name('edit');
-        Route::put('/{akunKeuangan}', [AkunKeuanganController::class, 'update'])->name('update');
-        Route::delete('/{akunKeuangan}', [AkunKeuanganController::class, 'destroy'])->name('destroy');
+
+        // DataTables AJAX
+        Route::get('/data/table', [AkunKeuanganController::class, 'dataTable'])->name('datatable');
+
+        // Resource CRUD (tanpa index karena sudah ada di atas)
+        Route::resource('data', AkunKeuanganController::class)->except(['index'])->parameters([
+            'data' => 'akunKeuangan'
+        ])->names([
+                    'create' => 'create',
+                    'store' => 'store',
+                    'show' => 'show',
+                    'edit' => 'edit',
+                    'update' => 'update',
+                    'destroy' => 'destroy',
+                ]);
     });
 
     Route::prefix('add_bidangs')->name('add_bidangs.')->group(function () {
@@ -215,9 +230,13 @@ Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
 
 Route::get('/notifications/read', function () {
-    if (Auth::check()) {
-        Auth::user()->unreadNotifications->markAsRead();
+    dd(Auth::user());
+    $user = Auth::user();
+
+    if ($user && method_exists($user, 'unreadNotifications')) {
+        $user->unreadNotifications()->markAsRead();
     }
+
     return redirect()->back();
 })->name('notifications.markAsRead');
 

@@ -2,6 +2,37 @@
 @section('title', 'Manajemen Akun Keuangan')
 
 @section('content')
+    <style>
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translateX(0);
+            }
+
+            20% {
+                transform: translateX(-10px);
+            }
+
+            40% {
+                transform: translateX(10px);
+            }
+
+            60% {
+                transform: translateX(-10px);
+            }
+
+            80% {
+                transform: translateX(10px);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+    </style>
     <div class="container">
         <h2 class="mb-4">Daftar Akun Keuangan</h2>
 
@@ -9,37 +40,7 @@
         <button type="button" class="btn btn-primary mb-3 shadow" data-bs-toggle="modal" data-bs-target="#akunModal">
             Tambah Akun Keuangan
         </button>
-        <style>
-            .shake {
-                animation: shake 0.5s ease-in-out;
-            }
 
-            @keyframes shake {
-                0% {
-                    transform: translateX(0);
-                }
-
-                20% {
-                    transform: translateX(-10px);
-                }
-
-                40% {
-                    transform: translateX(10px);
-                }
-
-                60% {
-                    transform: translateX(-10px);
-                }
-
-                80% {
-                    transform: translateX(10px);
-                }
-
-                100% {
-                    transform: translateX(0);
-                }
-            }
-        </style>
         <!-- Modal -->
         <div class="modal fade" id="akunModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
             aria-labelledby="akunModalLabel" aria-hidden="true">
@@ -114,42 +115,10 @@
         </div>
 
         <div class="p-3 shadow table-responsive rounded">
-            <div class="d-flex justify-content-between mb-3">
-                <!-- Search Form -->
-                <form method="GET" action="{{ route('admin.akun_keuangan.index') }}" class="d-flex">
-                    <input type="text" name="search" class="form-control me-2" placeholder="Cari akun..."
-                        value="{{ request('search') }}">
-                    <button type="submit" class="btn btn-primary me-2"><i class="bi bi-search"></i></button>
-                </form>
-
-                <!-- Per Page Dropdown -->
-                <form method="GET" action="{{ route('admin.akun_keuangan.index') }}">
-                    <select name="per_page" class="form-select" onchange="this.form.submit()">
-                        @foreach ([10, 20, 50, 100] as $size)
-                            <option value="{{ $size }}" {{ request('per_page', 10) == $size ? 'selected' : '' }}>
-                                {{ $size }} per halaman
-                            </option>
-                        @endforeach
-                    </select>
-                </form>
-            </div>
-
-            <table class="table table-striped table-bordered">
+            <table class="table table-striped table-bordered" id="akunTable">
                 <thead class="table-light">
                     <tr>
-                        <th>
-                            <a
-                                href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'direction' => request('direction', 'asc') == 'asc' ? 'desc' : 'asc']) }}">
-                                ID Account
-                                @if (request('sort', 'id') == 'id')
-                                    @if (request('direction', 'asc') == 'asc')
-                                        <i class="bi bi-arrow-up"></i> <!-- Panah naik -->
-                                    @else
-                                        <i class="bi bi-arrow-down"></i> <!-- Panah turun -->
-                                    @endif
-                                @endif
-                            </a>
-                        </th>
+                        <th>ID Account</th>
                         <th>Nama Akun</th>
                         <th>Kode Akun</th>
                         <th>Tipe Akun</th>
@@ -158,56 +127,53 @@
                         <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse ($akunKeuangans as $akun)
-                        <tr>
-                            <td>{{ $akun->id }}</td>
-                            <td>{{ $akun->nama_akun }}</td>
-                            <td>{{ $akun->kode_akun }}</td>
-                            <td>{{ $akun->tipe_akun }}</td>
-                            <td>{{ optional($akun->parentAkun)->nama_akun ?? '-' }}</td>
-                            <td>{{ $akun->saldo_normal }}</td>
-                            <td class="d-flex text-end">
-                                <a href="{{ route('admin.akun_keuangan.edit', $akun->id) }}"
-                                    class="btn btn-warning btn-sm me-2">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-
-                                <form id="delete-form-{{ $akun->id }}"
-                                    onsubmit="return confirmDelete(event, {{ $akun->id }})"
-                                    action="{{ route('admin.akun_keuangan.destroy', $akun->id) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-
-                                    <button type="submit" class="btn btn-danger btn-sm">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="text-center">Data tidak ditemukan</td>
-                        </tr>
-                    @endforelse
-                </tbody>
             </table>
-
-            <!-- Pagination -->
-            <div class="row align-items-center">
-                <div class="text-end">
-                    {{ $akunKeuangans->links('pagination::bootstrap-5') }}
-                </div>
-            </div>
         </div>
     </div>
 @endsection
-@section('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+@push('scripts')
     <script>
+        $(document).ready(function() {
+            $('#akunTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ route('admin.akun_keuangan.datatable') }}",
+                columns: [{
+                        data: 'id',
+                        name: 'id'
+                    },
+                    {
+                        data: 'nama_akun',
+                        name: 'nama_akun'
+                    },
+                    {
+                        data: 'kode_akun',
+                        name: 'kode_akun'
+                    },
+                    {
+                        data: 'tipe_akun',
+                        name: 'tipe_akun'
+                    },
+                    {
+                        data: 'parent',
+                        name: 'parent'
+                    },
+                    {
+                        data: 'saldo_normal',
+                        name: 'saldo_normal'
+                    },
+                    {
+                        data: 'aksi',
+                        name: 'aksi',
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
+            });
+        });
+
         function confirmDelete(event, akunId) {
-            event.preventDefault(); // Mencegah submit otomatis
+            event.preventDefault();
 
             Swal.fire({
                 title: 'Yakin ingin menghapus akun ini?',
@@ -224,74 +190,28 @@
                 }
             });
 
-            return false; // Mencegah submit sebelum konfirmasi
+            return false;
         }
+    </script>
 
-        $(document).ready(function() {
-            $("#akunForm").on("submit", function(event) {
-                event.preventDefault(); // Mencegah form langsung submit
-
-                var form = $(this);
-                var formData = form.serialize();
-                var method = form.find('input[name="_method"]').val() === "PUT" ? "POST" : "POST";
-
-                $.ajax({
-                    url: form.attr("action"),
-                    type: "POST", // Laravel menerima _method=PUT sebagai simulasi PUT
-                    data: formData,
-                    success: function(response) {
-                        Swal.fire({
-                            title: 'Berhasil!',
-                            text: 'Data akun keuangan berhasil disimpan.',
-                            icon: 'success',
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            location.reload();
-                        });
-
-                        $("#akunModal").modal("hide");
-                    },
-                    error: function(xhr) {
-                        let errors = xhr.responseJSON.errors;
-                        let errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
-
-                        if (errors) {
-                            errorMessage = Object.values(errors).map(err => err[0]).join('<br>');
-                        }
-
-                        Swal.fire({
-                            title: 'Gagal!',
-                            html: errorMessage,
-                            icon: 'error'
-                        });
-
-                        // Efek getaran jika terjadi error
-                        $("#akunModal .modal-content").addClass("shake");
-                        setTimeout(() => {
-                            $("#akunModal .modal-content").removeClass("shake");
-                        }, 500);
-                    }
-                });
+    {{-- SweetAlert dari Session --}}
+    @if (session('error'))
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: '{{ session('error') }}'
             });
-        });
-    </script>
-@endsection
-@if (session('error'))
-    <script>
-        Swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: '{{ session('error') }}'
-        });
-    </script>
-@endif
-@if ($errors->any())
-    <script>
-        Swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: '{{ implode(', ', $errors->all()) }}'
-        });
-    </script>
-@endif
+        </script>
+    @endif
+
+    @if ($errors->any())
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                html: `{!! implode('<br>', $errors->all()) !!}`
+            });
+        </script>
+    @endif
+@endpush

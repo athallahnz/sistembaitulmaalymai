@@ -12,24 +12,29 @@ use Illuminate\Support\Facades\Auth;
 
 class AkunKeuanganController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $search = $request->input('search');
-        $perPage = $request->input('per_page', 10); // Default 10
-        $sortColumn = $request->input('sort', 'id'); // Default sorting by ID
-        $sortDirection = $request->input('direction', 'asc'); // Default ASC
-
-        $akunKeuangans = AkunKeuangan::with('parentAkun')
-            ->when($search, function ($query) use ($search) {
-                return $query->where('nama_akun', 'like', "%$search%")
-                    ->orWhere('kode_akun', 'like', "%$search%");
-            })
-            ->orderBy($sortColumn, $sortDirection)
-            ->paginate($perPage);
-
         $akunKeuanganTanpaParent = AkunKeuangan::whereNull('parent_id')->get();
+        return view('admin.akun_keuangan.index', compact('akunKeuanganTanpaParent'));
+    }
 
-        return view('admin.akun_keuangan.index', compact('akunKeuangans', 'akunKeuanganTanpaParent', 'search', 'perPage', 'sortColumn', 'sortDirection'));
+    /**
+     * API DataTables (server-side)
+     */
+    public function dataTable()
+    {
+        $query = AkunKeuangan::with('parentAkun');
+
+        return DataTables::of($query)
+            ->addColumn('parent', function ($row) {
+                return $row->parentAkun ? $row->parentAkun->nama_akun : '-';
+            })
+            ->addColumn('aksi', function ($row) {
+                return view('admin.akun_keuangan.partials.aksi', compact('row'))->render();
+            })
+
+            ->rawColumns(['aksi'])
+            ->make(true);
     }
 
     public function store(Request $request)

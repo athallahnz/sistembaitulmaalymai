@@ -31,7 +31,7 @@ class AkunKeuangan extends Model
         return $this->belongsTo(AkunKeuangan::class, 'parent_id', 'id');
     }
 
-    public function transaksis()
+    public function transaksis()    
     {
         return $this->hasMany(Transaksi::class);
     }
