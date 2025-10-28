@@ -1,3 +1,20 @@
+@php
+    // Ambil value old() atau ttl dari DB
+    $ttlRaw = old('ttl', $student->ttl ?? null);
+    try {
+        // Jika format-nya 20/05/2025, ubah ke 2025-05-20
+        if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $ttlRaw)) {
+            $ttlValue = \Carbon\Carbon::createFromFormat('d/m/Y', $ttlRaw)->format('Y-m-d');
+        } elseif ($ttlRaw) {
+            $ttlValue = \Carbon\Carbon::parse($ttlRaw)->format('Y-m-d');
+        } else {
+            $ttlValue = '';
+        }
+    } catch (\Exception $e) {
+        $ttlValue = '';
+    }
+@endphp
+
 <div class="row">
     <div class="col-md-4">
         <h4 class="mb-3">Data Diri Murid</h4>
@@ -63,8 +80,7 @@
             </div>
             <div class="col-md-6">
                 <label>Tanggal Lahir</label>
-                <input type="date" name="ttl" class="form-control"
-                    value="{{ old('ttl', isset($student->ttl) ? \Carbon\Carbon::parse($student->ttl)->format('Y-m-d') : '') }}">
+                <input type="date" name="ttl" class="form-control" value="{{ $ttlValue }}">
             </div>
         </div>
 
@@ -269,5 +285,6 @@
             // Hitung total saat load pertama
             calculateTotal();
         });
+        
     </script>
 @endpush

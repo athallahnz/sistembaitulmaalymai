@@ -347,6 +347,20 @@
                             <span class="align-middle">Buat Tagihan Murid</span>
                         </a>
                     </li>
+                {{-- @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
+                    <li class="sidebar-header">Manajemen Infaq Jamaah</li>
+                    <li class="sidebar-item {{ request()->routeIs(' ') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('infaq-rumahan.index') }}">
+                            <i class="align-middle" data-feather="users"></i>
+                            <span class="align-middle">Data Infaq Rumahan</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item {{ request()->routeIs('infaq-sinoman.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('infaq-sinoman.index') }}">
+                            <i class="align-middle" data-feather="package"></i>
+                            <span class="align-middle">Data Infaq Sinoman</span>
+                        </a>
+                    </li>--}}
                 @endif
             @endrole
         </ul>

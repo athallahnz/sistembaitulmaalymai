@@ -11,19 +11,37 @@ use Illuminate\Http\Request;
 
 class LedgerController extends Controller
 {
+    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
+    {
+        $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
+            ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
+            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
+
+        $row = $query->selectRaw("
+            COALESCE(SUM(CASE
+                WHEN type = 'penerimaan' THEN amount
+                WHEN type = 'pengeluaran' THEN -amount
+                ELSE 0 END), 0
+            ) AS saldo_akhir
+        ")
+            ->first();
+
+        return (float) ($row->saldo_akhir ?? 0.0);
+    }
+
     public function index()
     {
         $user = auth()->user();
-        $bidang_name = auth()->user()->bidang_name; // Sesuaikan dengan kolom yang relevan di tabel users
-        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
+        $bidang_name = $user->bidang_name; // kolom bidang pada users
+        $bidang_id = $user->bidang_name;
 
         // Ambil akun tanpa parent (parent_id = null)
         $akunTanpaParent = DB::table('akun_keuangans')
-            ->whereNull('parent_id') // Ambil akun tanpa parent
+            ->whereNull('parent_id')
             ->whereNotIn('id', [101, 103, 104, 105, 201]) // Kecualikan ID tertentu
             ->get();
 
-        // Ambil semua akun sebagai referensi untuk child dan konversi ke array
+        // Ambil semua akun child dan group by parent
         $akunDenganParent = DB::table('akun_keuangans')
             ->whereNotNull('parent_id')
             ->get()
@@ -31,75 +49,71 @@ class LedgerController extends Controller
             ->toArray();
 
         $role = $user->role;
-        // Tentukan prefix berdasarkan bidang_id
+
+        // Tentukan prefix kode transaksi
         $prefix = '';
         if ($role === 'Bidang') {
             switch ($bidang_id) {
-                case 1: // Pendidikan
+                case 1:
                     $prefix = 'SJD';
-                    break;
-                case 2: // Kemasjidan
+                    break; // Pendidikan (cek kembali mapping ini)
+                case 2:
                     $prefix = 'PND';
-                    break;
-                case 3: // Sosial
+                    break; // Kemasjidan
+                case 3:
                     $prefix = 'SOS';
-                    break;
-                case 4: // Usaha
+                    break; // Sosial
+                case 4:
                     $prefix = 'UHA';
-                    break;
-                case 5: // Pembangunan
+                    break; // Usaha
+                case 5:
                     $prefix = 'BGN';
-                    break;
+                    break; // Pembangunan
             }
         } elseif ($role === 'Bendahara') {
-            $prefix = 'BDH'; // Prefix untuk Bendahara
+            $prefix = 'BDH';
         }
 
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
-        // Cek apakah pengguna adalah Bendahara
-        if ($user->role === 'Bendahara') {
-            $akun_keuangan_id = 1011; // Akun Bank untuk Bendahara
-
-            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
+        // ==========================
+        // Hitung Saldo KAS dengan getSaldoTerakhir (agregasi)
+        // ==========================
+        // Mapping KAS (bukan bank): Bendahara 1011, per-bidang 1012..1015
+        if ($role === 'Bendahara') {
+            $akunKasId = 1011; // Kas Bendahara
+            // Bendahara: saldo agregat untuk bidang NULL
+            $saldoKas = $this->getSaldoTerakhir($akunKasId, null);
         } else {
-            // Daftar akun Bank berdasarkan bidang_id
-            $akunBank = [
-                1 => 1012, // Kemasjidan
+            $akunKas = [
+                1 => 1012, // Kemasjidan (pastikan mapping sesuai COA kamu)
                 2 => 1013, // Pendidikan
                 3 => 1014, // Sosial
                 4 => 1015, // Usaha
             ];
 
-            // Pastikan bidang_id yang diberikan ada dalam daftar
-            if (isset($akunBank[$bidang_id])) {
-                $akun_keuangan_id = $akunBank[$bidang_id];
-
-                $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                    ->where('bidang_name', $bidang_name) // Gunakan bidang_id sebagai referensi
-                    ->orderBy('tanggal_transaksi', 'asc')
-                    ->get()
-                    ->last();
+            if (isset($akunKas[$bidang_id])) {
+                $akunKasId = $akunKas[$bidang_id];
+                // Non-bendahara: saldo agregat per bidang (filter bidang_name)
+                $saldoKas = $this->getSaldoTerakhir($akunKasId, $bidang_name);
             } else {
-                $lastSaldo = null; // Jika bidang_id tidak ditemukan, return null
+                $saldoKas = 0.0; // bidang tidak dikenali
             }
         }
 
-        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
-        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
-
-        // Ambil data ledger dengan filter bidang_name
+        // Ambil data ledger dengan filter bidang_name (seperti sebelumnya)
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidang_name) {
-                $query->where('bidang_name', $bidang_name);
+            ->whereHas('transaksi', function ($query) use ($bidang_name, $role) {
+                if ($role === 'Bendahara') {
+                    $query->whereNull('bidang_name');
+                } else {
+                    $query->where('bidang_name', $bidang_name);
+                }
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('ledger.index', compact('ledgers','akunTanpaParent', 'akunDenganParent', 'saldoKas', 'kodeTransaksi'));
+        return view('ledger.index', compact('ledgers', 'akunTanpaParent', 'akunDenganParent', 'saldoKas', 'kodeTransaksi'));
     }
 
     public function getData()

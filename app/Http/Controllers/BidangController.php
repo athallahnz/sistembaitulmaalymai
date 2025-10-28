@@ -21,17 +21,22 @@ class BidangController extends Controller
         $this->middleware('role:Bidang');  // Menggunakan middleware untuk role ketua
     }
 
-    protected function getSaldoTerakhir($akunKeuanganId, $bidangName = null)
+    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
     {
         $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
             ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
-            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName))
-            ->orderByDesc('tanggal_transaksi')
-            ->orderByDesc('id');
+            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
 
-        $transaksi = $query->first();
+        $row = $query->selectRaw("
+                COALESCE(SUM(CASE
+                    WHEN type = 'penerimaan' THEN amount
+                    WHEN type = 'pengeluaran' THEN -amount
+                    ELSE 0 END), 0
+                ) AS saldo_akhir
+            ")
+            ->first();
 
-        return $transaksi ? (float) $transaksi->saldo : 0;
+        return (float) ($row->saldo_akhir ?? 0.0);
     }
 
     public function index()
@@ -53,32 +58,29 @@ class BidangController extends Controller
             4 => 1025,
         ][$bidangId] ?? null;
 
-        // ✅ Validasi akun sebelum ambil saldo
         if (!$akunKas || !$akunBank) {
             return back()->withErrors(['error' => 'Akun kas atau bank tidak valid.']);
         }
 
-        // 🧮 Ambil saldo
         $saldoKas = $this->getSaldoTerakhir($akunKas, $user->role === 'Bendahara' ? null : $bidangId);
         $saldoBank = $this->getSaldoTerakhir($akunBank, $user->role === 'Bendahara' ? null : $bidangId);
 
-
-        // Jumlahkan saldo terakhir untuk akun 101 dan 102
         $totalKeuanganBidang = $saldoKas + $saldoBank;
 
         $jumlahTransaksi = Transaksi::where('bidang_name', auth()->user()->bidang_name)
-            ->whereMonth('tanggal_transaksi', now()->month)  // Filter bulan ini
-            ->whereYear('tanggal_transaksi', now()->year)    // Filter tahun ini
-            ->where('kode_transaksi', 'not like', '%-LAWAN') // Hindari transaksi lawan
-            ->count();  // Hitung jumlah transaksi utama
+            ->whereMonth('tanggal_transaksi', now()->month)
+            ->whereYear('tanggal_transaksi', now()->year)
+            ->where('kode_transaksi', 'not like', '%-LAWAN')
+            ->count();
 
         $jumlahPiutang = Piutang::where('bidang_name', $bidangId)
-            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
         $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidangId)
             ->sum('jumlah');
 
+        // Tetap gunakan akun langsung untuk asset jika itu adalah akun tunggal
         $jumlahTanahBangunan = Transaksi::where('akun_keuangan_id', 104)
             ->where('bidang_name', auth()->user()->bidang_name)
             ->sum('amount');
@@ -88,58 +90,32 @@ class BidangController extends Controller
             ->sum('amount');
 
         $jumlahHutang = Hutang::where('bidang_name', $bidangId)
-            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+            ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
         $hutangJatuhTempo = Hutang::where('status', 'belum_lunas')
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
             ->count();
 
-        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        // Gunakan lookup dinamis berdasarkan parent_id (contoh parent ids: 202, 302, 303, dst.)
+        // Jika struktur parent berbeda, ganti nilai parent id sesuai struktur akun Anda.
+        $bidangName = auth()->user()->bidang_name;
 
+        $jumlahDonasi = $this->sumTransaksiByParent(202, $bidangName);
         $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
-            ->where('bidang_name', auth()->user()->bidang_name)
+            ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $jumlahBebanGaji = $this->sumTransaksiByParent(302, $bidangName);
+        $jumlahBiayaOperasional = $this->sumTransaksiByParent(303, $bidangName);
+        $jumlahBiayaKegiatanSiswa = $this->sumTransaksiByParent(304, $bidangName);
+        $jumlahBiayaPemeliharaan = $this->sumTransaksiByParent(305, $bidangName);
+        $jumlahBiayaSosial = $this->sumTransaksiByParent(306, $bidangName);
+        $jumlahBiayaPerlengkapanExtra = $this->sumTransaksiByParent(307, $bidangName);
+        $jumlahBiayaSeragam = $this->sumTransaksiByParent(308, $bidangName);
+        $jumlahBiayaPeningkatanSDM = $this->sumTransaksiByParent(309, $bidangName);
+        $jumlahBiayadibayardimuka = $this->sumTransaksiByParent(310, $bidangName);
 
-        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [3031, 3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 30310, 30311, 30312, 30313, 30314, 30315]) // Menggunakan whereIn untuk mengecek beberapa nilai
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount'); // Menjumlahkan kolom 'amount'
-
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        $jumlahBiayadibayardimuka = Transaksi::whereIn('parent_akun_id', [3101])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
-
-        // Kirimkan saldo terakhir ke view
         return view('bidang.index', compact(
             'totalKeuanganBidang',
             'jumlahTransaksi',
@@ -164,18 +140,38 @@ class BidangController extends Controller
             'jumlahBiayadibayardimuka'
         ));
     }
+    private function sumTransaksiByParent(int $parentId, $bidangName = null): float
+    {
+        $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
+
+        if (empty($subAkunIds)) {
+            return 0.0;
+        }
+
+        $query = Transaksi::whereIn('parent_akun_id', $subAkunIds);
+
+        if (!is_null($bidangName)) {
+            $query->where('bidang_name', $bidangName);
+        }
+
+        return (float) $query->sum('amount');
+    }
 
     public function showDetail(Request $request)
     {
         $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL
         $type = $request->input('type'); // Ambil parent_akun_id dari URL
+        $user = auth()->user();
         $bidangId = $user->bidang_name ?? null;
 
         // Ambil semua ID anak (sub-akun) dari tabel akun_keuangans berdasarkan parent_id
         $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
 
         // Ambil data transaksi terkait sub-akun (parent_akun_id = sub-akun)
-        $transaksiData = Transaksi::whereIn('parent_akun_id', $subAkunIds)->get();
+        $transaksiData = Transaksi::when(!empty($subAkunIds), fn($q) => $q->whereIn('parent_akun_id', $subAkunIds))
+            ->when($type, fn($q) => $q->where('type', $type))
+            ->when($bidangId, fn($q) => $q->where('bidang_name', $bidangId))
+            ->get();
 
         // Ambil nama_akun dari parent_akun_id
         $parentAkun = AkunKeuangan::find($parentAkunId);

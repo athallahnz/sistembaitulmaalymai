@@ -372,31 +372,34 @@
                 }
             });
 
-            // === DataTable Yajra ===
+            // helper format rupiah sederhana (kalau belum ada)
+            function number_format(x) {
+                x = Number(x || 0);
+                return x.toLocaleString('id-ID');
+            }
+
             $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: "{{ route('students.data') }}",
                 columns: [{
                         data: 'name',
-                        name: 'name'
-                    },
+                        name: 'students.name'
+                    }, // penting: pakai tabel kolom nyata
                     {
                         data: 'kelas',
-                        name: 'edu_class.name'
-                    },
+                        name: 'ec.name'
+                    }, // penting: alias JOIN 'ec'
                     {
                         data: 'total_biaya',
-                        name: 'total_biaya',
+                        name: 'students.total_biaya',
                         orderable: false,
                         searchable: false,
-                        render: function(data) {
-                            return number_format(data);
-                        }
+                        render: (data) => number_format(data)
                     },
                     {
                         data: 'rfid_uid',
-                        name: 'rfid_uid',
+                        name: 'students.rfid_uid',
                         orderable: false,
                         searchable: false
                     },
@@ -411,6 +414,7 @@
                     console.log(xhr.responseText);
                 }
             });
+
 
             // === Fungsi Format Angka ===
             function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
