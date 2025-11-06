@@ -5,6 +5,7 @@ use App\Models\TagihanSpp;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Public\LandingPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\SidebarSettingController;
@@ -27,6 +28,8 @@ use App\Http\Controllers\Pendidikan\StudentController;
 use App\Http\Controllers\Pendidikan\StudentCostController;
 use App\Http\Controllers\Pendidikan\TagihanSppController;
 use App\Http\Controllers\Pendidikan\WaliMuridController;
+use App\Http\Controllers\Sosial\SosialController;
+use App\Http\Controllers\Sosial\TrackingInfaqController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -44,6 +47,9 @@ Auth::routes();
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// Route Landing Page (Public)
+Route::get('/welcome', [LandingPageController::class, 'index'])->name('landing');
 
 // Route untuk home setelah login
 Route::get('/home', [HomeController::class, 'index'])->name('home');
@@ -138,12 +144,28 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/bidang/dashboard', [BidangController::class, 'index'])->name('bidang.index');
     Route::get('/bidang/detail/data', [BidangController::class, 'getDetailData'])->name('bidang.detail.data');
     Route::get('/bidang/detail', [BidangController::class, 'showDetail'])->name('bidang.detail');
+    Route::get('/piutangs/data', [PiutangController::class, 'getData'])->name('piutangs.data');
+    Route::get('/hutangs/data', [HutangController::class, 'getData'])->name('hutangs.data');
+
     Route::get('/bidang/laporan/arus-kas', [LaporanKeuanganController::class, 'arusKas'])->name('laporan.arus-kas');
     Route::get('/bidang/laporan/arus-kas/pdf', [LaporanKeuanganController::class, 'exportArusKasPDF'])->name('laporan.arus-kas.pdf');
     Route::get('/bidang/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
     Route::get('/bidang/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
-    Route::get('/piutangs/data', [PiutangController::class, 'getData'])->name('piutangs.data');
-    Route::get('/hutangs/data', [HutangController::class, 'getData'])->name('hutangs.data');
+    Route::get('/bidang/laporan/aktivitas', [LaporanKeuanganController::class, 'aktivitas'])->name('laporan.aktivitas');
+
+    Route::prefix('laporan')->name('laporan.')->group(function () {
+        // halaman utama (sudah ada):
+        // Route::get('/neraca', [LaporanKeuanganController::class, 'neracaSaldo'])->name('neraca-saldo');
+        // Route::get('/aktivitas', [LaporanKeuanganController::class, 'laporanAktivitas'])->name('aktivitas');
+
+        // export neraca
+        Route::get('/neraca/export/excel', [LaporanKeuanganController::class, 'exportNeracaExcel'])->name('neraca.export.excel');
+        Route::get('/neraca/export/pdf', [LaporanKeuanganController::class, 'exportNeracaPdf'])->name('neraca.export.pdf');
+
+        // export aktivitas
+        Route::get('/aktivitas/export/excel', [LaporanKeuanganController::class, 'exportAktivitasExcel'])->name('aktivitas.export.excel');
+        Route::get('/aktivitas/export/pdf', [LaporanKeuanganController::class, 'exportAktivitasPdf'])->name('aktivitas.export.pdf');
+    });
 
     // Route untuk transaksi
     Route::prefix('bidang/transaksi')->group(function () {
@@ -214,7 +236,40 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/kelas/{id}/akun-keuangan', [StudentController::class, 'getAkunKeuanganByClass']);
 
     Route::resource('wali-murids', WaliMuridController::class)->only(['index', 'show']);
+
+    Route::prefix('bidang/sosial/infaq')->name('sosial.infaq.')->group(function () {
+        Route::get('/', [SosialController::class, 'index'])->name('index');            // dashboard (modal create)
+        Route::get('/create', [SosialController::class, 'create'])->name('create');    // optional (kalau mau halaman terpisah)
+        Route::get('/lookup', [SosialController::class, 'lookupWarga'])->name('lookup');
+        Route::get('/check', [SosialController::class, 'checkPaid'])->name('check');
+        Route::post('/store', [SosialController::class, 'store'])->name('store');
+        Route::get('/detail/{id}', [SosialController::class, 'show'])->name('detail');
+        Route::put('/update/{id}', [SosialController::class, 'update'])->name('update'); // <— dipakai form di atas
+        Route::get('/receipt/{warga}/{bulan}', [SosialController::class, 'receipt'])->name('receipt'); // cetak
+        Route::get('/receipt/{warga}/{bulan}/open-wa', [SosialController::class, 'openWhatsappLink'])
+            ->name('open-wa');
+
+        // halaman verifikasi kwitansi (bisa public jika mau, pindahkan keluar middleware auth)
+        Route::get('/verify/{warga}/{bulan}/{year}', [SosialController::class, 'verifyReceipt'])
+            ->name('verify');
+    });
 });
+
+// // ========== ROUTE PUBLIK (untuk WARGA) ==========
+Route::prefix('warga-infaq')->name('warga.')->group(function () {
+    // halaman & aksi login khusus warga infaq
+    Route::get('/masuk', [TrackingInfaqController::class, 'showLogin'])->name('login.form');
+    Route::post('/masuk', [TrackingInfaqController::class, 'login'])->name('login');
+
+    // logout
+    Route::post('/keluar', [TrackingInfaqController::class, 'logout'])->name('logout');
+
+    // halaman tracking (protected)
+    Route::middleware('warga.auth')->group(function () {
+        Route::get('/tracking', [TrackingInfaqController::class, 'dashboard'])->name('dashboard');
+    });
+});
+
 
 // Login routes
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');

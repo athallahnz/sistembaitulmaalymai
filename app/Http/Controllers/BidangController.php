@@ -21,53 +21,79 @@ class BidangController extends Controller
         $this->middleware('role:Bidang');  // Menggunakan middleware untuk role ketua
     }
 
-    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
+    /**
+     * Ambil saldo terakhir dari KOLOM `saldo` untuk akun tertentu (<= cutoff).
+     * Tidak mengecualikan baris -LAWAN karena saldo akun bisa muncul di baris lawan.
+     * - Non-Bendahara: filter per-bidang + fallback histori lama (NULL)
+     * - Bendahara: global
+     */
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId)
+            return 0.0;
+
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
+
+        if ($tanggalCutoff) {
+            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+
+        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo') ?? 0.0);
+    }
+
+    private function sumTransaksiByParent(int $parentId, $bidangName = null): float
     {
-        $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
-            ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
-            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
+        $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
 
-        $row = $query->selectRaw("
-                COALESCE(SUM(CASE
-                    WHEN type = 'penerimaan' THEN amount
-                    WHEN type = 'pengeluaran' THEN -amount
-                    ELSE 0 END), 0
-                ) AS saldo_akhir
-            ")
-            ->first();
+        if (empty($subAkunIds)) {
+            return 0.0;
+        }
 
-        return (float) ($row->saldo_akhir ?? 0.0);
+        $query = Transaksi::whereIn('parent_akun_id', $subAkunIds);
+
+        if (!is_null($bidangName)) {
+            $query->where('bidang_name', $bidangName);
+        }
+
+        return (float) $query->sum('amount');
     }
 
     public function index()
     {
         $user = auth()->user();
         $bidangId = $user->bidang_name ?? null;
+        $role = $user->role;
 
-        $akunKas = $user->role === 'Bendahara' ? 1011 : [
-            1 => 1012,
-            2 => 1013,
-            3 => 1014,
-            4 => 1015,
-        ][$bidangId] ?? null;
-
-        $akunBank = $user->role === 'Bendahara' ? 1021 : [
-            1 => 1022,
-            2 => 1023,
-            3 => 1024,
-            4 => 1025,
-        ][$bidangId] ?? null;
+        // Map akun Kas & Bank
+        $akunKas = $role === 'Bendahara' ? 1011 : ([1 => 1012, 2 => 1013, 3 => 1014, 4 => 1015][$bidangId] ?? null);
+        $akunBank = $role === 'Bendahara' ? 1021 : ([1 => 1022, 2 => 1023, 3 => 1024, 4 => 1025][$bidangId] ?? null);
 
         if (!$akunKas || !$akunBank) {
             return back()->withErrors(['error' => 'Akun kas atau bank tidak valid.']);
         }
 
-        $saldoKas = $this->getSaldoTerakhir($akunKas, $user->role === 'Bendahara' ? null : $bidangId);
-        $saldoBank = $this->getSaldoTerakhir($akunBank, $user->role === 'Bendahara' ? null : $bidangId);
+        // Saldo Kas & Bank via kolom `saldo`
+        $saldoKas = $this->getLastSaldoBySaldoColumn($akunKas, $role, $role === 'Bendahara' ? null : $bidangId, null);
+        $saldoBank = $this->getLastSaldoBySaldoColumn($akunBank, $role, $role === 'Bendahara' ? null : $bidangId, null);
 
         $totalKeuanganBidang = $saldoKas + $saldoBank;
 
-        $jumlahTransaksi = Transaksi::where('bidang_name', auth()->user()->bidang_name)
+        // Statistik
+        $jumlahTransaksi = Transaksi::where('bidang_name', $bidangId)
             ->whereMonth('tanggal_transaksi', now()->month)
             ->whereYear('tanggal_transaksi', now()->year)
             ->where('kode_transaksi', 'not like', '%-LAWAN')
@@ -77,16 +103,15 @@ class BidangController extends Controller
             ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
-        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidangId)
-            ->sum('jumlah');
+        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidangId)->sum('jumlah');
 
-        // Tetap gunakan akun langsung untuk asset jika itu adalah akun tunggal
+        // Asset langsung (contoh ID: 104, 105)
         $jumlahTanahBangunan = Transaksi::where('akun_keuangan_id', 104)
-            ->where('bidang_name', auth()->user()->bidang_name)
+            ->where('bidang_name', $bidangId)
             ->sum('amount');
 
         $jumlahInventaris = Transaksi::where('akun_keuangan_id', 105)
-            ->where('bidang_name', auth()->user()->bidang_name)
+            ->where('bidang_name', $bidangId)
             ->sum('amount');
 
         $jumlahHutang = Hutang::where('bidang_name', $bidangId)
@@ -97,15 +122,11 @@ class BidangController extends Controller
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
             ->count();
 
-        // Gunakan lookup dinamis berdasarkan parent_id (contoh parent ids: 202, 302, 303, dst.)
-        // Jika struktur parent berbeda, ganti nilai parent id sesuai struktur akun Anda.
-        $bidangName = auth()->user()->bidang_name;
+        // Pendapatan & Biaya (berdasar parent_akun_id – sesuaikan dengan COA kamu)
+        $bidangName = $bidangId;
 
         $jumlahDonasi = $this->sumTransaksiByParent(202, $bidangName);
-        $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-
+        $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)->where('bidang_name', $bidangName)->sum('amount');
         $jumlahBebanGaji = $this->sumTransaksiByParent(302, $bidangName);
         $jumlahBiayaOperasional = $this->sumTransaksiByParent(303, $bidangName);
         $jumlahBiayaKegiatanSiswa = $this->sumTransaksiByParent(304, $bidangName);
@@ -115,6 +136,18 @@ class BidangController extends Controller
         $jumlahBiayaSeragam = $this->sumTransaksiByParent(308, $bidangName);
         $jumlahBiayaPeningkatanSDM = $this->sumTransaksiByParent(309, $bidangName);
         $jumlahBiayadibayardimuka = $this->sumTransaksiByParent(310, $bidangName);
+
+        // Data struktur akun (opsional ditampilkan)
+        $akunTanpaParent = DB::table('akun_keuangans')
+            ->whereNull('parent_id')
+            ->whereNotIn('id', [101, 103, 104, 105, 201])
+            ->get();
+
+        $akunDenganParent = DB::table('akun_keuangans')
+            ->whereNotNull('parent_id')
+            ->get()
+            ->groupBy('parent_id')
+            ->toArray();
 
         return view('bidang.index', compact(
             'totalKeuanganBidang',
@@ -137,24 +170,10 @@ class BidangController extends Controller
             'jumlahBiayaPerlengkapanExtra',
             'jumlahBiayaSeragam',
             'jumlahBiayaPeningkatanSDM',
-            'jumlahBiayadibayardimuka'
+            'jumlahBiayadibayardimuka',
+            'akunTanpaParent',
+            'akunDenganParent'
         ));
-    }
-    private function sumTransaksiByParent(int $parentId, $bidangName = null): float
-    {
-        $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
-
-        if (empty($subAkunIds)) {
-            return 0.0;
-        }
-
-        $query = Transaksi::whereIn('parent_akun_id', $subAkunIds);
-
-        if (!is_null($bidangName)) {
-            $query->where('bidang_name', $bidangName);
-        }
-
-        return (float) $query->sum('amount');
     }
 
     public function showDetail(Request $request)

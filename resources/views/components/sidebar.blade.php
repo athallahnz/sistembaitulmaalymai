@@ -202,8 +202,8 @@
                         <span class="align-middle">Keuangan Yayasan</span>
                     </a>
                     <ul id="laporanKeuangan"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo') ? 'show' : '' }}">
-                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo-bendahara','laporan.aktivitas') ? 'show' : '' }}">
+                        {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
                                 <i class="align-middle ms-3" data-feather="trending-up"></i>
                                 <span class="align-middle">Arus kas</span>
@@ -214,12 +214,18 @@
                                 <i class="align-middle ms-3" data-feather="bar-chart"></i>
                                 <span class="align-middle">Posisi Keuangan</span>
                             </a>
-                        </li>
+                        </li> --}}
                         <li
                             class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo-bendahara') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.neraca-saldo-bendahara') }}">
                                 <i class="align-middle ms-3" data-feather="file-text"></i>
                                 <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.aktivitas') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Aktivitas</span>
                             </a>
                         </li>
                     </ul>
@@ -285,8 +291,8 @@
                         <span class="align-middle">Keuangan Bidang</span>
                     </a>
                     <ul id="laporanKeuangan"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo') ? 'show' : '' }}">
-                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo','laporan.aktivitas') ? 'show' : '' }}">
+                        {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
                                 <i class="align-middle ms-3" data-feather="trending-up"></i>
                                 <span class="align-middle">Arus kas</span>
@@ -297,11 +303,17 @@
                                 <i class="align-middle ms-3" data-feather="bar-chart"></i>
                                 <span class="align-middle">Posisi Keuangan</span>
                             </a>
-                        </li>
+                        </li> --}}
                         <li class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.neraca-saldo') }}">
                                 <i class="align-middle ms-3" data-feather="file-text"></i>
                                 <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.aktivitas') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Aktivitas</span>
                             </a>
                         </li>
                     </ul>
@@ -347,20 +359,14 @@
                             <span class="align-middle">Buat Tagihan Murid</span>
                         </a>
                     </li>
-                {{-- @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
+                @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
                     <li class="sidebar-header">Manajemen Infaq Jamaah</li>
-                    <li class="sidebar-item {{ request()->routeIs(' ') ? 'active' : '' }}">
-                        <a class="sidebar-link" href="{{ route('infaq-rumahan.index') }}">
-                            <i class="align-middle" data-feather="users"></i>
-                            <span class="align-middle">Data Infaq Rumahan</span>
+                    <li class="sidebar-item {{ request()->routeIs('sosial.infaq.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('sosial.infaq.index') }}">
+                            <i class="align-middle" data-feather="archive"></i>
+                            <span class="align-middle">Data Infaq Bulanan</span>
                         </a>
                     </li>
-                    <li class="sidebar-item {{ request()->routeIs('infaq-sinoman.index') ? 'active' : '' }}">
-                        <a class="sidebar-link" href="{{ route('infaq-sinoman.index') }}">
-                            <i class="align-middle" data-feather="package"></i>
-                            <span class="align-middle">Data Infaq Sinoman</span>
-                        </a>
-                    </li>--}}
                 @endif
             @endrole
         </ul>

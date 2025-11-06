@@ -25,22 +25,47 @@ class BendaharaController extends Controller
     // HELPER FUNCTIONS
     // ===============================================
 
-    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
-    {
-        $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
-            ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
-            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
+    /**
+     * Ambil saldo terakhir (kolom `saldo`) untuk sebuah akun.
+     * - Jika $userRole !== 'Bendahara', filter per-bidang + fallback histori lama (bidang_name NULL).
+     * - Jika $tanggalCutoff diberikan, batasi transaksi s.d. tanggal tsb (<=).
+     * - Mengembalikan float (coalesce 0.0) dan ikut menghitung baris berkode -LAWAN
+     *   agar konsisten dengan cara saldo dibukukan.
+     */
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId) {
+            return 0.0;
+        }
 
-        $row = $query->selectRaw("
-                COALESCE(SUM(CASE
-                    WHEN type = 'penerimaan' THEN amount
-                    WHEN type = 'pengeluaran' THEN -amount
-                    ELSE 0 END), 0
-                ) AS saldo_akhir
-            ")
-            ->first();
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
 
-        return (float) ($row->saldo_akhir ?? 0.0);
+        // Batasi sampai tanggal tertentu (opsional)
+        if ($tanggalCutoff) {
+            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        // Non-bendahara: filter per-bidang + fallback histori lama (NULL)
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+        // Bendahara: baca global (tanpa filter bidang). Jika seluruh data Bendahara memang NULL,
+        // boleh diganti ->whereNull('bidang_name').
+
+        // Ambil baris saldo terbaru secara deterministik
+        $lastSaldo = $q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo');
+
+        return (float) ($lastSaldo ?? 0.0);
     }
 
     protected function getSubAkunIds($parentId)
@@ -81,7 +106,7 @@ class BendaharaController extends Controller
         }
 
         return (float) $query->sum('amount');
-    }   
+    }
 
     /**
      * Hitung total kas, bank, dan keuangan untuk semua bidang.
@@ -89,6 +114,8 @@ class BendaharaController extends Controller
 
     protected function getTotalKasDanBankSemuaBidang(): array
     {
+        $role = auth()->user()->role ?? 'Guest';
+
         // Mapping yang eksplisit & aman (termasuk Bendahara)
         $maps = [
             ['bidang' => null, 'kas' => 1011, 'bank' => 1021], // Bendahara (global)
@@ -101,37 +128,23 @@ class BendaharaController extends Controller
         $saldoKasTotal = 0.0;
         $saldoBankTotal = 0.0;
 
-        // (Opsional) simpan rincian per-bidang untuk debugging / dashboard
-        $rincian = [];
-
         foreach ($maps as $m) {
-            $bidangName = $m['bidang'];
+            $bidangName = $m['bidang'];  // null untuk Bendahara (global)
             $kasId = $m['kas'];
             $bankId = $m['bank'];
 
-            // Hitung saldo dengan fungsi agregasi yang sudah kamu pakai
-            $saldoKas = $this->getSaldoTerakhir($kasId, $bidangName);
-            $saldoBank = $this->getSaldoTerakhir($bankId, $bidangName);
+            // Pakai saldo terakhir via kolom `saldo` (ikut baris -LAWAN)
+            $saldoKas = $this->getLastSaldoBySaldoColumn($kasId, $role, $bidangName, null);
+            $saldoBank = $this->getLastSaldoBySaldoColumn($bankId, $role, $bidangName, null);
 
             $saldoKasTotal += $saldoKas;
             $saldoBankTotal += $saldoBank;
-
-            // Simpan rincian (berguna buat verifikasi)
-            $rincian[] = [
-                'bidang' => $bidangName, // null = Bendahara
-                'akun_kas_id' => $kasId,
-                'saldo_kas' => $saldoKas,
-                'akun_bank_id' => $bankId,
-                'saldo_bank' => $saldoBank,
-                'subtotal' => $saldoKas + $saldoBank,
-            ];
         }
 
         return [
             'saldoKasTotal' => $saldoKasTotal,
             'saldoBankTotal' => $saldoBankTotal,
             'totalKeuanganSemuaBidang' => $saldoKasTotal + $saldoBankTotal,
-            // 'rincian' => $rincian, // bisa kamu hapus kalau tak perlu
         ];
     }
 
@@ -157,9 +170,19 @@ class BendaharaController extends Controller
             return back()->withErrors(['error' => 'Akun kas atau bank tidak valid.']);
         }
 
-        // Saldo kas & bank bidang aktif
-        $saldoKas = $this->getSaldoTerakhir($akunKas, $user->role === 'Bendahara' ? null : $bidangId);
-        $saldoBank = $this->getSaldoTerakhir($akunBank, $user->role === 'Bendahara' ? null : $bidangId);
+        // Saldo kas & bank bidang aktif via kolom `saldo`
+        $saldoKas = $this->getLastSaldoBySaldoColumn(
+            $akunKas,
+            $user->role,
+            $user->role === 'Bendahara' ? null : $bidangId,
+            null
+        );
+        $saldoBank = $this->getLastSaldoBySaldoColumn(
+            $akunBank,
+            $user->role,
+            $user->role === 'Bendahara' ? null : $bidangId,
+            null
+        );
         $totalKeuanganBidang = $saldoKas + $saldoBank;
 
         // === Total semua bidang ===
@@ -290,7 +313,6 @@ class BendaharaController extends Controller
             'totalBiayadibayardimuka'
         ));
     }
-
 
     private function calculateKasForBidang($bidang_id)
     {

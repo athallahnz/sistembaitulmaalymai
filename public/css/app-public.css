@@ -1,0 +1,777 @@
+/* =========================================================
+   🧱 FOUNDATION
+   ========================================================= */
+:root {
+    /* Brand Colors */
+    --brand-brown: #622200; /* coklat tua */
+    --brand-brown-light: #854321; /* coklat muda */
+    --brand-accent: #ffc107; /* aksen emas */
+
+    /* Neutrals */
+    --text-dark: #222;
+    --text-light: #fff;
+    --bg-white: #fff;
+
+    /* Effects */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 10px 20px rgba(0, 0, 0, 0.18);
+    --shadow-lg: 0 12px 26px rgba(0, 0, 0, 0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-pill: 999px;
+
+    /* Spacing */
+    --section-y: 64px;
+}
+
+@media (max-width: 767.98px) {
+    :root {
+        --section-y: 48px; /* sedikit lebih rapat di mobile */
+    }
+}
+
+/* Aksesibilitas: kurangi animasi bagi pengguna yang memilih reduce motion */
+/* @media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+} */
+
+/* =========================================================
+   🧰 UTILITIES
+   ========================================================= */
+.text-brown {
+    color: var(--brand-brown) !important;
+}
+.bg-brown {
+    background-color: var(--brand-brown) !important;
+}
+.bg-brown-gradient {
+    background: linear-gradient(
+        135deg,
+        var(--brand-brown) 0%,
+        var(--brand-brown-light) 100%
+    );
+}
+
+.section {
+    padding-top: var(--section-y);
+    padding-bottom: var(--section-y);
+}
+
+.section-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    color: var(--text-dark);
+}
+.section-heading .bar {
+    width: 28px;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--brand-accent);
+}
+
+/* Divider aksen di bawah judul */
+.divider {
+    width: 80px;
+    height: 4px;
+    background: var(--brand-accent);
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+/* Glass + gradient overlay (halus) */
+.glass {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate; /* pastikan layer pseudo-element terisolasi */
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: var(--radius-md);
+}
+
+/* Overlay gradient utama: highlight diagonal lembut */
+.glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 0;
+    pointer-events: none;
+    background:
+    /* highlight lembut dari kiri-atas ke kanan-bawah */ linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.1) 38%,
+        rgba(255, 255, 255, 0.06) 60%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    /* tambahkan sedikit vignette supaya tepi terasa lebih elegan */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* pastikan konten berada di atas overlay */
+.glass > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hover tetap sama, tapi shadow sedikit lebih mewah */
+.lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* ===== Glass effect for input group ===== */
+.glass-input {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    /* box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); */
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.glass-input::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.06) 40%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    z-index: 0;
+}
+
+.glass-input:hover {
+    /* transform: translateY(-2px); */
+    box-shadow: var(--shadow-lg);
+}
+
+/* Pastikan isi tetap di atas overlay */
+.glass-input input,
+.glass-input button {
+    position: relative;
+    z-index: 1;
+    backdrop-filter: none;
+}
+
+/* Input transparan */
+.glass-input .form-control {
+    background: transparent !important;
+    color: #fff;
+    border: none;
+    outline: none;
+    box-shadow: none;
+}
+
+.glass-input .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-input .form-control:focus {
+    box-shadow: none;
+}
+
+/* Tombol kontras tetap rapi */
+.glass-input .btn {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.06) 40%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+    transition: background-color 0.18s ease, color 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.glass-input .btn:hover,
+.glass-input .btn:focus {
+    background: #ffffff !important;
+    color: var(--brand-brown) !important;
+    border-left-color: rgba(98, 34, 0, 0.12) !important;
+}
+
+/* ===== Jadwal Sholat: definition list yang rapi ===== */
+.pray-times {
+    display: grid;
+    gap: 0.25rem;
+}
+.pray-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.5rem;
+}
+.pray-item dt {
+    margin: 0;
+    font-weight: 600;
+}
+.pray-item dd {
+    margin: 0;
+}
+
+#jadwalsholat .badge {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.5rem;
+}
+
+/* Wave separator (isi area transparan agar tidak tampak putih) */
+.wave,
+.wave-reverse {
+    display: block;
+    line-height: 0;
+}
+.wave {
+    background-color: var(--brand-brown-light);
+}
+.wave-reverse {
+    background-color: var(--brand-brown);
+}
+
+/* FAB (floating action button) */
+.fab-top {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 1030;
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-md);
+}
+
+/* Shimmer placeholder */
+.shimmer {
+    position: relative;
+    overflow: hidden;
+}
+.shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.35),
+        transparent
+    );
+    animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Simple animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.animate-fadein {
+    animation: fadeInUp 0.8s ease forwards;
+}
+
+/* =========================================================
+   🧭 NAVBAR & TOP BARS
+   ========================================================= */
+.nav-on-hero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 80px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(6px);
+    border-radius: var(--radius-md);
+    z-index: 20;
+    box-shadow: var(--shadow-sm);
+}
+
+.elegant-navbar {
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+/* Spacing nav item */
+.elegant-navbar .nav-item {
+    margin: 0 10px;
+}
+@media (max-width: 768px) {
+    .elegant-navbar .nav-item {
+        margin: 4px 0;
+    }
+}
+
+/* Link & underline efek */
+.elegant-navbar .navbar-nav > .nav-item > .nav-link {
+    position: relative;
+    font-weight: 500;
+    color: #333;
+    transition: color 0.3s ease;
+}
+.elegant-navbar .navbar-nav > .nav-item > .nav-link.active,
+.elegant-navbar .navbar-nav > .nav-item > .nav-link:hover {
+    color: var(--brand-brown) !important;
+}
+.elegant-navbar .navbar-nav > .nav-item > .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    height: 2px;
+    background: var(--brand-brown);
+    border-radius: 1px;
+    transition: width 0.3s ease;
+}
+.elegant-navbar .navbar-nav > .nav-item > .nav-link:hover::after,
+.elegant-navbar .navbar-nav > .nav-item > .nav-link.active::after {
+    width: 100%;
+}
+
+/* Dropdown */
+.navbar .dropdown-menu {
+    border-radius: 10px;
+    padding: 10px 0;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.navbar .dropdown-item {
+    transition: all 0.2s ease;
+}
+.navbar .dropdown-item:hover {
+    background: #f9f4ef;
+    color: var(--brand-brown);
+}
+
+/* Auto-show dropdown on hover (desktop) */
+@media (min-width: 992px) {
+    .hover-dropdown:hover > .dropdown-menu {
+        display: block;
+        animation: dropdownFade 0.18s ease-out;
+    }
+}
+@keyframes dropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Nav tipis (strip atas) */
+.nav-thin {
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+    padding: 0.35rem 0;
+}
+
+/* Brand badge */
+.brand-badge {
+    display: inline-grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.brand-badge img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 50%;
+}
+
+/* Brand hero (opsional) */
+.brand-hero {
+    width: 500px;
+    height: 500px;
+    border-width: 4px;
+    transform: translateY(-40px);
+    z-index: 30;
+}
+.brand-hero img {
+    width: 68px;
+    height: 68px;
+}
+
+/* Mini nav */
+.nav-mini .nav-link {
+    font-size: 0.92rem;
+    padding: 0.35rem 0.5rem;
+    color: #4a4a4a;
+    position: relative;
+    transition: color 0.2s;
+}
+.nav-mini .nav-item {
+    margin: 0 0.35rem;
+}
+.nav-mini .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 12%;
+    bottom: -2px;
+    width: 0;
+    height: 2px;
+    background: var(--brand-brown);
+    border-radius: 1px;
+    transition: width 0.2s;
+}
+.nav-mini .nav-link:hover,
+.nav-mini .nav-link.active {
+    color: var(--brand-brown);
+}
+.nav-mini .nav-link:hover::after,
+.nav-mini .nav-link.active::after {
+    width: 76%;
+}
+
+/* Buttons */
+.btn-brown {
+    background: var(--brand-brown);
+    border: none;
+    color: var(--text-light);
+}
+.btn-brown:hover {
+    background: var(--brand-brown-light);
+    color: var(--text-light);
+}
+
+.btn-brown-pill {
+    background: var(--brand-brown);
+    color: var(--text-light);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 0.2rem 0.9rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    box-shadow: 0 2px 6px rgba(98, 34, 0, 0.15);
+}
+.btn-brown-pill:hover {
+    background: var(--brand-brown-light);
+    color: var(--text-light);
+}
+
+/* =========================================================
+   🎠 CAROUSEL
+   ========================================================= */
+.carousel-item {
+    position: relative;
+    overflow: hidden;
+}
+.carousel-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 1;
+    /* overlay gradient coklat: gelap di bawah → transparan ke atas */
+    background: linear-gradient(
+        to top,
+        rgba(133, 67, 33, 100) 0%,
+        rgba(98, 34, 0, 0.4) 30%,
+        rgba(98, 34, 0, 0.15) 60%,
+        rgba(98, 34, 0, 0) 100%
+    );
+}
+.carousel-caption {
+    position: absolute;
+    z-index: 2;
+}
+
+/* =========================================================
+   🧩 DIVISION SECTION (tanpa card kotak)
+   ========================================================= */
+/* Hapus styling lama card */
+.division-card {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Gaya baru: hanya ikon lingkaran + label */
+.division-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+}
+.division-icon {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: var(--brand-brown);
+    color: var(--text-light);
+    display: grid;
+    place-items: center;
+    font-size: 2rem;
+    transition: transform 0.2s ease, background-color 0.2s ease,
+        box-shadow 0.2s ease;
+    box-shadow: none;
+}
+.division-item:hover .division-icon {
+    background: var(--brand-brown-light);
+    transform: scale(1.05);
+}
+.division-label {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+/* Jika background section gelap, aktifkan:
+   #divisioncard .division-label { color:#fff; }
+*/
+
+/* (Legacy) Ikon lingkaran kecil untuk variasi lain */
+.icon-circle {
+    width: 80px;
+    height: 80px;
+    background: var(--brand-brown);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    transition: all 0.3s ease;
+}
+.icon-circle i {
+    color: #fff;
+    font-size: 2rem;
+    transition: transform 0.3s ease;
+}
+.division-card:hover .icon-circle {
+    background: var(--brand-brown-light);
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.division-card:hover i {
+    transform: scale(1.15);
+}
+.division-card h5 {
+    font-size: 1rem;
+    margin-top: 10px;
+}
+
+/* =========================================================
+   📊 TOTAL INFAQ / TABLES
+   ========================================================= */
+#totalinfaq .col-md-6 {
+    display: flex;
+}
+#totalinfaq .col-md-6 > div {
+    flex: 1;
+}
+#totalinfaq .table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: var(--radius-sm);
+    padding-bottom: 4px;
+}
+#totalinfaq table th,
+#totalinfaq table td {
+    white-space: nowrap;
+}
+
+/* =========================================================
+   📄 SECTION: BIDANG & LAYANAN (simple hero heading)
+   ========================================================= */
+.section-bidang {
+    background: transparent;
+}
+.section-bidang .section-heading {
+    font-size: 2rem;
+    color: var(--text-dark);
+    text-shadow: none;
+}
+
+/* =========================================================
+   🦶 FOOTER
+   ========================================================= */
+.footer {
+    color: var(--text-light);
+}
+.footer a {
+    color: var(--text-light);
+    text-decoration: none;
+}
+.footer a:hover {
+    color: var(--brand-accent);
+}
+.footer h5 {
+    color: var(--text-light);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.footer h5:hover {
+    color: var(--brand-accent);
+    cursor: default;
+}
+.footer-list li {
+    color: #f8f9fa;
+}
+.footer i {
+    font-size: 1.1rem;
+}
+#footer .col {
+    margin-bottom: 1.5rem;
+}
+
+/* =========================================================
+   📱 RESPONSIVE TWEAKS
+   ========================================================= */
+
+/* ≤ 991.98px (tablet & down) */
+@media (max-width: 991.98px) {
+    .division-icon {
+        width: 96px;
+        height: 96px;
+        font-size: 1.8rem;
+    }
+    .section-heading {
+        font-size: 1.75rem;
+    }
+    .brand-badge,
+    .brand-badge img {
+        width: 56px;
+        height: 56px;
+    }
+    .navbar .dropdown-menu {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+}
+
+/* ≤ 767.98px (mobile) */
+@media (max-width: 767.98px) {
+    header .divider {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    header p {
+        font-size: 0.95rem;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    header small {
+        font-size: 0.9rem;
+    }
+
+    header form .input-group {
+        justify-content: center;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    header form .input-group {
+        max-width: 280px; /* biar lebih pas di layar kecil */
+    }
+
+    .pray-item {
+        padding: 0.5rem 0.6rem;
+    }
+
+    #jadwalsholat .glass {
+        padding: 1rem !important;
+    }
+
+    .section {
+        padding-top: calc(var(--section-y) * 0.8);
+        padding-bottom: calc(var(--section-y) * 0.8);
+    }
+
+    .section-heading {
+        font-size: 1.5rem;
+    }
+
+    .divider {
+        width: 64px;
+    }
+
+    .division-icon {
+        width: 88px;
+        height: 88px;
+        font-size: 1.6rem;
+    }
+    .division-label {
+        font-size: 0.95rem;
+    }
+
+    .brand-badge {
+        width: 50px;
+        height: 50px;
+    }
+    .brand-badge img {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* Carousel caption sedikit lebih besar paddingnya biar terbaca */
+    .carousel-caption {
+        padding-bottom: 1rem;
+    }
+
+    /* Table scroll hint */
+    #totalinfaq .table-responsive {
+        max-height: 320px;
+    }
+
+    /* Perkecil tombol pill */
+    .btn-brown-pill {
+        padding: 0.25rem 0.8rem;
+        font-size: 0.82rem;
+    }
+}
+
+/* ≤ 575.98px (small mobile) */
+@media (max-width: 575.98px) {
+    .division-icon {
+        width: 80px;
+        height: 80px;
+        font-size: 1.5rem;
+    }
+    .section-heading {
+        font-size: 1.4rem;
+    }
+}

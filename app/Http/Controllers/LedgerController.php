@@ -11,22 +11,32 @@ use Illuminate\Http\Request;
 
 class LedgerController extends Controller
 {
-    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
-    {
-        $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
-            ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
-            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId)
+            return 0.0;
 
-        $row = $query->selectRaw("
-            COALESCE(SUM(CASE
-                WHEN type = 'penerimaan' THEN amount
-                WHEN type = 'pengeluaran' THEN -amount
-                ELSE 0 END), 0
-            ) AS saldo_akhir
-        ")
-            ->first();
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
 
-        return (float) ($row->saldo_akhir ?? 0.0);
+        if ($tanggalCutoff) {
+            $cutoff = \Carbon\Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+
+        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo') ?? 0.0);
     }
 
     public function index()
@@ -34,6 +44,7 @@ class LedgerController extends Controller
         $user = auth()->user();
         $bidang_name = $user->bidang_name; // kolom bidang pada users
         $bidang_id = $user->bidang_name;
+        $role = $user->role;
 
         // Ambil akun tanpa parent (parent_id = null)
         $akunTanpaParent = DB::table('akun_keuangans')
@@ -48,15 +59,13 @@ class LedgerController extends Controller
             ->groupBy('parent_id')
             ->toArray();
 
-        $role = $user->role;
-
         // Tentukan prefix kode transaksi
         $prefix = '';
         if ($role === 'Bidang') {
             switch ($bidang_id) {
                 case 1:
                     $prefix = 'SJD';
-                    break; // Pendidikan (cek kembali mapping ini)
+                    break; // Pendidikan
                 case 2:
                     $prefix = 'PND';
                     break; // Kemasjidan
@@ -77,25 +86,23 @@ class LedgerController extends Controller
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // ==========================
-        // Hitung Saldo KAS dengan getSaldoTerakhir (agregasi)
+        // Hitung Saldo KAS by kolom `saldo`
         // ==========================
-        // Mapping KAS (bukan bank): Bendahara 1011, per-bidang 1012..1015
         if ($role === 'Bendahara') {
             $akunKasId = 1011; // Kas Bendahara
-            // Bendahara: saldo agregat untuk bidang NULL
-            $saldoKas = $this->getSaldoTerakhir($akunKasId, null);
+            // Bendahara => bidang NULL
+            $saldoKas = $this->getLastSaldoBySaldoColumn($akunKasId, $role, null, null);
         } else {
-            $akunKas = [
-                1 => 1012, // Kemasjidan (pastikan mapping sesuai COA kamu)
+            $akunKasMap = [
+                1 => 1012, // Kemasjidan
                 2 => 1013, // Pendidikan
                 3 => 1014, // Sosial
                 4 => 1015, // Usaha
             ];
-
-            if (isset($akunKas[$bidang_id])) {
-                $akunKasId = $akunKas[$bidang_id];
-                // Non-bendahara: saldo agregat per bidang (filter bidang_name)
-                $saldoKas = $this->getSaldoTerakhir($akunKasId, $bidang_name);
+            if (isset($akunKasMap[$bidang_id])) {
+                $akunKasId = $akunKasMap[$bidang_id];
+                // per-bidang => kirim $bidang_name
+                $saldoKas = $this->getLastSaldoBySaldoColumn($akunKasId, $role, $bidang_name, null);
             } else {
                 $saldoKas = 0.0; // bidang tidak dikenali
             }
@@ -113,7 +120,13 @@ class LedgerController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('ledger.index', compact('ledgers', 'akunTanpaParent', 'akunDenganParent', 'saldoKas', 'kodeTransaksi'));
+        return view('ledger.index', compact(
+            'ledgers',
+            'akunTanpaParent',
+            'akunDenganParent',
+            'saldoKas',
+            'kodeTransaksi'
+        ));
     }
 
     public function getData()

@@ -20,6 +20,11 @@ class Transaksi extends Model
         'amount',
         'saldo',
     ];
+    
+    public function scopePrimary($q)
+    {
+        return $q->where('kode_transaksi', 'not like', '%-LAWAN');
+    }
 
     public function ledgers()
     {

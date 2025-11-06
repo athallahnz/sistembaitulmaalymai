@@ -17,36 +17,53 @@ use Yajra\DataTables\Facades\DataTables;
 
 class LaporanController extends Controller
 {
-    protected function getSaldoTerakhir(int $akunKeuanganId, $bidangName = null): float
-    {
-        $query = Transaksi::where('akun_keuangan_id', $akunKeuanganId)
-            ->when(is_null($bidangName), fn($q) => $q->whereNull('bidang_name'))
-            ->when(!is_null($bidangName), fn($q) => $q->where('bidang_name', $bidangName));
+    /**
+     * Hitung saldo akhir akun (Kas/Bank) via agregasi,
+     * MENGABAIKAN baris '-LAWAN' dan mendukung per-bidang/Bendahara.
+     */
 
-        $row = $query->selectRaw("
-                COALESCE(SUM(CASE
-                    WHEN type = 'penerimaan' THEN amount
-                    WHEN type = 'pengeluaran' THEN -amount
-                    ELSE 0 END), 0
-                ) AS saldo_akhir
-            ")
-            ->first();
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId)
+            return 0.0;
 
-        return (float) ($row->saldo_akhir ?? 0.0);
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
+
+        if ($tanggalCutoff) {
+            $cutoff = \Carbon\Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+
+        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo') ?? 0.0);
     }
 
     public function index()
     {
         $user = auth()->user();
+        $role = $user->role;
         $bidang_name = $user->bidang_name;
         $bidang_id = $user->bidang_name;
 
         // ==========================
-        // Tentukan akun bank sesuai role
+        // Tentukan akun BANK sesuai role
         // ==========================
-        if ($user->role === 'Bendahara') {
+        if ($role === 'Bendahara') {
             $akunBankId = 1021; // Bank Bendahara
-            $saldoBank = $this->getSaldoTerakhir($akunBankId, null);
+            // saldo by kolom `saldo`, konteks Bendahara => bidang NULL
+            $saldoBank = $this->getLastSaldoBySaldoColumn($akunBankId, $role, null, null);
         } else {
             $akunBank = [
                 1 => 1022, // Kemasjidan
@@ -54,29 +71,36 @@ class LaporanController extends Controller
                 3 => 1024, // Sosial
                 4 => 1025, // Usaha
             ];
-
             if (isset($akunBank[$bidang_id])) {
                 $akunBankId = $akunBank[$bidang_id];
-                $saldoBank = $this->getSaldoTerakhir($akunBankId, $bidang_name);
+                // saldo by kolom `saldo`, per-bidang => kirim $bidang_name
+                $saldoBank = $this->getLastSaldoBySaldoColumn($akunBankId, $role, $bidang_name, null);
             } else {
-                $saldoBank = 0.0; // Jika bidang tidak valid
                 $akunBankId = null;
+                $saldoBank = 0.0;
             }
         }
 
         // ==========================
-        // Ambil transaksi berdasarkan role
+        // Ambil transaksi (default: semua transaksi user/role ini)
+        // NOTE: kalau mau list KHUSUS akun bank saja & tanpa -LAWAN,
+        //       aktifkan filter primary() dan where akun di blok OPSIONAL di bawah.
         // ==========================
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
 
-        if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $user->bidang_name);
+        if ($role === 'Bidang') {
+            $transaksiQuery->where('bidang_name', $bidang_name);
         }
+
+        // --- OPSIONAL (jika halaman ini memang hanya untuk transaksi BANK):
+        // if ($akunBankId) {
+        //     $transaksiQuery->primary()->where('akun_keuangan_id', $akunBankId);
+        // }
 
         $transaksi = $transaksiQuery->get();
 
         // ==========================
-        // Ambil data akun keuangan
+        // Data akun keuangan (seperti semula)
         // ==========================
         $akunKeuangan = AkunKeuangan::all();
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
@@ -88,11 +112,9 @@ class LaporanController extends Controller
             ->groupBy('parent_id');
 
         // ==========================
-        // Generate kode transaksi
+        // Generate kode transaksi (logic sama)
         // ==========================
-        $role = $user->role;
         $prefix = '';
-
         if ($role === 'Bidang') {
             switch ($bidang_id) {
                 case 1:
@@ -118,21 +140,17 @@ class LaporanController extends Controller
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // ==========================
-        // Data laporan (jika pakai LaporanService)
+        // (Opsional) LaporanService — biarkan
         // ==========================
-        $bidangName = $user->hasRole('Bidang') ? $user->bidang_name : null;
-
-        $bankId = 102; // ID default akun bank
+        $bidangName = method_exists($user, 'hasRole') && $user->hasRole('Bidang') ? $bidang_name : null;
+        $bankId = 102; // ID grup bank di service kamu
         $dataBank = LaporanService::index($bankId, $bidangName);
-
-        Log::info('Data Bank:', $dataBank);
-
-        if (!isset($dataBank['saldo'])) {
+        \Log::info('Data Bank:', $dataBank);
+        if (!isset($dataBank['saldo']))
             $dataBank['saldo'] = 0;
-        }
 
         // ==========================
-        // Return ke view
+        // Kirim ke view
         // ==========================
         return view('laporan.bank', [
             'transaksiBank' => $dataBank['transaksi'],
@@ -143,7 +161,7 @@ class LaporanController extends Controller
             'bidang_name' => $bidang_name,
             'akunKeuangan' => $akunKeuangan,
             'kodeTransaksi' => $kodeTransaksi,
-            'lastSaldo' => $saldoBank, // ← ini hasil dari getSaldoTerakhir()
+            'lastSaldo' => $saldoBank, // ← saldo bank by kolom `saldo`
         ]);
     }
 

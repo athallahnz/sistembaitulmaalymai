@@ -125,13 +125,14 @@
 
                             <div class="mb-3">
                                 <label class="mb-2">Deskripsi Transaksi</label>
-                                <input type="text" name="deskripsi" class="form-control" placeholder="Masukkan Deskripsi"
-                                    required>
+                                <input type="text" name="deskripsi" class="form-control"
+                                    placeholder="Masukkan Deskripsi" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
-                                <input type="text" id="formattedAmount" class="form-control" oninput="formatInput(this)">
+                                <input type="text" id="formattedAmount" class="form-control"
+                                    oninput="formatInput(this)">
                                 <input type="number" name="amount" id="amount" class="form-control d-none">
                                 <small class="form-text text-danger" id="amount-error" style="display: none;">Jumlah
                                     pengeluaran tidak boleh melebihi saldo akun.</small>
@@ -168,47 +169,56 @@
 @push('scripts')
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            const typeSelect = document.getElementById("type-select");
             const akunLabel = document.getElementById("akun-label");
+            const typeRadios = document.querySelectorAll('input[name="type"]');
 
-            // Fungsi untuk mengubah label berdasarkan tipe transaksi
             function updateAkunLabel() {
-                const selectedType = typeSelect.value;
-                if (selectedType === "penerimaan") {
+                if (!akunLabel) return;
+                const checked = document.querySelector('input[name="type"]:checked');
+                if (!checked) {
+                    // Default sebelum user memilih
                     akunLabel.textContent = "Asal Akun";
-                } else if (selectedType === "pengeluaran") {
-                    akunLabel.textContent = "Tujuan Akun";
+                    return;
                 }
+                akunLabel.textContent = (checked.value === "penerimaan") ?
+                    "Asal Akun" :
+                    "Tujuan Akun";
             }
 
-            // Event listener untuk mendeteksi perubahan tipe transaksi
-            typeSelect.addEventListener("change", updateAkunLabel);
-
-            // Set label awal sesuai nilai default
+            // Pasang listener ke kedua radio
+            typeRadios.forEach(r => r.addEventListener("change", updateAkunLabel));
+            // Set label awal
             updateAkunLabel();
         });
 
         document.addEventListener("DOMContentLoaded", function() {
-            let akunKeuangan = document.getElementById("akun_keuangan");
-            let parentAkunContainer = document.getElementById("parent-akun-container");
-            let parentAkunSelect = document.getElementById("parent_akun_id");
+            const akunKeuangan = document.getElementById("akun_keuangan");
+            const parentAkunContainer = document.getElementById("parent-akun-container");
+            const parentAkunSelect = document.getElementById("parent_akun_id");
 
-            let akunDenganParent = @json($akunDenganParent);
+            if (!akunKeuangan || !parentAkunContainer || !parentAkunSelect) return;
+
+            const akunDenganParent = @json($akunDenganParent);
 
             akunKeuangan.addEventListener("change", function() {
-                let selectedAkunId = this.value;
+                const selectedAkunId = this.value;
                 parentAkunSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
 
                 if (selectedAkunId && akunDenganParent[selectedAkunId]) {
                     akunDenganParent[selectedAkunId].forEach(akun => {
-                        let newOption = document.createElement("option");
-                        newOption.value = akun.id;
-                        newOption.textContent = akun.nama_akun;
-                        parentAkunSelect.appendChild(newOption);
+                        const opt = document.createElement("option");
+                        opt.value = akun.id;
+                        opt.textContent = akun.nama_akun;
+                        parentAkunSelect.appendChild(opt);
                     });
                     parentAkunContainer.style.display = "block";
                 } else {
                     parentAkunContainer.style.display = "none";
+                }
+
+                // Panggil hanya jika memang ada fungsinya
+                if (typeof updateFormByAkun === "function") {
+                    updateFormByAkun(akunKeuangan);
                 }
             });
         });

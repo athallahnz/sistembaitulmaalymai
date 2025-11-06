@@ -1,0 +1,36 @@
+/* Icon circle base style */
+.icon-circle {
+    width: 80px;
+    height: 80px;
+    background-color: #622200;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    transition: all 0.3s ease;
+}
+
+/* Icon inside */
+.icon-circle i {
+    color: white;
+    font-size: 2rem;
+    transition: transform 0.3s ease;
+}
+
+/* Hover effect */
+.division-card:hover .icon-circle {
+    background-color: #854321;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.division-card:hover i {
+    transform: scale(1.15);
+}
+
+/* Text below */
+.division-card h5 {
+    font-size: 1rem;
+    margin-top: 10px;
+}

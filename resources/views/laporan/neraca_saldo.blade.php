@@ -3,28 +3,40 @@
 @section('content')
     <div class="container">
         <h1 class="mb-2">
-            @if (auth()->user()->hasRole('Bidang'))
-                Neraca Saldo <strong>Bidang {{ auth()->user()->bidang->name }}</strong>
-            @elseif(auth()->user()->hasRole('Bendahara'))
-                Neraca Saldo <strong>Yayasan</strong>
+            @if ($role === 'Bidang')
+                Neraca (Posisi Keuangan) — <strong>Bidang {{ auth()->user()->bidang->name ?? $bidangId }}</strong>
+            @else
+                Neraca (Posisi Keuangan) — <strong>Yayasan</strong>
             @endif
         </h1>
 
-        <!-- Filter Form -->
+        {{-- Filter + Export --}}
         <form method="GET" action="{{ route('laporan.neraca-saldo') }}" class="mb-4">
-            <div class="row">
-                <div class="col-md-4 mt-3">
-                    <label for="start_date">Dari Tanggal:</label>
-                    <input type="date" id="start_date" name="start_date" class="form-control mt-2"
-                        value="{{ request('start_date') }}">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Dari Tanggal</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control"
+                        value="{{ request('start_date', $startDate ?? null) }}">
                 </div>
-                <div class="col-md-4 mt-3">
-                    <label for="end_date">Sampai Tanggal:</label>
-                    <input type="date" id="end_date" name="end_date" class="form-control mt-2"
-                        value="{{ request('end_date') }}">
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">Sampai Tanggal</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control"
+                        value="{{ request('end_date', $endDate ?? \Carbon\Carbon::now()->toDateString()) }}">
                 </div>
-                <div class="col-md-4 mt-3 d-flex align-items-end">
+                <div class="col-md-4 d-flex gap-2 justify-content-md-end">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+
+                    {{-- Export PDF --}}
+                    <a class="btn btn-outline-danger"
+                        href="{{ route('laporan.neraca.export.pdf', ['start_date' => request('start_date', $startDate ?? null), 'end_date' => request('end_date', $endDate ?? \Carbon\Carbon::now()->toDateString())]) }}">
+                        <i class="bi bi-filetype-pdf"></i> PDF
+                    </a>
+
+                    {{-- Export Excel --}}
+                    <a class="btn btn-outline-success"
+                        href="{{ route('laporan.neraca.export.excel', ['start_date' => request('start_date', $startDate ?? null), 'end_date' => request('end_date', $endDate ?? \Carbon\Carbon::now()->toDateString())]) }}">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                    </a>
                 </div>
             </div>
         </form>
@@ -32,181 +44,108 @@
         <div class="card">
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered">
+                    <table class="table table-bordered align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th>ID</th>
+                                <th style="width: 200px">Kode</th>
                                 <th>Akun</th>
-                                <th>Amount</th>
+                                <th class="text-end">Jumlah (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @if (Auth::user()->hasRole('Bidang'))
-                                <tr>
-                                    <td colspan="3"><strong>Aset</strong></td>
-                                </tr>
-                                <tr>
-                                    <td colspan="3">Aset Lancar</td>
-                                </tr>
-                                <tr>
-                                    <td>101</td>
-                                    <td>Kas</td>
-                                    <td>Rp{{ number_format($saldoKas, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>102</td>
-                                    <td>Bank</td>
-                                    <td>Rp{{ number_format($saldoBank, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="3">Aset Tidak Lancar</td>
-                                </tr>
-                                <tr>
-                                    <td>103</td>
-                                    <td>Piutang</td>
-                                    <td>Rp{{ number_format($jumlahPiutang, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>104</td>
-                                    <td>Tanah Bangunan</td>
-                                    <td>Rp0,-</td>
-                                </tr>
-                                <tr>
-                                    <td>105</td>
-                                    <td>Inventaris</td>
-                                    <td>Rp0,-</td>
-                                </tr>
-                            @elseif(Auth::user()->hasRole('Bendahara'))
-                                <tr>
-                                    <td>101</td>
-                                    <td>Kas</td>
-                                    <td>Rp{{ number_format($saldoKasTotal, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>102</td>
-                                    <td>Bank</td>
-                                    <td>Rp{{ number_format($saldoBankTotal, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>103</td>
-                                    <td>Piutang</td>
-                                    <td>Rp{{ number_format($jumlahPiutang, 2, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>104</td>
-                                    <td>Tanah Bangunan</td>
-                                    <td>Rp0,-</td>
-                                </tr>
-                                <tr>
-                                    <td>105</td>
-                                    <td>Inventaris</td>
-                                    <td>Rp0,-</td>
-                                </tr>
-                            @endif
+                            <tr>
+                                <td colspan="3" class="fw-bold">ASET</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-muted">Aset Lancar</td>
+                            </tr>
+                            <tr>
+                                <td>101</td>
+                                <td>Kas</td>
+                                <td class="text-end">{{ number_format($saldoKas, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td>102</td>
+                                <td>Bank</td>
+                                <td class="text-end">{{ number_format($saldoBank, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-muted">Aset Tidak Lancar</td>
+                            </tr>
+                            <tr>
+                                <td>103</td>
+                                <td>Piutang (outstanding)</td>
+                                <td class="text-end">{{ number_format($piutang, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td>104</td>
+                                <td>Tanah & Bangunan</td>
+                                <td class="text-end">{{ number_format($tanahBangunan, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td>105</td>
+                                <td>Inventaris</td>
+                                <td class="text-end">{{ number_format($inventaris, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Total Aset</td>
+                                <td class="text-end">{{ number_format($totalAset, 0, ',', '.') }}</td>
+                            </tr>
 
-                            <body class="table-light">
-                                <tr class="fw-bold">
-                                    <td colspan="2" class="text-center">Total</td>
-                                    @if (Auth::user()->hasRole('Bidang'))
-                                        <td>Rp
-                                            {{ number_format($saldoKas + $saldoBank + $jumlahPiutang, 2, ',', '.') }}
-                                        </td>
-                                    @elseif(Auth::user()->hasRole('Bendahara'))
-                                        <td>Rp
-                                            {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang, 2, ',', '.') }}
-                                        </td>
-                                    @endif
-                                </tr>
-                            </body>
                             <tr>
-                                <td colspan="3"><strong>Liabilitas & Aset Bersih</strong></td>
+                                <td colspan="3" class="fw-bold pt-3">LIABILITAS</td>
                             </tr>
                             <tr>
-                                <td colspan="3">Kewajiban</td>
+                                <td>2xx</td>
+                                <td>Hutang</td>
+                                <td class="text-end">{{ number_format($hutang, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td>2021</td>
-                                <td>SPP (Pendidikan)</td>
-                                <td>Rp.0,-</td>
+                                <td>203</td>
+                                <td>Pendapatan Belum Diterima</td>
+                                <td class="text-end">{{ number_format($pendapatanBelumDiterima, 0, ',', '.') }}</td>
                             </tr>
-                            <tr>
-                                <td>2022</td>
-                                <td>Uang Gedung (Pendidikan)</td>
-                                <td>Rp.0,-</td>
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Total Liabilitas</td>
+                                <td class="text-end">{{ number_format($totalLiabilitas, 0, ',', '.') }}</td>
                             </tr>
-                            <tr>
-                                <td>2023</td>
-                                <td>Uang Kegiatan & Ekstra (Pendidikan)</td>
-                                <td>Rp.0,-</td>
+
+                            <tr class="fw-bold pt-3">
+                                <td colspan="3">ASET BERSIH</td>
                             </tr>
-                            <tr>
-                                <td>2024</td>
-                                <td>Uang Pendaftaran (Pendidikan)</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2025</td>
-                                <td>Uang Catering (Pendidikan)</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2026</td>
-                                <td>Infaq</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2027</td>
-                                <td>Wakaf</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2028</td>
-                                <td>Sumbangan/Donasi</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2031</td>
-                                <td>Pembangunan Masjid</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td>2032</td>
-                                <td>Pembangunan Day Care</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td colspan="3">Aset Netto</td>
-                            </tr>
-                            <tr>
-                                <td colspan="3">Aset Tidak Terikat</td>
-                            </tr>
-                            <tr>
-                                <td>500</td>
-                                <td>Hasil Aktivitas</td>
-                                <td>Rp.0,-</td>
-                            </tr>
-                            <tr>
-                                <td colspan="2">Aset Terikat/ Dana Abadi</td>
-                                <td>Rp.0,-</td>
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Aset Bersih (Aset - Liabilitas)</td>
+                                <td class="text-end">{{ number_format($asetBersih, 0, ',', '.') }}</td>
                             </tr>
                         </tbody>
-
-                        <body class="table-light">
-                            <tr class="fw-bold">
-                                <td colspan="2" class="text-center">Total</td>
-                                @if (Auth::user()->hasRole('Bidang'))
-                                    <td>Rp
-                                        {{ number_format($saldoKas + $saldoBank + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra + $jumlahBiayaPeningkatanSDM, 2, ',', '.') }}
-                                    </td>
-                                @elseif(Auth::user()->hasRole('Bendahara'))
-                                    <td>Rp
-                                        {{ number_format($saldoKasTotal + $saldoBankTotal + $jumlahPiutang + $jumlahBebanGaji + $jumlahBiayaOperasional + $jumlahBiayaKegiatanSiswa + $jumlahBiayaPemeliharaan + $jumlahBiayaSosial + $jumlahBiayaSeragam + $jumlahBiayaPerlengkapanExtra + $jumlahBiayaPeningkatanSDM, 2, ',', '.') }}
-                                    </td>
-                                @endif
-                            </tr>
-                        </body>
                     </table>
                 </div>
+
+                @if ($role === 'Bendahara')
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded">
+                                <div class="small text-muted">Total Kas (Semua)</div>
+                                <div class="fs-5 fw-bold">Rp {{ number_format($saldoKasTotal ?? 0, 0, ',', '.') }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded">
+                                <div class="small text-muted">Total Bank (Semua)</div>
+                                <div class="fs-5 fw-bold">Rp {{ number_format($saldoBankTotal ?? 0, 0, ',', '.') }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded">
+                                <div class="small text-muted">Total Keuangan (Kas+Bank)</div>
+                                <div class="fs-5 fw-bold">Rp
+                                    {{ number_format($totalKeuanganSemuaBidang ?? 0, 0, ',', '.') }}</div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
             </div>
         </div>
     </div>

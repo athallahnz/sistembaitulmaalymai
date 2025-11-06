@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Laporan;
 
+use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Transaksi;
+use App\Services\LaporanService;
+use App\Exports\LaporanExport;
+use App\Models\PendapatanBelumDiterima;
 use App\Models\AkunKeuangan;
+use App\Models\Transaksi;
+use App\Models\User;
 use App\Models\Ledger;
 use App\Models\Piutang;
 use App\Models\Hutang;
-use App\Models\PendapatanBelumDiterima;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Services\LaporanService;
+use Maatwebsite\Excel\Facades\Excel;
+
 
 
 
@@ -200,334 +203,554 @@ class LaporanKeuanganController extends Controller
         return view('laporan.laba_rugi', compact('pendapatan', 'beban'));
     }
 
-    // 📋 Neraca Saldo
+    /***********************
+     * Helpers
+     ***********************/
+    /**
+     * Ambil saldo terakhir dari kolom `saldo` untuk suatu akun keuangan,
+     * mempertimbangkan role & bidang, dan batas tanggal (cutoff) bila ada.
+     * Selalu return float (>= 0).
+     */
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId)
+            return 0.0;
+
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
+
+        if ($tanggalCutoff) {
+            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        // Untuk non-bendahara: filter per bidang + fallback histori lama (NULL)
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+
+        // Ambil nilai saldo dari baris transaksi terbaru
+        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo') ?? 0.0);
+    }
+
+    /**
+     * Menjumlahkan transaksi berdasarkan parent akun (dinamis via parent_akun_id).
+     * Jika $bidangName null → tidak filter bidang (Bendahara total);
+     * jika non-null → filter per bidang.
+     *
+     * NOTE:
+     * - Dipakai untuk PENDAPATAN (mis. parent 202*) dan BEBAN (parent 302..310).
+     * - Di sistemmu, akun pendapatan/beban di-post sebagai baris primer ke akun Kas/Bank
+     *   sementara parent_akun_id mengacu ke kategori pendapatan/beban. Karena itu SUM(amount)
+     *   di sini sudah cukup sebagai nilai brutonya.
+     */
+    private function sumTransaksiByParent(int $parentId, $bidangName = null): float
+    {
+        $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
+        if (empty($subAkunIds))
+            return 0.0;
+
+        $q = Transaksi::whereIn('parent_akun_id', $subAkunIds);
+        if (!is_null($bidangName)) {
+            $q->where('bidang_name', $bidangName);
+        }
+        return (float) $q->sum('amount');
+    }
+
+    /**
+     * Dapatkan mapping akun Kas/Bank untuk user saat ini.
+     */
+    private function resolveKasBankForUser(): array
+    {
+        $user = auth()->user();
+        $role = $user->role ?? 'Guest';
+        $bidangId = $user->bidang_name ?? null;
+
+        $kasMap = [1 => 1012, 2 => 1013, 3 => 1014, 4 => 1015];
+        $bankMap = [1 => 1022, 2 => 1023, 3 => 1024, 4 => 1025];
+
+        if ($role === 'Bendahara') {
+            return [
+                'role' => 'Bendahara',
+                'bidangId' => null,
+                'kasId' => 1011,
+                'bankId' => 1021,
+            ];
+        }
+
+        return [
+            'role' => 'Bidang',
+            'bidangId' => $bidangId,
+            'kasId' => $kasMap[$bidangId] ?? null,
+            'bankId' => $bankMap[$bidangId] ?? null,
+        ];
+    }
+
+    /**
+     * Hitung total Kas/Bank seluruh entitas:
+     * - Bendahara-global (NULL)
+     * - Bidang 1..4
+     */
+    private function getTotalKasBankSemua(): array
+    {
+        $maps = [
+            ['bidang' => null, 'kas' => 1011, 'bank' => 1021], // Bendahara global
+            ['bidang' => 1, 'kas' => 1012, 'bank' => 1022],
+            ['bidang' => 2, 'kas' => 1013, 'bank' => 1023],
+            ['bidang' => 3, 'kas' => 1014, 'bank' => 1024],
+            ['bidang' => 4, 'kas' => 1015, 'bank' => 1025],
+        ];
+
+        $saldoKasTotal = 0.0;
+        $saldoBankTotal = 0.0;
+
+        foreach ($maps as $m) {
+            // Saat agregasi total, kita treat “role” sebagai Bendahara agar fungsi tidak
+            // mem-filter per-bidang (karena kita kirim bidangnya manual di param ketiga).
+            $kas = $this->getLastSaldoBySaldoColumn($m['kas'], 'Bendahara', $m['bidang'], null);
+            $bank = $this->getLastSaldoBySaldoColumn($m['bank'], 'Bendahara', $m['bidang'], null);
+            $saldoKasTotal += $kas;
+            $saldoBankTotal += $bank;
+        }
+
+        return [
+            'saldoKasTotal' => $saldoKasTotal,
+            'saldoBankTotal' => $saldoBankTotal,
+            'totalKeuangan' => $saldoKasTotal + $saldoBankTotal,
+        ];
+    }
+
+    /***********************
+     * Laporan: NERACA
+     ***********************/
     public function neracaSaldo(Request $request)
     {
         $user = auth()->user();
-        $bidangName = $user->bidang_name;
+        $role = $user->role ?? 'Guest';
+        $map = $this->resolveKasBankForUser();
 
-        $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
-        $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
+        // Filter tanggal opsional (untuk posisi per tanggal tertentu)
+        $endDate = $request->input('end_date', Carbon::now()->toDateString());
+        $startDate = $request->input('start_date'); // tidak dipakai untuk posisi, tapi tetap disediakan di form
 
-        // Ambil akun keuangan utama (tanpa parent_id)
-        $akunKeuangan = AkunKeuangan::whereNull('parent_id')
-            ->whereIn('tipe_akun', ['asset', 'liability', 'expense'])
-            ->get();
+        // ====== ASET LANCAR: Kas & Bank ======
+        $saldoKas = $this->getLastSaldoBySaldoColumn($map['kasId'], $map['role'], $map['bidangId'], $endDate);
+        $saldoBank = $this->getLastSaldoBySaldoColumn($map['bankId'], $map['role'], $map['bidangId'], $endDate);
 
-        $user = auth()->user();
-        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
-
-        if ($user->role === 'Bendahara') {
-            $akun_keuangan_id = 1011;
-        } else {
-            $akunKas = [
-                1 => 1012,
-                2 => 1013,
-                3 => 1014,
-                4 => 1015,
-            ];
-            $akun_keuangan_id = $akunKas[$bidang_id] ?? null;
-        }
-
-        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
-
-        if (!$bidang_id || !$akun_keuangan_id) {
-            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
-        }
-
-        // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunKas[$bidang_id])) {
-            $akun_keuangan_id = $akunKas[$bidang_id];
-
-            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_id)
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last(); // Ambil saldo terakhir (data terbaru)
-        } else {
-            $lastSaldo = null; // Jika bidang_name tidak ditemukan, return null
-        }
-
-        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
-        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
-
-        if ($user->role === 'Bendahara') {
-            $akun_keuangan_id = 1021;
-        } else {
-            $akunBank = [
-                1 => 1022,
-                2 => 1023,
-                3 => 1024,
-                4 => 1025,
-            ];
-            $akun_keuangan_id = $akunBank[$bidang_id] ?? null;
-        }
-
-        \Log::info("Akun Keuangan ID: " . ($akun_keuangan_id ?? 'NULL'));
-
-        if (!$bidang_id || !$akun_keuangan_id) {
-            return back()->withErrors(['error' => 'Akun bank tidak ditemukan untuk bidang ini.']);
-        }
-
-        // Pastikan bidang_name yang diberikan ada dalam daftar
-        if (isset($akunBank[$bidang_id])) {
-            $akun_keuangan_id = $akunBank[$bidang_id];
-
-            $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang_id)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
-        } else {
-            $lastTransaksi = null; // Jika bidang_name tidak ditemukan, return null
-        }
-
-        $saldoBank = $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
-
-        $jumlahPiutang = Piutang::where('bidang_name', $bidangName)
-            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+        // ====== PIUTANG (asset) ======
+        // PSAK: posisi neraca idealnya nilai piutang outstanding (belum lunas).
+        $piutang = Piutang::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
-        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
-
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
-            ->where('bidang_name', $bidangName)
+        // ====== ASET TETAP / LAINNYA ======
+        // (Tetap mengikuti kebiasaanmu: sum amount; kalau ingin akumulasi saldo, bisa dibuat pakai kolom `saldo` untuk akun TS tersebut)
+        $tanahBangunan = Transaksi::where('akun_keuangan_id', 104)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
             ->sum('amount');
 
-        $jumlahHutang = Hutang::where('bidang_name', $bidangName)
-            ->where('status', 'belum_lunas') // Opsional: hanya menghitung hutang yang belum lunas
+        $inventaris = Transaksi::where('akun_keuangan_id', 105)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->sum('amount');
+
+        $totalAset = $saldoKas + $saldoBank + $piutang + $tanahBangunan + $inventaris;
+
+        // ====== LIABILITAS ======
+        $hutang = Hutang::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
-        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        $pendapatanBelumDiterima = PendapatanBelumDiterima::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->sum('jumlah');
 
-        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
-            3031,
-            3032,
-            3033,
-            3034,
-            3035,
-            3036,
-            3037,
-            3038,
-            3039,
-            30310,
-            30311,
-            30312,
-            30313,
-            30314,
-            30315
-        ])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
+        $totalLiabilitas = $hutang + $pendapatanBelumDiterima;
 
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
-            ->where('bidang_name', $bidangName)
-            ->sum('amount');
-        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
-            ->where('bidang_name', auth()->user()->bidang_name)
-            ->sum('amount');
+        // ====== ASET BERSIH (Net Assets) ======
+        $asetBersih = $totalAset - $totalLiabilitas;
 
-        return view('laporan.neraca_saldo', compact(
-            'akunKeuangan',
-            'startDate',
-            'endDate',
-            'saldoKas',
-            'saldoBank',
-            'jumlahHutang',
-            'jumlahDonasi',
-            'jumlahPiutang',
-            'jumlahPendapatanBelumDiterima',
-            'jumlahBebanGaji',
-            'jumlahBiayaOperasional',
-            'jumlahBiayaKegiatanSiswa',
-            'jumlahBiayaPemeliharaan',
-            'jumlahBiayaSosial',
-            'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam',
-            'jumlahBiayaPeningkatanSDM'
-        ));
+        // ====== Jika Bendahara: total agregat semua bidang untuk Kas/Bank (opsional tampilkan) ======
+        $totalKasBankAll = ($map['role'] === 'Bendahara') ? $this->getTotalKasBankSemua() : null;
+
+        return view('laporan.neraca_saldo', [
+            'role' => $map['role'],
+            'bidangId' => $map['bidangId'],
+
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+
+            // Aset
+            'saldoKas' => $saldoKas,
+            'saldoBank' => $saldoBank,
+            'piutang' => $piutang,
+            'tanahBangunan' => $tanahBangunan,
+            'inventaris' => $inventaris,
+            'totalAset' => $totalAset,
+
+            // Liabilitas
+            'hutang' => $hutang,
+            'pendapatanBelumDiterima' => $pendapatanBelumDiterima,
+            'totalLiabilitas' => $totalLiabilitas,
+
+            // Aset Bersih
+            'asetBersih' => $asetBersih,
+
+            // Agregat Bendahara
+            'saldoKasTotal' => $totalKasBankAll['saldoKasTotal'] ?? null,
+            'saldoBankTotal' => $totalKasBankAll['saldoBankTotal'] ?? null,
+            'totalKeuanganSemuaBidang' => $totalKasBankAll['totalKeuangan'] ?? null,
+        ]);
     }
 
     public function neracaSaldoBendahara(Request $request)
     {
-        $startDate = $request->input('start_date', Carbon::now()->startOfMonth());
-        $endDate = $request->input('end_date', Carbon::now()->endOfMonth());
+        // Paksa mode Bendahara
+        $user = auth()->user();
+        $endDate = $request->input('end_date', Carbon::now()->toDateString());
+        $startDate = $request->input('start_date');
 
-        // Ambil akun keuangan utama (tanpa parent_id)
-        $akunKeuangan = AkunKeuangan::whereNull('parent_id')
-            ->whereIn('tipe_akun', ['asset', 'liability', 'expense'])
+        // Ambil total seluruh kas/bank semua bidang + bendahara
+        $totalKasBankAll = $this->getTotalKasBankSemua();
+
+        // ====== PIUTANG (semua bidang) ======
+        $piutang = Piutang::where('status', 'belum_lunas')->sum('jumlah');
+
+        // ====== ASET TETAP ======
+        $tanahBangunan = Transaksi::where('akun_keuangan_id', 104)->sum('amount');
+        $inventaris = Transaksi::where('akun_keuangan_id', 105)->sum('amount');
+
+        $totalAset = $totalKasBankAll['totalKeuangan'] + $piutang + $tanahBangunan + $inventaris;
+
+        // ====== LIABILITAS ======
+        $hutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
+        $pendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
+        $totalLiabilitas = $hutang + $pendapatanBelumDiterima;
+
+        // ====== ASET BERSIH ======
+        $asetBersih = $totalAset - $totalLiabilitas;
+
+        return view('laporan.neraca_saldo', [
+            'role' => 'Bendahara',
+            'bidangId' => null,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+
+            // Aset
+            'saldoKas' => $totalKasBankAll['saldoKasTotal'],
+            'saldoBank' => $totalKasBankAll['saldoBankTotal'],
+            'piutang' => $piutang,
+            'tanahBangunan' => $tanahBangunan,
+            'inventaris' => $inventaris,
+            'totalAset' => $totalAset,
+
+            // Liabilitas
+            'hutang' => $hutang,
+            'pendapatanBelumDiterima' => $pendapatanBelumDiterima,
+            'totalLiabilitas' => $totalLiabilitas,
+
+            // Aset Bersih
+            'asetBersih' => $asetBersih,
+
+            // Total agregat (Kas/Bank semua bidang)
+            'saldoKasTotal' => $totalKasBankAll['saldoKasTotal'],
+            'saldoBankTotal' => $totalKasBankAll['saldoBankTotal'],
+            'totalKeuanganSemuaBidang' => $totalKasBankAll['totalKeuangan'],
+        ]);
+    }
+
+    /***********************
+     * Laporan: AKTIVITAS (PSAK 45)
+     ***********************/
+    public function aktivitas(Request $request)
+    {
+        $user = auth()->user();
+        $role = $user->role ?? 'Guest';
+        $map = $this->resolveKasBankForUser();
+
+        // Periode laporan (arus periodik)
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->toDateString());
+
+        // Filter builder by period
+        $periodFilter = function ($q) use ($startDate, $endDate) {
+            $q->whereDate('tanggal_transaksi', '>=', $startDate)
+                ->whereDate('tanggal_transaksi', '<=', $endDate);
+        };
+
+        // ====== Pendapatan (contoh: parent 202 = Donasi) ======
+        // NOTE: sumTransaksiByParent() tidak punya filter tanggal. Kita bungkus via ID transaksi.
+        // Implementasi sederhana: batasi lewat whereBetween tanggal di query tambahan.
+        // -> Cara cepat: ulang logic sum di sini dengan filter tanggal.
+        $donasiParent = 202;
+        $donasiSubIds = AkunKeuangan::where('parent_id', $donasiParent)->pluck('id')->toArray();
+
+        $qDonasi = Transaksi::whereIn('parent_akun_id', $donasiSubIds)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']));
+        $periodFilter($qDonasi);
+        $pendapatanDonasi = (float) $qDonasi->sum('amount');
+
+        // ====== Beban (contoh: parents 302..310) ======
+        $bebanParents = AkunKeuangan::where('tipe_akun', 'expense')
+            ->whereNull('parent_id') // hanya ambil parent kategori utama
+            ->pluck('id')
+            ->toArray();
+        $totalBeban = 0.0;
+        $rincianBeban = [];
+
+        foreach ($bebanParents as $pid) {
+            $subIds = AkunKeuangan::where('parent_id', $pid)->pluck('id')->toArray();
+            if (empty($subIds)) {
+                $rincianBeban[$pid] = 0.0;
+                continue;
+            }
+            $q = Transaksi::whereIn('parent_akun_id', $subIds)
+                ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']));
+            $periodFilter($q);
+            $nilai = (float) $q->sum('amount');
+            $rincianBeban[$pid] = $nilai;
+            $totalBeban += $nilai;
+        }
+
+        // ====== Surplus (Defisit) Periode ======
+        $totalPendapatan = $pendapatanDonasi; // tambah pendapatan lain jika ada
+        $surplus = $totalPendapatan - $totalBeban;
+
+        return view('laporan.aktivitas', [
+            'role' => $map['role'],
+            'bidangId' => $map['bidangId'],
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+
+            'pendapatanDonasi' => $pendapatanDonasi,
+            'totalPendapatan' => $totalPendapatan,
+
+            'rincianBeban' => $rincianBeban,
+            'totalBeban' => $totalBeban,
+
+            'surplus' => $surplus,
+        ]);
+    }
+
+    // ===== helper kecil untuk reuse data Neraca (pakai fungsi yang sudah kamu punya) =====
+    private function buildNeracaData(string $endDate, ?string $startDate = null): array
+    {
+        // Ambil mapping akun user (kasId, bankId, role, bidangId)
+        $map = $this->resolveKasBankForUser();
+
+        // Saldo posisi per tanggal (pakai getLastSaldoBySaldoColumn)
+        $saldoKas = $this->getLastSaldoBySaldoColumn($map['kasId'], $map['role'], $map['bidangId'], $endDate);
+        $saldoBank = $this->getLastSaldoBySaldoColumn($map['bankId'], $map['role'], $map['bidangId'], $endDate);
+
+        // Piutang outstanding
+        $piutang = Piutang::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('status', 'belum_lunas')
+            ->sum('jumlah');
+
+        // Aset tetap (sesuai kebiasaanmu saat ini – sum amount)
+        $tanahBangunan = Transaksi::where('akun_keuangan_id', 104)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->sum('amount');
+
+        $inventaris = Transaksi::where('akun_keuangan_id', 105)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->sum('amount');
+
+        $totalAset = $saldoKas + $saldoBank + $piutang + $tanahBangunan + $inventaris;
+
+        // Liabilitas
+        $hutang = Hutang::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('status', 'belum_lunas')
+            ->sum('jumlah');
+
+        $pendapatanBelumDiterima = PendapatanBelumDiterima::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->sum('jumlah');
+
+        $totalLiabilitas = $hutang + $pendapatanBelumDiterima;
+        $asetBersih = $totalAset - $totalLiabilitas;
+
+        // Agregat Bendahara (opsional tampilkan kalau role bendahara)
+        $totalKasBankAll = ($map['role'] === 'Bendahara') ? $this->getTotalKasBankSemua() : null;
+
+        return [
+            'role' => $map['role'],
+            'bidangId' => $map['bidangId'],
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+
+            // Aset
+            'saldoKas' => $saldoKas,
+            'saldoBank' => $saldoBank,
+            'piutang' => $piutang,
+            'tanahBangunan' => $tanahBangunan,
+            'inventaris' => $inventaris,
+            'totalAset' => $totalAset,
+
+            // Liabilitas
+            'hutang' => $hutang,
+            'pendapatanBelumDiterima' => $pendapatanBelumDiterima,
+            'totalLiabilitas' => $totalLiabilitas,
+
+            // Aset Bersih
+            'asetBersih' => $asetBersih,
+
+            // Agregat bendahara
+            'saldoKasTotal' => $totalKasBankAll['saldoKasTotal'] ?? null,
+            'saldoBankTotal' => $totalKasBankAll['saldoBankTotal'] ?? null,
+            'totalKeuanganSemuaBidang' => $totalKasBankAll['totalKeuangan'] ?? null,
+        ];
+    }
+
+    // ===== helper data Aktivitas (periode berjalan) =====
+    private function buildAktivitasData(string $startDate, string $endDate): array
+    {
+        $map = $this->resolveKasBankForUser();
+
+        // Helper period filter (reusable)
+        $periodFilter = function ($q) use ($startDate, $endDate) {
+            $q->whereDate('tanggal_transaksi', '>=', Carbon::parse($startDate)->toDateString())
+                ->whereDate('tanggal_transaksi', '<=', Carbon::parse($endDate)->toDateString());
+        };
+
+        // ====== List transaksi detail (untuk tabel) — eksklusif baris -LAWAN ======
+        $aktivitas = Transaksi::when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('kode_transaksi', 'not like', '%-LAWAN')
+            ->tap($periodFilter)
+            ->orderBy('tanggal_transaksi')
             ->get();
 
-        $bidangName = auth()->user()->bidang_name; // Bidang name dari user saat ini
+        // ====== PENDAPATAN (contoh: Donasi parent 202) ======
+        $donasiParent = 202;
+        $donasiSubIds = AkunKeuangan::where('parent_id', $donasiParent)->pluck('id')->toArray();
 
-        $user = auth()->user();
-        $bidang_id = $user->bidang_name; // Gunakan bidang_name sebagai bidang_id
+        $qDonasi = Transaksi::whereIn('parent_akun_id', $donasiSubIds)
+            ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+            ->where('kode_transaksi', 'not like', '%-LAWAN');
+        $periodFilter($qDonasi);
 
-        $akunKas = [
-            'Bendahara' => 1011,
-            1 => 1012,
-            2 => 1013,
-            3 => 1014,
-            4 => 1015,
-        ];
+        $pendapatanDonasi = (float) $qDonasi->sum('amount');
 
-        $akunBank = [
-            'Bendahara' => 1021,
-            1 => 1022,
-            2 => 1023,
-            3 => 1024,
-            4 => 1025,
-        ];
+        // (opsional) jika ada pendapatan lain, tambahkan cara yang sama di sini, lalu jumlahkan
+        $totalPendapatan = $pendapatanDonasi;
 
-        $saldoKasTotal = 0;
-        $saldoBankTotal = 0;
+        // ====== BEBAN (dinamis dari parent tipe_akun='expense') ======
+        $bebanParents = AkunKeuangan::where('tipe_akun', 'expense')
+            ->whereNull('parent_id')   // ambil kategori beban level-atas (302..310)
+            ->pluck('id')
+            ->toArray();
 
-        foreach ($akunKas as $bidang => $akun_keuangan_id) {
-            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
+        $rincianBeban = [];
+        $totalBeban = 0.0;
 
-            $saldoKasTotal += $lastSaldo ? (float) $lastSaldo->saldo : 0;
+        foreach ($bebanParents as $pid) {
+            $subIds = AkunKeuangan::where('parent_id', $pid)->pluck('id')->toArray();
+            if (empty($subIds)) { // aman kalau belum ada anak
+                $rincianBeban[$pid] = 0.0;
+                continue;
+            }
+
+            $qb = Transaksi::whereIn('parent_akun_id', $subIds)
+                ->when($map['role'] === 'Bidang', fn($q) => $q->where('bidang_name', $map['bidangId']))
+                ->where('kode_transaksi', 'not like', '%-LAWAN');
+            $periodFilter($qb);
+
+            $nilai = (float) $qb->sum('amount');
+            $rincianBeban[$pid] = $nilai;
+            $totalBeban += $nilai;
         }
 
-        foreach ($akunBank as $bidang => $akun_keuangan_id) {
-            $lastTransaksi = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->where('bidang_name', $bidang)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
+        // ====== Surplus/(Defisit) periode ======
+        $surplusDefisit = $totalPendapatan - $totalBeban;
 
-            $saldoBankTotal += $lastTransaksi ? (float) $lastTransaksi->saldo : 0;
-        }
+        // ====== Ringkasan total kolom (jika tetap ingin cek cepat dari list transaksi) ======
+        $totalPenerimaan = (float) $aktivitas->where('type', 'penerimaan')->sum('amount');
+        $totalPengeluaran = (float) $aktivitas->where('type', 'pengeluaran')->sum('amount');
 
-        // **Total Keuangan Semua Bidang (Kas + Bank)**
-        $totalKeuanganSemuaBidang = $saldoKasTotal + $saldoBankTotal;
+        return [
+            // untuk tabel detail
+            'aktivitas' => $aktivitas,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'totalPenerimaan' => $totalPenerimaan,
+            'totalPengeluaran' => $totalPengeluaran,
 
-        $jumlahPiutang = Piutang::where('status', 'belum_lunas')->sum('jumlah');
-
-        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
-
-        // Ambil saldo untuk Beban Gaji
-        $jumlahBebanGaji = Transaksi::whereIn('parent_akun_id', [3021, 3022, 3023, 3024, 3025, 3026, 3027])
-            ->sum('amount');
-
-        $jumlahHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
-
-        $jumlahDonasi = Transaksi::whereIn('parent_akun_id', [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028])
-            ->sum('amount');
-
-        // Ambil saldo untuk Biaya Operasional
-        $jumlahBiayaOperasional = Transaksi::whereIn('parent_akun_id', [
-            3031,
-            3032,
-            3033,
-            3034,
-            3035,
-            3036,
-            3037,
-            3038,
-            3039,
-            30310,
-            30311,
-            30312,
-            30313,
-            30314,
-            30315
-        ])->sum('amount');
-
-        // Ambil saldo untuk Biaya Kegiatan
-        $jumlahBiayaKegiatanSiswa = Transaksi::whereIn('parent_akun_id', [3041, 3042, 3043, 3044, 3045, 3046])
-            ->sum('amount');
-
-        $jumlahBiayaPemeliharaan = Transaksi::whereIn('parent_akun_id', [3051, 3052])
-            ->sum('amount');
-        $jumlahBiayaSosial = Transaksi::whereIn('parent_akun_id', [3061, 3062])
-            ->sum('amount');
-        $jumlahBiayaPerlengkapanExtra = Transaksi::whereIn('parent_akun_id', [3071, 3072])
-            ->sum('amount');
-        $jumlahBiayaSeragam = Transaksi::whereIn('parent_akun_id', [3081, 3082])
-            ->sum('amount');
-        $jumlahBiayaPeningkatanSDM = Transaksi::whereIn('parent_akun_id', [3091])
-            ->sum('amount');
-
-        return view('laporan.neraca_saldo', compact(
-            'akunKeuangan',
-            'startDate',
-            'endDate',
-            'saldoKasTotal',
-            'saldoBankTotal',
-            'jumlahHutang',
-            'jumlahDonasi',
-            'jumlahPiutang',
-            'jumlahPendapatanBelumDiterima',
-            'jumlahBebanGaji',
-            'jumlahBiayaOperasional',
-            'jumlahBiayaKegiatanSiswa',
-            'jumlahBiayaPemeliharaan',
-            'jumlahBiayaSosial',
-            'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam',
-            'jumlahBiayaPeningkatanSDM'
-        ));
+            // untuk perhitungan laporan aktivitas (agregat)
+            'pendapatanDonasi' => $pendapatanDonasi,
+            'totalPendapatan' => $totalPendapatan,
+            'rincianBeban' => $rincianBeban,   // key = parent_id beban, value = total
+            'totalBeban' => $totalBeban,
+            'surplusDefisit' => $surplusDefisit,
+        ];
     }
 
-    private function calculateTotalKas()
+    // =========================
+    // EXPORT NERACA - PDF
+    // =========================
+    public function exportNeracaPdf(Request $request)
     {
-        $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
+        $end = $request->input('end_date', Carbon::now()->toDateString());
+        $start = $request->input('start_date');
 
-        $totalKas = $bidangNames->sum(function ($bidangName) {
-            return Transaksi::where('akun_keuangan_id', 101)
-                ->where('bidang_name', $bidangName)
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last()?->saldo ?? 0; // Ambil nilai saldo terakhir atau 0 jika tidak ada data
-        });
+        $data = $this->buildNeracaData($end, $start);
 
-        return $totalKas;
+        // gunakan view: resources/views/laporan/export/neraca_saldo_pdf.blade.php
+        $pdf = Pdf::loadView('laporan.export.neraca_saldo_pdf', $data)->setPaper('a4', 'portrait');
+
+        $name = 'Neraca_' . ($data['role'] === 'Bendahara' ? 'Yayasan' : 'Bidang_' . $data['bidangId']) . "_{$end}.pdf";
+        return $pdf->download($name);
     }
 
-    private function calculateTotalKeuanganBidang()
+    // =========================
+    // EXPORT NERACA - Excel
+    // =========================
+    public function exportNeracaExcel(Request $request)
     {
-        $bidangNames = User::whereNotNull('bidang_name')->pluck('bidang_name');
-        $totalKeuangan = 0;
+        $end = $request->input('end_date', Carbon::now()->toDateString());
+        $start = $request->input('start_date');
 
-        foreach ($bidangNames as $bidangName) {
-            // Ambil saldo terakhir untuk akun 101
-            $lastSaldo101 = Transaksi::where('akun_keuangan_id', 101)
-                ->where('bidang_name', $bidangName)
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last() // Ambil baris terakhir (data terbaru)
-                    ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+        $data = $this->buildNeracaData($end, $start);
 
-            // Ambil saldo terakhir untuk akun 102
-            $lastSaldo102 = Transaksi::where('akun_keuangan_id', 102)
-                ->where('bidang_name', $bidangName)
-                ->orderBy('tanggal_transaksi', 'asc') // Urutkan dari yang terlama ke yang terbaru
-                ->get() // Ambil semua data sebagai collection
-                ->last() // Ambil baris terakhir (data terbaru)
-                    ?->saldo ?? 0; // Ambil nilai kolom 'saldo' atau default 0 jika tidak ada data
+        // gunakan view: resources/views/laporan/export/neraca_saldo_export_excel.blade.php
+        $name = 'Neraca_' . ($data['role'] === 'Bendahara' ? 'Yayasan' : 'Bidang_' . $data['bidangId']) . "_{$end}.xlsx";
+        return Excel::download(new LaporanExport('laporan.export.neraca_saldo_export_excel', $data), $name);
+    }
 
-            $totalKeuangan += $lastSaldo101 + $lastSaldo102;
-        }
+    // =========================
+    /* EXPORT AKTIVITAS - PDF */
+    // =========================
+    public function exportAktivitasPdf(Request $request)
+    {
+        $start = $request->input('start_date', Carbon::now()->startOfMonth()->toDateString());
+        $end = $request->input('end_date', Carbon::now()->endOfMonth()->toDateString());
 
-        return $totalKeuangan;
+        $data = $this->buildAktivitasData($start, $end);
+
+        // gunakan view: resources/views/laporan/export/aktivitas_pdf.blade.php
+        $pdf = Pdf::loadView('laporan.export.aktivitas_pdf', $data)->setPaper('a4', 'portrait');
+
+        $name = "Laporan_Aktivitas_{$start}_{$end}.pdf";
+        return $pdf->download($name);
+    }
+
+    // =========================
+    /* EXPORT AKTIVITAS - Excel */
+    // =========================
+    public function exportAktivitasExcel(Request $request)
+    {
+        $start = $request->input('start_date', Carbon::now()->startOfMonth()->toDateString());
+        $end = $request->input('end_date', Carbon::now()->endOfMonth()->toDateString());
+
+        $data = $this->buildAktivitasData($start, $end);
+
+        // gunakan view: resources/views/laporan/export/aktivitas_export_excel.blade.php
+        $name = "Laporan_Aktivitas_{$start}_{$end}.xlsx";
+        return Excel::download(new LaporanExport('laporan.export.aktivitas_export_excel', $data), $name);
     }
 
     /**
