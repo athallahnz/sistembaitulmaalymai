@@ -1,30 +1,48 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+<nav class="navbar navbar-expand-lg bg-white elegant-navbar shadow-sm">
     <div class="container">
-        <a class="navbar-brand d-flex flex-column" href="{{ route('warga.dashboard') }}">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-heart-fill text-danger"></i>
-                <strong class="mb-0">SINFABUL</strong>
-            </div>
-            <small class="text-muted">Sistem Informasi Infaq Bulanan Warga</small>
+        {{-- Brand --}}
+        <a class="navbar-brand d-flex align-items-center gap-2 text-brown" href="{{ route('warga.dashboard') }}">
+            <span class="d-flex flex-column lh-1">
+                <strong class="mb-0" style="letter-spacing:.3px;">SINFABUL</strong>
+                <small class="text-muted">Sistem Informasi Infaq Bulanan Al Iman</small>
+            </span>
         </a>
 
+        {{-- Toggler --}}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarWarga"
             aria-controls="navbarWarga" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
 
+        {{-- Nav Right --}}
         <div class="collapse navbar-collapse" id="navbarWarga">
-            <ul class="navbar-nav ms-auto">
-                @if(session()->has('warga_id'))
-                    <li class="nav-item">
-                        <form action="{{ route('warga.logout') }}" method="POST">
+            <ul class="navbar-nav ms-auto align-items-lg-center nav-mini">
+                @if (session()->has('warga_id'))
+                    <li class="nav-item me-2">
+                        <a href="{{ route('warga.dashboard') }}"
+                            class="nav-link {{ request()->routeIs('warga.dashboard') ? 'active' : '' }}">
+                            Beranda
+                        </a>
+                    </li>
+                    <li class="nav-item me-2">
+                        <a href="{{ route('warga.tracking') }}"
+                            class="nav-link {{ request()->routeIs('warga.tracking') ? 'active' : '' }}">
+                            Tracking
+                        </a>
+                    </li>
+                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
+                        <form action="{{ route('warga.logout') }}" method="POST" class="d-inline">
                             @csrf
-                            <button class="btn btn-outline-danger btn-sm">Keluar</button>
+                            <button type="submit" class="btn btn-brown-pill">
+                                Keluar
+                            </button>
                         </form>
                     </li>
                 @else
-                    <li class="nav-item">
-                        <a href="{{ route('warga.login.form') }}" class="btn btn-outline-primary btn-sm">Login</a>
+                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
+                        <button href="{{ route('warga.login.form') }}" class="btn btn-ms btn-brown">
+                            Login
+                        </button>
                     </li>
                 @endif
             </ul>

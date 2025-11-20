@@ -1,8 +1,8 @@
 <!-- Modal: Tambah Infaq -->
 <div class="modal fade" id="modalCreateInfaq" tabindex="-1" aria-labelledby="modalCreateInfaqLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="form-infaq-modal" method="POST" action="{{ route('sosial.infaq.store') }}">
+            <form id="form-infaq-modal" method="POST" action="{{ route('kemasjidan.infaq.store') }}">
                 @csrf
 
                 <div class="modal-header">
@@ -19,46 +19,29 @@
                         <div class="col-md-4">
                             <label class="form-label">Nomor HP <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="hp" id="hp-modal"
-                                placeholder="08xxxxxxxxxx" required>
+                                placeholder="Masukkan No. Hp..." required>
                             <div class="form-text">Ketik nomor lalu keluar dari kolom ini (blur) untuk auto-lookup.
                             </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Nama</label>
-                            <input type="text" class="form-control" name="nama" id="nama-modal">
+                            <input type="text" class="form-control" name="nama" id="nama-modal"
+                                placeholder="Masukkan Nama warga...">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">RT</label>
-                            <input type="text" class="form-control" name="rt" id="rt-modal">
+                            <input type="text" class="form-control" name="rt" id="rt-modal"
+                                placeholder="Masukkan RT...">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">No Rumah</label>
-                            <input type="text" class="form-control" name="no" id="no-modal">
+                            <input type="text" class="form-control" name="no" id="no-modal"
+                                placeholder="Masukkan No. Rumah...">
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Alamat</label>
-                            <input type="text" class="form-control" name="alamat" id="alamat-modal">
-                        </div>
-                    </div>
-
-                    <hr class="my-3">
-
-                    {{-- PIN --}}
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">PIN (opsional)</label>
-                            <input type="text" class="form-control" name="pin" id="pin-modal" maxlength="16"
-                                placeholder="mis: 123456">
-                            <div class="form-text">Jika diisi, akan menjadi PIN login warga. Jika centang "Generate",
-                                PIN manual akan diabaikan.</div>
-                        </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="auto-pin-modal"
-                                    name="auto_pin">
-                                <label class="form-check-label" for="auto-pin-modal">Generate PIN otomatis (6
-                                    digit)</label>
-                            </div>
+                            <input type="text" class="form-control" name="alamat" id="alamat-modal"
+                                placeholder="Masukkan Alamat lengkap...">
                         </div>
                     </div>
 
@@ -67,6 +50,19 @@
                     {{-- PEMBAYARAN --}}
                     <div class="row g-3">
                         <div class="col-md-4">
+                            <label class="form-label">Metode Pembayaran</label>
+                            <select class="form-select" name="metode_bayar" id="metode-bayar-modal">
+                                <option value="">-- Pilih Metode Pembayaran --</option>
+                                <option value="tunai">Tunai</option>
+                                <option value="transfer">Transfer</option>
+                                {{-- <option value="lainnya">Lainnya</option> --}}
+                            </select>
+                            <div class="form-text">
+                                Digunakan untuk menentukan apakah masuk ke Kas atau Bank.
+                            </div>
+                        </div>
+
+                        <div class="col-md-2">
                             <label class="form-label">Bulan <span class="text-danger">*</span></label>
                             <select class="form-select" name="bulan" id="bulan-modal" required>
                                 @foreach (\App\Models\InfaqSosial::monthColumns() as $b)
@@ -77,12 +73,13 @@
                                 Bulan ini SUDAH LUNAS untuk nomor HP tersebut.
                             </div>
                         </div>
-                        <div class="col-md-8">
+
+                        <div class="col-md-6">
                             <label class="form-label">Nominal (Rp) <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>
                                 <input type="number" class="form-control" name="nominal" id="nominal-modal"
-                                    min="1000" step="1000" required>
+                                    step="10000" required>
                             </div>
                             <div class="mt-2 d-flex flex-wrap gap-2">
                                 @foreach ([50000, 100000, 200000, 500000] as $n)
@@ -91,6 +88,29 @@
                                         {{ number_format($n, 0, ',', '.') }}
                                     </button>
                                 @endforeach
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    {{-- PIN --}}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">PIN (opsional)</label>
+                            <input type="text" class="form-control mb-2" name="pin" id="pin-modal" maxlength="16"
+                                placeholder="mis: 123456">
+                            <input class="form-check-input" type="checkbox" value="1" id="auto-pin-modal"
+                                name="auto_pin">
+                            <label class="form-check-label" for="auto-pin-modal">Generate PIN otomatis (6
+                                digit)</label>
+
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check">
+                                <div class="form-text">Jika diisi, akan menjadi PIN login warga. Jika centang
+                                    "Generate",
+                                    PIN manual akan diabaikan.</div>
                             </div>
                         </div>
                     </div>
@@ -117,6 +137,7 @@
             const btnSubmit = document.getElementById('btn-submit-modal');
             const inpPin = document.getElementById('pin-modal');
             const chkAuto = document.getElementById('auto-pin-modal');
+            const selMetode = document.getElementById('metode-bayar-modal');
 
             // tombol nominal cepat
             document.querySelectorAll('.set-nominal-modal').forEach(btn => {
@@ -139,6 +160,7 @@
                 modalEl.addEventListener('show.bs.modal', () => {
                     const form = document.getElementById('form-infaq-modal');
                     if (form) form.reset();
+                    if (selMetode) selMetode.value = '';
                     setDisabledOthers(false);
                     statusEl.textContent = '';
                     paidHint.classList.add('d-none');
@@ -169,7 +191,7 @@
 
                 try {
                     const url =
-                        `{{ route('sosial.infaq.check') }}?hp=${encodeURIComponent(hp)}&bulan=${encodeURIComponent(bulan)}`;
+                        `{{ route('kemasjidan.infaq.check') }}?hp=${encodeURIComponent(hp)}&bulan=${encodeURIComponent(bulan)}`;
                     const res = await fetch(url, {
                         headers: {
                             'Accept': 'application/json'
@@ -196,7 +218,8 @@
                     statusEl.textContent = 'Mencari data warga...';
 
                     try {
-                        const url = `{{ route('sosial.infaq.lookup') }}?hp=${encodeURIComponent(hp)}`;
+                        const url =
+                            `{{ route('kemasjidan.infaq.lookup') }}?hp=${encodeURIComponent(hp)}`;
                         const res = await fetch(url, {
                             headers: {
                                 'Accept': 'application/json'

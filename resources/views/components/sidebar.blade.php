@@ -85,7 +85,7 @@
 
         <div class="sidebar-brand text-center py-3">
             @if ($sidebarSetting?->logo_path)
-                <img src="{{ asset('storage/' . $sidebarSetting->logo_path) }}" alt="Logo" class="img-fluid mb-2"
+                <img src="{{ url('storage/' . $sidebarSetting->logo_path) }}" alt="Logo" class="img-fluid mb-2"
                     style="height: 75px;">
             @endif
             <div>
@@ -139,6 +139,15 @@
                     <a class="sidebar-link" href="{{ route('manajer.index') }}">
                         <i class="align-middle" data-feather="sliders"></i>
                         <span class="align-middle">Dashboard Manajer</span>
+                    </a>
+                </li>
+                {{-- MENU BARU: APPROVAL DANA --}}
+                <li class="sidebar-item {{ request()->routeIs('pengajuan.*') ? 'active' : '' }}" id="menu-approval-dana">
+                    <a class="sidebar-link" href="{{ route('pengajuan.index') }}">
+                        <i class="align-middle" data-feather="check-square"></i>
+                        <span class="align-middle">Approval Dana</span>
+                        {{-- Badge Notifikasi --}}
+                        <span class="sidebar-badge badge bg-danger" id="approval-badge" style="display:none;">0</span>
                     </a>
                 </li>
             @endrole
@@ -195,6 +204,15 @@
                         <span class="align-middle">Hutang Perantara</span>
                     </a>
                 </li>
+                <li class="sidebar-header">Manajemen Anggaran & Pencairan Dana</li>
+                <li class="sidebar-item {{ request()->routeIs('pengajuan.*') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('pengajuan.index') }}">
+                        <i class="align-middle" data-feather="dollar-sign"></i>
+                        <span class="align-middle"> Pencairan Dana</span>
+                        {{-- Badge Notifikasi --}}
+                        <span class="sidebar-badge badge bg-danger" id="approval-badge" style="display:none;">0</span>
+                    </a>
+                </li>
                 <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
@@ -202,7 +220,7 @@
                         <span class="align-middle">Keuangan Yayasan</span>
                     </a>
                     <ul id="laporanKeuangan"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo-bendahara','laporan.aktivitas') ? 'show' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo-bendahara', 'laporan.aktivitas') ? 'show' : '' }}">
                         {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
                                 <i class="align-middle ms-3" data-feather="trending-up"></i>
@@ -284,6 +302,15 @@
                         <span class="align-middle">Hutang Perantara</span>
                     </a>
                 </li>
+                <li class="sidebar-header">Manajemen Anggaran & Pencairan Dana</li>
+                <li class="sidebar-item {{ request()->routeIs('pengajuan.*') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('pengajuan.index') }}">
+                        <i class="align-middle" data-feather="file-plus"></i>
+                        <span class="align-middle"> Pengajuan Dana</span>
+                        {{-- Opsional: Badge notifikasi jika ada yang perlu diapprove --}}
+                        {{-- <span class="sidebar-badge badge bg-danger">!</span> --}}
+                    </a>
+                </li>
                 <li class="sidebar-header">Pelaporan</li>
                 <li class="sidebar-item">
                     <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
@@ -291,7 +318,7 @@
                         <span class="align-middle">Keuangan Bidang</span>
                     </a>
                     <ul id="laporanKeuangan"
-                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo','laporan.aktivitas') ? 'show' : '' }}">
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo', 'laporan.aktivitas') ? 'show' : '' }}">
                         {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
                                 <i class="align-middle ms-3" data-feather="trending-up"></i>
@@ -359,12 +386,27 @@
                             <span class="align-middle">Buat Tagihan Murid</span>
                         </a>
                     </li>
-                @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
+                @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Kemasjidan')
+                    <li class="sidebar-header">Database Warga & Jamaah</li>
+                    <li class="sidebar-item {{ request()->routeIs('kemasjidan.warga.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('kemasjidan.warga.index') }}">
+                            <i class="align-middle" data-feather="users"></i>
+                            <span class="align-middle">Data Warga & Jamaah</span>
+                        </a>
+                    </li>
                     <li class="sidebar-header">Manajemen Infaq Jamaah</li>
-                    <li class="sidebar-item {{ request()->routeIs('sosial.infaq.index') ? 'active' : '' }}">
-                        <a class="sidebar-link" href="{{ route('sosial.infaq.index') }}">
+                    <li class="sidebar-item {{ request()->routeIs('kemasjidan.infaq.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('kemasjidan.infaq.index') }}">
                             <i class="align-middle" data-feather="archive"></i>
                             <span class="align-middle">Data Infaq Bulanan</span>
+                        </a>
+                    </li>
+                @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
+                    <li class="sidebar-header">Manajemen Infaq Bulanan</li>
+                    <li class="sidebar-item {{ request()->routeIs('sosial.iuran.index') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('sosial.iuran.index') }}">
+                            <i class="align-middle" data-feather="archive"></i>
+                            <span class="align-middle">Data Infaq Sinoman</span>
                         </a>
                     </li>
                 @endif
