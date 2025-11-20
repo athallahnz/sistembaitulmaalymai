@@ -63,6 +63,16 @@ class LoginController extends Controller
 
     public function login(Request $request)
     {
+        // ✅ Validasi khusus jika nomor kosong → SweetAlert
+        if (!$request->filled('nomor')) {
+            session()->flash('swal', [
+                'icon' => 'warning',
+                'title' => 'Nomor kosong!',
+                'text' => 'Masukkan nomor terlebih dahulu.',
+            ]);
+            return redirect()->back()->withInput();
+        }
+
         $validator = Validator::make($request->all(), [
             'nomor' => ['required', 'string', 'max:15'],
             'pin' => ['required', 'string', 'min:6', 'max:6'],
@@ -88,15 +98,15 @@ class LoginController extends Controller
         if ($user && Hash::check($request->pin, $user->pin)) {
             Auth::login($user, true);
 
-            // ✅ Tambahkan update status login dan aktivitas di sini
+            // ⏱ Update status login
             $user->update([
                 'last_login_at' => now(),
-                'last_activity_at' => Carbon::now(),
+                'last_activity_at' => now(),
                 'is_active' => true,
             ]);
 
-            session()->forget(['step', 'nomor']); // Hapus sesi setelah login
-            session()->flash('login success', 'Selamat datang, ' . $user->name . '.');
+            session()->forget(['step', 'nomor']);
+            session()->flash('login_success', 'Selamat datang, ' . $user->name . '.');
 
             switch ($user->role) {
                 case 'Admin':

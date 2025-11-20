@@ -75,7 +75,7 @@
                     <i class="align-middle" data-feather="settings"></i>
                 </a>
                 <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-                    <img src="{{ auth()->user()->foto ? asset('storage/' . auth()->user()->foto) : asset('default.jpg') }}"
+                    <img src="{{ auth()->user()->foto ? url('storage/' . auth()->user()->foto) : asset('default.jpg') }}"
                         class="avatar rounded me-1" style="object-fit: cover;" alt="User Avatar" />
                     <span class="text-dark">{{ Auth::user()->name }}</span>
                 </a>
@@ -83,53 +83,54 @@
                     <a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="align-middle me-1"
                             data-feather="user"></i>
                         Profile</a>
-                        @role('Admin')
+                    @role('Admin')
                         <a class="dropdown-item" href="{{ route('admin.index') }}"><i class="align-middle me-1"
                                 data-feather="pie-chart"></i>
                             Analytics</a>
-                        @endrole
-                        @role('Ketua Yayasan')
+                    @endrole
+                    @role('Ketua Yayasan')
                         <a class="dropdown-item" href="{{ route('ketua.index') }}"><i class="align-middle me-1"
                                 data-feather="pie-chart"></i>
                             Analytics</a>
-                        @endrole
-                        @role('Manajer Keuangan')
+                    @endrole
+                    @role('Manajer Keuangan')
                         <a class="dropdown-item" href="{{ route('manajer.index') }}"><i class="align-middle me-1"
                                 data-feather="pie-chart"></i>
                             Analytics</a>
-                        @endrole
-                        @role('Bendahara')
+                    @endrole
+                    @role('Bendahara')
                         <a class="dropdown-item" href="{{ route('bendahara.index') }}"><i class="align-middle me-1"
                                 data-feather="pie-chart"></i>
                             Analytics</a>
-                        @endrole
-                        @role('Bidang')
+                    @endrole
+                    @role('Bidang')
                         <a class="dropdown-item" href="{{ route('bidang.index') }}"><i class="align-middle me-1"
                                 data-feather="pie-chart"></i>
                             Analytics</a>
-                        @endrole
-                        <div class="dropdown-divider"></div>
-                        @role('Admin')
-                            <a class="dropdown-item" href="{{ route('admin.sidebar_setting.edit') }}">
-                                <i class="align-middle me-1" data-feather="settings"></i> Settings
-                            </a>
-                        @endrole
-                        <a class="dropdown-item" href="#"><i class="align-middle me-1" data-feather="help-circle"></i>
-                            Help Center</a>
-                        <div class="dropdown-divider"></div>
-                        <form action="{{ route('logout') }}" onclick="logoutClear()" method="POST" id="logout-form">
-                            @csrf
-                            <button type="submit" class="dropdown-item" style="border: none; background: none;">
-                                <i class="align-middle me-1" data-feather="log-out"></i> Log Out
-                            </button>
-                        </form>
-                        <script>
-                            function logoutClear() {
-                                localStorage.removeItem('savedNumber'); // Hapus nomor sebelum logout
-                            }
-                        </script>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </nav>
+                    @endrole
+                    <div class="dropdown-divider"></div>
+                    @role('Admin')
+                        <a class="dropdown-item" href="{{ route('admin.sidebar_setting.edit') }}">
+                            <i class="align-middle me-1" data-feather="settings"></i> Settings
+                        </a>
+                    @endrole
+                    <a class="dropdown-item" href="#"><i class="align-middle me-1"
+                            data-feather="help-circle"></i>
+                        Help Center</a>
+                    <div class="dropdown-divider"></div>
+                    <form action="{{ route('logout') }}" onclick="logoutClear()" method="POST" id="logout-form">
+                        @csrf
+                        <button type="submit" class="dropdown-item" style="border: none; background: none;">
+                            <i class="align-middle me-1" data-feather="log-out"></i> Log Out
+                        </button>
+                    </form>
+                    <script>
+                        function logoutClear() {
+                            localStorage.removeItem('savedNumber'); // Hapus nomor sebelum logout
+                        }
+                    </script>
+                </div>
+            </li>
+        </ul>
+    </div>
+</nav>

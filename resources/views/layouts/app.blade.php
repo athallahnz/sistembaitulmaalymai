@@ -118,11 +118,12 @@
             Swal.fire({
                 icon: 'success',
                 title: 'Berhasil!',
-                text: "{{ session('success') }}",
+                html: `{!! session('success') !!}`,
                 confirmButtonColor: '#28a745',
             });
         </script>
     @endif
+
     @if (session('error'))
         <script>
             Swal.fire({
@@ -136,3 +137,35 @@
 </body>
 
 </html>
+<script>
+    $(document).ready(function() {
+        const approvalBadge = $('#approval-badge');
+
+        function fetchApprovalCount() {
+            $.ajax({
+                url: "{{ route('pengajuan.api.approval.count') }}",
+                method: 'GET',
+                success: function(response) {
+                    const count = response.count;
+
+                    if (count > 0) {
+                        approvalBadge.text(count);
+                        approvalBadge.show(); // Tampilkan badge
+                    } else {
+                        approvalBadge.hide(); // Sembunyikan jika nol
+                    }
+                },
+                error: function(xhr) {
+                    console.error("Gagal mengambil jumlah approval.", xhr.status);
+                    approvalBadge.hide();
+                }
+            });
+        }
+
+        // Panggil fungsi saat halaman dimuat
+        fetchApprovalCount();
+
+        // Opsional: Panggil fungsi secara berkala (misal, setiap 60 detik)
+        setInterval(fetchApprovalCount, 60000);
+    });
+</script>

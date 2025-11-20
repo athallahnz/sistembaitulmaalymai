@@ -40,7 +40,9 @@
         }
 
         body {
-            background: url("{{ $sidebarSetting?->background_login ? asset('storage/' . $sidebarSetting->background_login) : asset('img/photos/img-background-login.webp') }}") no-repeat center center fixed;
+            background: url("{{ $sidebarSetting?->background_login
+                ? url('storage/' . $sidebarSetting->background_login)
+                : asset('img/photos/img-background-login.webp') }}") no-repeat center center fixed;
             background-size: cover;
         }
 
@@ -179,7 +181,7 @@
                                             @csrf
                                             <div class="text-center mb-4">
                                                 @if ($sidebarSetting?->logo_path)
-                                                    <img src="{{ asset('storage/' . $sidebarSetting->logo_path) }}"
+                                                    <img src="{{ url('storage/' . $sidebarSetting->logo_path) }}"
                                                         alt="Logo" class="img-fluid mb-3" style="max-height: 90px;">
                                                 @endif
 
@@ -191,7 +193,7 @@
                                             <div class="mb-3">
                                                 <input type="tel" class="form-control" name="nomor" id="nomor"
                                                     placeholder="Masukkan Nomor Handphone" value="{{ old('nomor') }}"
-                                                    required>
+                                                    autofocus>
                                             </div>
                                             <button type="submit" class="btn btn-primary w-100 py-2 fs-6">
                                                 Lanjut <i class="bi bi-arrow-right-circle ms-1"></i>
@@ -228,7 +230,20 @@
             </div>
         </div>
     </main>
-
+    @if (session('swal'))
+        <script>
+            Swal.fire({
+                icon: "{{ session('swal.icon') }}",
+                title: "{{ session('swal.title') }}",
+                text: "{{ session('swal.text') }}",
+                allowOutsideClick: false,
+                confirmButtonColor: '#622200', // warna brand brown
+            }).then(() => {
+                // Auto fokus ke input nomor setelah alert ditutup
+                document.getElementById('nomor').focus();
+            });
+        </script>
+    @endif
     <!-- JavaScript -->
     <script src="{{ asset('js/app.js') }}"></script>
     <script>
@@ -247,23 +262,47 @@
                 }
             });
         }
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Handle input nomor hanya jika inputnya ada di halaman
+            // =======================
+            // FORM NOMOR (STEP NOMOR)
+            // =======================
             const nomorInput = document.getElementById('nomor');
+
             if (nomorInput) {
-                // Isi nomor dari localStorage
+                const formNomor = nomorInput.closest('form');
+
+                // 🔐 Validasi kosong pakai SweetAlert
+                formNomor.addEventListener('submit', function(e) {
+                    const nomor = nomorInput.value.trim();
+
+                    if (nomor === '') {
+                        e.preventDefault(); // cegah submit
+                        Swal.fire({
+                            icon: "warning",
+                            title: "Nomor kosong!",
+                            text: "Masukkan nomor terlebih dahulu.",
+                            confirmButtonColor: '#622200',
+                        }).then(() => {
+                            nomorInput.focus();
+                        });
+                    }
+                });
+
+                // 💾 Simpan ke localStorage
                 let savedNumber = localStorage.getItem('savedNumber');
                 if (savedNumber) {
                     nomorInput.value = savedNumber;
                 }
 
-                // Simpan ke localStorage setiap perubahan
                 nomorInput.addEventListener('input', function() {
                     localStorage.setItem('savedNumber', this.value);
                 });
             }
 
-            // Logika PIN
+            // =======================
+            // LOGIKA PIN (STEP PIN)
+            // =======================
             let pin = '';
 
             window.appendPin = function(num) {
@@ -282,7 +321,7 @@
                 const pinInput = document.getElementById('pin');
                 const submitBtn = document.getElementById('submitBtn');
 
-                if (!pinInput || !submitBtn) return; // jika tidak ada elemen, skip
+                if (!pinInput || !submitBtn) return; // kalau bukan halaman PIN, skip
 
                 pinInput.value = pin;
 
@@ -300,7 +339,6 @@
             }
         });
     </script>
-
 </body>
 
 </html>

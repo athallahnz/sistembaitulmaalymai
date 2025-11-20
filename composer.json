@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.8",
         "laravel/ui": "^4.6",
         "maatwebsite/excel": "^3.1",
+        "phpoffice/phpspreadsheet": "^1.30",
         "simplesoftwareio/simple-qrcode": "4.2",
         "spatie/laravel-permission": "^6.10",
         "yajra/laravel-datatables": "10.0",

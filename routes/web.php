@@ -4,6 +4,8 @@ use App\Models\EduPayment;
 use App\Models\TagihanSpp;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Public\LandingPageController;
 use App\Http\Controllers\HomeController;
@@ -18,18 +20,21 @@ use App\Http\Controllers\BidangController;
 use App\Http\Controllers\KetuaController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LedgerController;
-use App\Http\Controllers\Laporan\LaporanController;
-use App\Http\Controllers\Laporan\LaporanKeuanganController;
 use App\Http\Controllers\PiutangController;
 use App\Http\Controllers\HutangController;
+use App\Http\Controllers\PengajuanDanaController;
+use App\Http\Controllers\Laporan\LaporanController;
+use App\Http\Controllers\Laporan\LaporanKeuanganController;
 use App\Http\Controllers\Pendidikan\EduPaymentController;
 use App\Http\Controllers\Pendidikan\EduClassController;
 use App\Http\Controllers\Pendidikan\StudentController;
 use App\Http\Controllers\Pendidikan\StudentCostController;
 use App\Http\Controllers\Pendidikan\TagihanSppController;
 use App\Http\Controllers\Pendidikan\WaliMuridController;
-use App\Http\Controllers\Sosial\SosialController;
-use App\Http\Controllers\Sosial\TrackingInfaqController;
+use App\Http\Controllers\Kemasjidan\KemasjidanController;
+use App\Http\Controllers\Kemasjidan\TrackingInfaqController;
+use App\Http\Controllers\Sosial\IuranBulananController;
+use App\Http\Controllers\WargaController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -42,6 +47,20 @@ use Maatwebsite\Excel\Facades\Excel;
 
 // Autentikasi Routes (Login & Logout)
 Auth::routes();
+
+Route::get('/storage/{path}', function ($path) {
+    $fullPath = storage_path('app/public/' . $path);
+
+    if (!File::exists($fullPath)) {
+        abort(404);
+    }
+
+    $mimeType = File::mimeType($fullPath);
+
+    return Response::file($fullPath, [
+        'Content-Type' => $mimeType,
+    ]);
+})->where('path', '.*');
 
 // Route untuk welcome page
 Route::get('/', function () {
@@ -134,6 +153,8 @@ Route::middleware(['role:Bendahara'])->group(function () {
     Route::get('/bendahara/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldoBendahara'])->name('laporan.neraca-saldo-bendahara');
     Route::get('/bendahara/detail', [BendaharaController::class, 'showDetailBendahara'])->name('bendahara.detail');
     Route::get('/bendahara/detail/data', [BendaharaController::class, 'getDetailDataBendahara'])->name('bendahara.detail.data');
+    // NEW AJAX ROUTE: Ambil Saldo Akun berdasarkan ID
+    Route::get('api/get-saldo/{akunId}', [PengajuanDanaController::class, 'getSaldoAkun'])->name('api.get-saldo');
 });
 
 // Bidang routes
@@ -237,29 +258,91 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
 
     Route::resource('wali-murids', WaliMuridController::class)->only(['index', 'show']);
 
-    Route::prefix('bidang/sosial/infaq')->name('sosial.infaq.')->group(function () {
-        Route::get('/', [SosialController::class, 'index'])->name('index');            // dashboard (modal create)
-        Route::get('/create', [SosialController::class, 'create'])->name('create');    // optional (kalau mau halaman terpisah)
-        Route::get('/lookup', [SosialController::class, 'lookupWarga'])->name('lookup');
-        Route::get('/check', [SosialController::class, 'checkPaid'])->name('check');
-        Route::post('/store', [SosialController::class, 'store'])->name('store');
-        Route::get('/detail/{id}', [SosialController::class, 'show'])->name('detail');
-        Route::put('/update/{id}', [SosialController::class, 'update'])->name('update'); // <— dipakai form di atas
-        Route::get('/receipt/{warga}/{bulan}', [SosialController::class, 'receipt'])->name('receipt'); // cetak
-        Route::get('/receipt/{warga}/{bulan}/open-wa', [SosialController::class, 'openWhatsappLink'])
+    Route::prefix('bidang/kemasjidan/infaq')->name('kemasjidan.infaq.')->group(function () {
+        Route::get('/', [KemasjidanController::class, 'index'])->name('index');            // dashboard (modal create)
+        Route::get('/create', [KemasjidanController::class, 'create'])->name('create');    // optional (kalau mau halaman terpisah)
+        Route::get('/lookup', [KemasjidanController::class, 'lookupWarga'])->name('lookup');
+        Route::get('/check', [KemasjidanController::class, 'checkPaid'])->name('check');
+        Route::post('/store', [KemasjidanController::class, 'store'])->name('store');
+        Route::get('/detail/{id}', [KemasjidanController::class, 'show'])->name('detail');
+        Route::put('/update/{id}', [KemasjidanController::class, 'update'])->name('update'); // <— dipakai form di atas
+        Route::get('/receipt/{warga}/{bulan}', [KemasjidanController::class, 'receipt'])->name('receipt'); // cetak
+        Route::get('/receipt/{warga}/{bulan}/open-wa', [KemasjidanController::class, 'openWhatsappLink'])
             ->name('open-wa');
-
-        // halaman verifikasi kwitansi (bisa public jika mau, pindahkan keluar middleware auth)
-        Route::get('/verify/{warga}/{bulan}/{year}', [SosialController::class, 'verifyReceipt'])
+        Route::get('/verify/{warga}/{bulan}/{year}', [KemasjidanController::class, 'verifyReceipt'])
             ->name('verify');
+        Route::get('/datatable', [KemasjidanController::class, 'datatable'])
+            ->name('datatable');
+    });
+
+    Route::resource('wargas', WargaController::class)->except(['show']);
+    Route::prefix('bidang/kemasjidan/warga')->name('kemasjidan.warga.')->group(function () {
+        Route::get('/', [WargaController::class, 'index'])->name('index');
+        Route::get('/data', [WargaController::class, 'data'])->name('data');
+        Route::post('/import/preview', [WargaController::class, 'importPreview'])->name('import.preview');
+        Route::post('/import/commit', [WargaController::class, 'importCommit'])->name('import.commit');
+        // API: ambil anggota keluarga (JSON)
+        Route::get('/{warga}/anggota', [WargaController::class, 'getAnggota'])
+            ->name('anggota');
+
+        // Tandai kepala keluarga meninggal + alihkan kepala
+        Route::post('/{warga}/meninggal', [WargaController::class, 'markAsDeceased'])
+            ->name('meninggal');
+    });
+
+
+    Route::prefix('bidang/sosial/iuran')->name('sosial.iuran.')->group(function () {
+        // yang TIDAK pakai parameter dulu
+        Route::get('/', [IuranBulananController::class, 'index'])->name('index');
+        Route::post('/', [IuranBulananController::class, 'store'])->name('store');
+
+        // AJAX / util routes (spesifik)
+        Route::get('/datatable', [IuranBulananController::class, 'datatable'])->name('datatable');
+        Route::get('/anggota/{kk}', [IuranBulananController::class, 'anggota'])
+            ->name('anggota')
+            ->whereNumber('kk');
+        Route::post('/check-paid', [IuranBulananController::class, 'checkPaid'])->name('checkPaid');
+
+        // baru yang pakai wildcard di paling bawah
+        Route::get('/{warga}', [IuranBulananController::class, 'show'])
+            ->name('show')
+            ->whereNumber('warga');
+
+        Route::put('/{warga}', [IuranBulananController::class, 'update'])
+            ->name('update')
+            ->whereNumber('warga');
+    });
+
+    Route::prefix('bidang/pengajuan')->name('pengajuan.')->group(function () {
+        // List Data
+        Route::get('/', [PengajuanDanaController::class, 'index'])->name('index');
+
+        // Create Data
+        Route::get('/create', [PengajuanDanaController::class, 'create'])->name('create');
+        Route::post('/store', [PengajuanDanaController::class, 'store'])->name('store');
+
+        // Detail Data
+        Route::get('/{id}', [PengajuanDanaController::class, 'show'])->name('show');
+
+        // Actions (Approval & Pencairan)
+        Route::post('/{id}/approve', [PengajuanDanaController::class, 'approve'])->name('approve');
+        Route::get('api/approval-count', [PengajuanDanaController::class, 'getApprovalCount'])->name('api.approval.count');
+        Route::post('/{id}/reject', [PengajuanDanaController::class, 'reject'])->name('reject');
+        Route::post('/{id}/cairkan', [PengajuanDanaController::class, 'cairkan'])->name('cairkan');
+
+        // Edit & Update Data
+        Route::get('{id}/edit', [PengajuanDanaController::class, 'edit'])->name('edit');
+        Route::put('{id}', [PengajuanDanaController::class, 'update'])->name('update');
+        Route::get('pengajuan-json/{id}', [PengajuanDanaController::class, 'getPengajuanJson'])->name('json');
+        Route::get('{id}/export-pdf', [PengajuanDanaController::class, 'exportPdf'])->name('export.pdf');
     });
 });
 
 // // ========== ROUTE PUBLIK (untuk WARGA) ==========
-Route::prefix('warga-infaq')->name('warga.')->group(function () {
+Route::prefix('tracking-infaq')->name('warga.')->group(function () {
     // halaman & aksi login khusus warga infaq
-    Route::get('/masuk', [TrackingInfaqController::class, 'showLogin'])->name('login.form');
-    Route::post('/masuk', [TrackingInfaqController::class, 'login'])->name('login');
+    Route::get('/login', [TrackingInfaqController::class, 'showLogin'])->name('login.form');
+    Route::post('/login', [TrackingInfaqController::class, 'login'])->name('login');
 
     // logout
     Route::post('/keluar', [TrackingInfaqController::class, 'logout'])->name('logout');

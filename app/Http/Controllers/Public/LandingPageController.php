@@ -17,6 +17,34 @@ class LandingPageController extends Controller
     /**
      * Landing page
      */
+    protected function getLastSaldoBySaldoColumn(
+        int $akunId,
+        string $userRole,
+        $bidangValue,
+        ?string $tanggalCutoff = null
+    ): float {
+        if (!$akunId)
+            return 0.0;
+
+        $q = Transaksi::where('akun_keuangan_id', $akunId);
+
+        if ($tanggalCutoff) {
+            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
+            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
+        }
+
+        if ($userRole !== 'Bendahara') {
+            $q->where(function ($w) use ($bidangValue) {
+                $w->where('bidang_name', $bidangValue)
+                    ->orWhereNull('bidang_name');
+            });
+        }
+
+        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('saldo') ?? 0.0);
+    }
+
     public function index(Request $request)
     {
         // 1️⃣ Ambil nama kota dari query string, default: Surabaya
@@ -51,18 +79,44 @@ class LandingPageController extends Controller
         $prefix = 'SJD-';
         $bidang = 1; // Kemasjidan
 
-        // Base filter: bidang=1, kode 'SJD-%', bukan '-LAWAN'
+        // Akun internal Bendahara & Kemasjidan
+        $rekeningInternal = [
+            1011, // Kas Bendahara
+            1021, // Bank Bendahara
+            1012, // Kas Kemasjidan
+            1022, // Bank Kemasjidan
+        ];
+
+        // Akun Kemasjidan (untuk hitung saldo)
+        $akunKas = 1012;
+        $akunBank = 1022;
+
+        /* ======================================================================
+        BASE FILTER: TAMPILKAN HANYA TRANSAKSI REAL (bukan transfer antar kantong)
+        ====================================================================== */
         $baseFilter = Transaksi::where('bidang_name', $bidang)
             ->where('kode_transaksi', 'like', $prefix . '%')
-            ->where('kode_transaksi', 'not like', '%-LAWAN');
+            ->where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereIn('type', ['penerimaan', 'pengeluaran'])
+            ->where(function ($q) use ($rekeningInternal) {
+                $q->whereNull('parent_akun_id')
+                    ->orWhereNot(function ($qq) use ($rekeningInternal) {
+                        $qq->whereIn('akun_keuangan_id', $rekeningInternal)
+                            ->whereIn('parent_akun_id', $rekeningInternal);
+                    });
+            });
 
-        // 10 transaksi terakhir (penerimaan/pengeluaran)
+        /* ======================================================================
+        10 TRANSAKSI TERBARU (bukan transfer)
+        ====================================================================== */
         $latestTransaksi = (clone $baseFilter)
+            ->with(['parentAkunKeuangan:id,nama_akun']) // <= load name nya
             ->orderByDesc('tanggal_transaksi')
             ->orderByDesc('id')
             ->limit(10)
             ->get([
                 'tanggal_transaksi',
+                'parent_akun_id',
                 'deskripsi',
                 'type',
                 'amount',
@@ -70,16 +124,14 @@ class LandingPageController extends Controller
                 'updated_at',
             ]);
 
-        // Saldo (penerimaan - pengeluaran), ala referensimu tapi tanpa akun_keuangan_id & exclude LAWAN
-        $totalSaldo = (clone $baseFilter)
-            ->selectRaw("
-            COALESCE(SUM(CASE
-                WHEN type = 'penerimaan' THEN amount
-                WHEN type = 'pengeluaran' THEN -amount
-                ELSE 0
-            END), 0) AS saldo_akhir
-        ")
-            ->value('saldo_akhir') ?? 0;
+        /* ======================================================================
+        SALDO MENGGUNAKAN FUNGSIMU
+        ====================================================================== */
+        $saldoKasKemasjidan = $this->getLastSaldoBySaldoColumn($akunKas, 'Bidang', $bidang, null);
+        $saldoBankKemasjidan = $this->getLastSaldoBySaldoColumn($akunBank, 'Bidang', $bidang, null);
+
+        $totalSaldo = $saldoKasKemasjidan + $saldoBankKemasjidan;
+
 
         // Last update: MAX(COALESCE(updated_at, created_at))
         $lastUpdate = (clone $baseFilter)

@@ -8,7 +8,7 @@ class TagihanHelper
 {
     public static function getStatusTagihan(int $studentId): array
     {
-        $tagihans = \App\Models\TagihanSpp::where('student_id', $studentId)->get();
+        $tagihans = TagihanSpp::where('student_id', $studentId)->get();
 
         if ($tagihans->isEmpty()) {
             return [

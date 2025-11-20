@@ -211,78 +211,153 @@
     </section>
 
     {{-- ================= TOTAL INFAQ / TRANSAKSI ================= --}}
-    <div id="totalinfaq" class="container-sm mt-3 bg-brown-light">
-        <div class="row align-items-stretch gy-4">
-            <!-- Kiri -->
-            <div class="col-md-6 h-100 d-flex" data-aos="fade-right" data-aos-duration="1000">
-                <div class="p-5 bg-light rounded-3 border w-100 h-100">
-                    <h4 class="fs-4 pb-4 fw-bold">10 Transaksi Terakhir (Bid. Kemasjidan)</h4>
+    <div id="totalinfaq" class="container-sm mt-4">
 
-                    {{-- ✅ Responsive wrapper --}}
-                    <div class="table-responsive">
-                        <table class="table table-striped align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Tanggal</th>
-                                    <th>Deskripsi</th>
-                                    <th>Jenis</th>
-                                    <th class="text-end">Nominal</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($latestTransaksi as $trx)
+        <div class="row g-4 align-items-stretch">
+            {{-- ==================== KIRI: 10 Transaksi Terakhir ==================== --}}
+            <div class="col-lg-7" data-aos="fade-right" data-aos-duration="1000">
+                <div class="card shadow-sm h-100 border-0">
+                    <div class="card-header border-0 d-flex justify-content-between align-items-center">
+                        <h4 class="fs-5">
+                            10 Transaksi Terakhir
+                            <strong>Bidang Kemasjidan</strong>
+                        </h4>
+                        <span class="badge rounded-pill bg-brown-light text-brown fw-semibold">
+                            Real-time
+                        </span>
+                    </div>
+
+                    <div class="card-body pt-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
                                     <tr>
-                                        <td>{{ \Carbon\Carbon::parse($trx->tanggal_transaksi)->format('d/m/Y') }}</td>
-                                        <td>{{ $trx->deskripsi }}</td>
-                                        <td>
-                                            @if ($trx->type === 'penerimaan')
-                                                <span class="badge bg-success">Penerimaan</span>
-                                            @elseif($trx->type === 'pengeluaran')
-                                                <span class="badge bg-danger">Pengeluaran</span>
-                                            @else
-                                                <span class="badge bg-secondary">{{ ucfirst($trx->type) }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-end">Rp{{ number_format($trx->amount, 0, ',', '.') }}</td>
+                                        <th style="width: 110px;">Tanggal</th>
+                                        <th style="width: 120px;">Jenis</th>
+                                        <th>POS</th>
+                                        <th class="text-end" style="width: 140px;">Nominal</th>
+                                        <th>Deskripsi</th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted">Belum ada transaksi.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div> {{-- end table-responsive --}}
+                                </thead>
+                                <tbody>
+                                    @forelse($latestTransaksi as $trx)
+                                        <tr>
+                                            <td class="text-nowrap">
+                                                {{ \Carbon\Carbon::parse($trx->tanggal_transaksi)->format('d/m/Y') }}
+                                            </td>
+
+                                            <td>
+                                                @if ($trx->type === 'penerimaan')
+                                                    <span
+                                                        class="badge bg-success text-white border border-success">
+                                                        Penerimaan
+                                                    </span>
+                                                @elseif($trx->type === 'pengeluaran')
+                                                    <span
+                                                        class="badge bg-danger text-white border border-danger">
+                                                        Pengeluaran
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-secondary text-white">
+                                                        {{ ucfirst($trx->type) }}
+                                                    </span>
+                                                @endif
+                                            </td>
+
+                                            <td class="text-nowrap">
+                                                {{ $trx->parentAkunKeuangan->nama_akun ?? '-' }}
+                                            </td>
+
+                                            <td class="text-end fw-semibold text-nowrap">
+                                                Rp{{ number_format($trx->amount, 0, ',', '.') }}
+                                            </td>
+
+                                            <td class="small">
+                                                {{ $trx->deskripsi }}
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                Belum ada transaksi yang tercatat.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Kanan -->
-            <div class="col-md-6 h-100 d-flex" data-aos="fade-left" data-aos-duration="1000">
-                <div class="p-5 bg-light rounded-3 border w-100 h-100">
-                    <h4 class="fs-4 fw-bold">Total Saldo Bidang Kemasjidan</h4>
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h2 class="m-0"><strong>Rp<span id="saldoValue"
-                                        data-target="{{ (int) $totalSaldo }}">0</span></strong></h2>
-                        </div>
+            {{-- ==================== KANAN: Total Saldo & Rekening ==================== --}}
+            <div class="col-lg-5" data-aos="fade-left" data-aos-duration="1000">
+                <div class="card shadow-sm h-100 border-0">
+                    <div class="card-header border-0 d-flex justify-content-between align-items-center">
+                        <h4 class="fs-5">
+                            Total Saldo Kas
+                            <strong>Bidang Kemasjidan</strong>
+                        </h4>
                     </div>
-                    <p class="pt-1">
-                        Last Update:
-                        {{ $lastUpdate ? \Carbon\Carbon::parse($lastUpdate)->format('d-m-Y H:i:s') : 'Belum ada data' }}
-                    </p>
 
-                    <div class="mt-4 row align-items-center">
-                        <div class="col-md-4 text-center mb-4">
-                            <img src="/img/logobsi.png" alt="Logo Bank" class="img-fluid gy-4" style="max-width:150px;">
+                    <div class="card-body">
+                        {{-- Angka saldo besar di atas --}}
+                        <div class="mb-3">
+                            <span class="text-muted d-block small mb-3">Total Saldo Saat Ini</span>
+                            <h1 class="m-0 lh-1">
+                                <strong>
+                                    Rp<span id="saldoValue" data-target="{{ (int) $totalSaldo }}">0</span>
+                                </strong>
+                            </h1>
                         </div>
-                        <div class="col-md-8">
-                            <h5 class="fs-5 fw-bold">Informasi No. Rekening</h5>
-                            <h3 class="mb-0">Bank Syariah Indonesia</h3>
-                            <h3 class="fw-bold">1040820333</h3>
-                            <p class="mb-0">A/N YYS Masjid Al Iman Sutorejo Indah</p>
+
+                        {{-- Jika nanti mau, bisa tambahkan breakdown Kas / Bank di sini --}}
+                        {{--
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="border rounded-3 p-2 small">
+                                <div class="text-muted">Kas</div>
+                                <div class="fw-semibold">
+                                    Rp{{ number_format($saldoKasKemasjidan ?? 0, 0, ',', '.') }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded-3 p-2 small">
+                                <div class="text-muted">Bank</div>
+                                <div class="fw-semibold">
+                                    Rp{{ number_format($saldoBankKemasjidan ?? 0, 0, ',', '.') }}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                    --}}
+
+                        @if ($lastUpdate)
+                            <p class="small text-muted mb-3">
+                                Last Update:
+                                {{ \Carbon\Carbon::parse($lastUpdate)->format('d-m-Y H:i:s') }}
+                            </p>
+                        @endif
+
+                        <hr class="my-3">
+
+                        {{-- Info Rekening --}}
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-4 text-center">
+                                <img src="/img/logobsi.png" alt="Logo Bank" class="img-fluid" style="max-width: 140px;">
+                            </div>
+                            <div class="col-md-8">
+                                <p class="small text-muted mb-1">Informasi No. Rekening</p>
+                                <h5 class="mb-1">Bank Syariah Indonesia</h5>
+                                <h3 class="fw-bold mb-1">1040820333</h3>
+                                <p class="mb-0 small text-muted">
+                                    A/N YYS Masjid Al Iman Sutorejo Indah
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div> {{-- end card --}}
             </div>
         </div>
     </div>
