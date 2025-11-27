@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Exports\TransaksisExpors;
-use App\Services\LaporanService;
+use App\Exports\BukuHarianExport;
+use App\Exports\TransaksisExport;
+use App\Services\LaporanKeuanganService;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
 use Carbon\Carbon;
-use App\Exports\TransaksisExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
@@ -21,101 +21,126 @@ class TransaksiController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
-
-        // Ambil transaksi berdasarkan role
-        $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
-
-        // Jika user memiliki role 'Bidang', filter berdasarkan bidang_name
-        if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $user->bidang_name);
-        }
-
-        // Ambil hasil transaksi setelah filter
-        $transaksi = $transaksiQuery->get();
-
-        // Ambil semua data akun keuangan
-        $akunKeuangan = AkunKeuangan::all();
-
-        // Ambil akun tanpa parent (parent_id = null)
-        $akunTanpaParent = DB::table('akun_keuangans')
-            ->whereNull('parent_id') // Ambil akun tanpa parent
-            ->whereNotIn('id', [101, 103, 104, 105, 201]) // Kecualikan ID tertentu
-            ->get();
-
-        // Ambil semua akun sebagai referensi untuk child dan konversi ke array
-        $akunDenganParent = DB::table('akun_keuangans')
-            ->whereNotNull('parent_id')
-            ->get()
-            ->groupBy('parent_id')
-            ->toArray();
-
+        $bidang_id = $user->bidang_name;
         $role = $user->role;
         $bidang_name = $user->bidang_name;
 
-        // Tentukan prefix berdasarkan bidang_id
+        // Ambil transaksi (untuk tabel)
+        $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
+
+        if ($role === 'Bidang') {
+            $transaksiQuery->where('bidang_name', $bidang_name);
+        }
+
+        $transaksi = $transaksiQuery->get();
+
+        // Semua akun (kalau masih dipakai di tempat lain)
+        $akunKeuangan = AkunKeuangan::all();
+
+        // 🔹 Aset Neto: Induk & Anak (untuk dropdown tujuan)
+        $akunTanpaParent = AkunKeuangan::where('tipe_akun', 'equity')
+            ->whereNull('parent_id')
+            ->orderBy('kode_akun')
+            ->get();
+
+        $akunDenganParent = AkunKeuangan::where('tipe_akun', 'equity')
+            ->whereNotNull('parent_id')
+            ->orderBy('kode_akun')
+            ->get()
+            ->groupBy('parent_id');
+
+        // 🔹 Prefix kode transaksi
         $prefix = '';
         if ($role === 'Bidang') {
             switch ($bidang_id) {
-                case 1: // Pendidikan
+                case 1:
                     $prefix = 'SJD';
-                    break;
-                case 2: // Kemasjidan
+                    break; // Pendidikan?
+                case 2:
                     $prefix = 'PND';
                     break;
-                case 3: // Sosial
+                case 3:
                     $prefix = 'SOS';
                     break;
-                case 4: // Usaha
+                case 4:
                     $prefix = 'UHA';
                     break;
-                case 5: // Pembangunan
+                case 5:
                     $prefix = 'BGN';
                     break;
             }
         } elseif ($role === 'Bendahara') {
-            $prefix = 'BDH'; // Prefix untuk Bendahara
+            $prefix = 'BDH';
         }
 
-        // Generate kode transaksi
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
+        // 🔹 Mapping Kas & Bank per role/bidang
+        $kasMap = [
+            1 => 1012,
+            2 => 1013,
+            3 => 1014,
+            4 => 1015,
+        ];
 
-        // Cek apakah pengguna adalah Bendahara
-        if ($user->role === 'Bendahara') {
-            $akun_keuangan_id = 1011; // Akun Bank untuk Bendahara
+        $bankMap = [
+            1 => 1022,
+            2 => 1023,
+            3 => 1024,
+            4 => 1025,
+        ];
 
-            $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
+        if ($role === 'Bendahara') {
+            $kasAkunId = 1011; // Kas Bendahara
+            $bankAkunId = 1021; // Bank Bendahara
         } else {
-            // Daftar akun Bank berdasarkan bidang_id
-            $akunKas = [
-                1 => 1012, // Kemasjidan
-                2 => 1013, // Pendidikan
-                3 => 1014, // Sosial
-                4 => 1015, // Usaha
-            ];
-
-            // Pastikan bidang_id yang diberikan ada dalam daftar
-            if (isset($akunKas[$bidang_id])) {
-                $akun_keuangan_id = $akunKas[$bidang_id];
-
-                $lastSaldo = Transaksi::where('akun_keuangan_id', $akun_keuangan_id)
-                    ->where('bidang_name', $bidang_name) // Gunakan bidang_id sebagai referensi
-                    ->orderBy('tanggal_transaksi', 'asc')
-                    ->get()
-                    ->last();
-            } else {
-                $lastSaldo = null; // Jika bidang_id tidak ditemukan, return null
-            }
+            $kasAkunId = $kasMap[$bidang_id] ?? null;
+            $bankAkunId = $bankMap[$bidang_id] ?? null;
         }
 
-        // Pastikan $lastSaldo adalah objek Transaksi dan mengakses saldo dengan benar
-        $saldoKas = $lastSaldo ? $lastSaldo->saldo : 0; // Jika tidak ada transaksi sebelumnya, saldo Kas dianggap 0
+        $kasAkun = $kasAkunId ? AkunKeuangan::find($kasAkunId) : null;
+        $bankAkun = $bankAkunId ? AkunKeuangan::find($bankAkunId) : null;
 
-        return view('transaksi.index', compact('transaksi', 'akunTanpaParent', 'akunDenganParent', 'bidang_name', 'akunKeuangan', 'kodeTransaksi', 'lastSaldo', 'saldoKas'));
+        // 🔹 Saldo Kas
+        $lastSaldoKas = null;
+        if ($kasAkunId) {
+            $qKas = Transaksi::where('akun_keuangan_id', $kasAkunId)
+                ->orderBy('tanggal_transaksi', 'asc');
+
+            if ($role === 'Bidang') {
+                $qKas->where('bidang_name', $bidang_name);
+            }
+
+            $lastSaldoKas = $qKas->get()->last();
+        }
+        $saldoKas = $lastSaldoKas ? $lastSaldoKas->saldo : 0;
+
+        // 🔹 Saldo Bank
+        $lastSaldoBank = null;
+        if ($bankAkunId) {
+            $qBank = Transaksi::where('akun_keuangan_id', $bankAkunId)
+                ->orderBy('tanggal_transaksi', 'asc');
+
+            if ($role === 'Bidang') {
+                $qBank->where('bidang_name', $bidang_name);
+            }
+
+            $lastSaldoBank = $qBank->get()->last();
+        }
+        $saldoBank = $lastSaldoBank ? $lastSaldoBank->saldo : 0;
+
+        return view('transaksi.index', compact(
+            'transaksi',
+            'akunTanpaParent',
+            'akunDenganParent',
+            'bidang_name',
+            'akunKeuangan',
+            'kodeTransaksi',
+            'saldoKas',
+            'saldoBank',
+            'kasAkun',
+            'bankAkun'
+        ));
     }
 
     public function create()
@@ -227,6 +252,41 @@ class TransaksiController extends Controller
             ->value('saldo') ?? 0.0);
     }
 
+    protected function getSaldoLedgerSampaiTanggal(
+        ?int $akunId,
+        string $tanggal,
+        ?int $bidangValue,
+        string $userRole
+    ): float {
+        if (!$akunId)
+            return 0.0;
+
+        // Ambil akun untuk saldo_normal
+        $akun = AkunKeuangan::find($akunId);
+        if (!$akun)
+            return 0.0;
+
+        $q = Ledger::where('akun_keuangan_id', $akunId)
+            ->whereHas('transaksi', function ($tr) use ($tanggal, $bidangValue, $userRole) {
+                $tr->whereDate('tanggal_transaksi', '<=', $tanggal);
+
+                // Bidang filter
+                if ($userRole !== 'Bendahara') {
+                    $tr->where('bidang_name', $bidangValue);
+                } else {
+                    $tr->whereNull('bidang_name');
+                }
+            });
+
+        $debit = (float) $q->sum('debit');
+        $credit = (float) $q->sum('credit');
+
+        return $akun->saldo_normal === 'debit'
+            ? ($debit - $credit)
+            : ($credit - $debit);
+    }
+
+
     /** Ambil id akun Kas default berdasar role & bidang */
     protected function getDefaultKasAkunId(string $role, ?int $bidangId): ?int
     {
@@ -294,8 +354,19 @@ class TransaksiController extends Controller
         $tipe = $validated['type']; // 'penerimaan' | 'pengeluaran'
 
         // 4) Ambil saldo sebelumnya via KOLOM `saldo` (<= cutoff)
-        $saldoSebelumnyaAkun = $this->getLastSaldoBySaldoColumn($akun_keuangan_id, $userRole, $bidangValue, $tanggal);
-        $saldoSebelumnyaLawan = $this->getLastSaldoBySaldoColumn($parent_akun_id, $userRole, $bidangValue, $tanggal);
+        $saldoSebelumnyaAkun = $this->getSaldoLedgerSampaiTanggal(
+            $akun_keuangan_id,
+            $tanggal,
+            $bidangValue,
+            $userRole
+        );
+
+        $saldoSebelumnyaLawan = $this->getSaldoLedgerSampaiTanggal(
+            $parent_akun_id,
+            $tanggal,
+            $bidangValue,
+            $userRole
+        );
 
         Log::info("Saldo akun $akun_keuangan_id sebelum:", ['saldo' => $saldoSebelumnyaAkun]);
         Log::info("Saldo akun lawan " . ($parent_akun_id ?? 'NULL') . " sebelum:", ['saldo' => $saldoSebelumnyaLawan]);
@@ -612,6 +683,65 @@ class TransaksiController extends Controller
         }
 
         return redirect()->route('transaksi.index')->with('success', 'Transaksi Kas berhasil diperbarui!');
+    }
+
+    public function storeOpeningBalance(Request $request)
+    {
+        $request->validate([
+            'tanggal_transaksi' => ['required', 'date'],
+            'kode_transaksi' => ['nullable', 'string', 'max:255'],
+            'kas_bank_akun_id' => ['required', 'exists:akun_keuangans,id'],
+            'akun_keuangan_id' => ['required', 'exists:akun_keuangans,id'], // Induk Aset Neto
+            'parent_akun_id' => ['nullable', 'exists:akun_keuangans,id'],
+            'deskripsi' => ['nullable', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        $tanggal = Carbon::parse($request->tanggal_transaksi);
+        $amount = (float) $request->amount;
+        $deskripsi = $request->deskripsi ?: 'Saldo awal per ' . $tanggal->translatedFormat('d F Y');
+
+        $kasBankId = (int) $request->kas_bank_akun_id;
+        $asetNetoId = $request->parent_akun_id ?: $request->akun_keuangan_id;
+
+        DB::transaction(function () use ($request, $tanggal, $amount, $deskripsi, $kasBankId, $asetNetoId) {
+            $kodeTransaksi = $request->filled('kode_transaksi')
+                ? $request->kode_transaksi
+                : 'OPEN-' . $tanggal->format('Y') . '-' . strtoupper(uniqid());
+
+            $transaksi = Transaksi::create([
+                'kode_transaksi' => $kodeTransaksi,
+                'tanggal_transaksi' => $tanggal->toDateString(),
+                'type' => 'penerimaan', // hanya isi kolom
+                'deskripsi' => $deskripsi,
+                'akun_keuangan_id' => $kasBankId,
+                'parent_akun_id' => $asetNetoId,
+                'bidang_name' => auth()->user()->role === 'Bidang'
+                    ? auth()->user()->bidang_name
+                    : null,
+                'sumber' => null,
+                'amount' => $amount,
+                'saldo' => 0,
+            ]);
+
+            // Debit Kas/Bank
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $kasBankId,
+                'debit' => $amount,
+                'credit' => 0,
+            ]);
+
+            // Kredit Aset Neto
+            Ledger::create([
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $asetNetoId,
+                'debit' => 0,
+                'credit' => $amount,
+            ]);
+        });
+
+        return back()->with('success', 'Saldo awal (opening balance) berhasil dicatat.');
     }
 
     public function updateBankTransaction(Request $request, $id)
@@ -977,40 +1107,49 @@ class TransaksiController extends Controller
     {
         $user = auth()->user();
 
-        // Ambil filter bidang_name dari form
-        $bidangName = $request->input('bidang_name', $user->bidang_name);
-
-        // Daftar akun yang termasuk Kas & Bank
-        $akunKasBidang = [1012, 1013, 1014, 1015];
-        $akunBendahara = 1011;
-
-        // Ambil data transaksi yang hanya terkait dengan akun Kas & Bank
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan');
-
-        // Hanya ambil transaksi dari akun yang ada dalam daftar akun kas
-        if ($user->role === 'Bendahara') {
-            // Jika user adalah Bendahara, ambil semua akun kas termasuk akun 1011
-            $transaksiQuery->whereIn('akun_keuangan_id', array_merge([$akunBendahara], $akunKasBidang));
-        } else {
-            // Jika bukan bendahara, hanya ambil akun kas bidang
-            $transaksiQuery->whereIn('akun_keuangan_id', $akunKasBidang);
-        }
-
-        // Filter berdasarkan role 'Bidang' dan bidang_name
+        $bidangName = $request->input('bidang_name');
         if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $bidangName);
+            $bidangName = $user->bidang_name;
         }
 
-        // Ambil data transaksi
-        $transaksi = $transaksiQuery->get();
+        $bulan = $request->input('bulan'); // format YYYY-MM
+        $startDate = $endDate = null;
 
-        // Debugging: Cek apakah data transaksi sudah benar
-        if ($transaksi->isEmpty()) {
-            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diekspor!');
+        if ($bulan) {
+            [$year, $month] = explode('-', $bulan);
+            $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
+            $endDate = (clone $startDate)->endOfMonth()->endOfDay();
         }
 
-        // Jika data tersedia, lanjutkan ekspor ke Excel
-        return Excel::download(new TransaksisExport($bidangName), 'Laporan_Keuangan_' . $bidangName . '.xlsx');
+        // ⬇️ Pakai scope yang sudah include:
+        //    - buang internal kas/bank
+        //    - buang kode_transaksi "-LAWAN"
+        $query = Transaksi::query()
+            ->excludeInternalKasBankAndLawan();
+
+        if ($bidangName) {
+            $query->where('bidang_name', $bidangName);
+        }
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('tanggal_transaksi', [$startDate, $endDate]);
+        }
+
+        if (!$query->exists()) {
+            return back()->with('error', 'Tidak ada transaksi sesuai filter.');
+        }
+
+        $fileName = 'Buku_Harian';
+        if ($bidangName)
+            $fileName .= '_Bidang_' . $bidangName;
+        if ($bulan)
+            $fileName .= '_' . $bulan;
+        $fileName .= '.xlsx';
+
+        return Excel::download(
+            new BukuHarianExport($bidangName, $startDate, $endDate),
+            $fileName
+        );
     }
 
 }

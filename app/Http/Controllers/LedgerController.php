@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Ledger;
 use App\Models\Transaksi;
 use App\Models\Bidang;
+use App\Models\AkunKeuangan;
 use Illuminate\Support\Facades\DB;
-use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
+use App\Services\LaporanKeuanganService;
+use Illuminate\Support\Carbon;
 
 class LedgerController extends Controller
 {
@@ -86,29 +89,38 @@ class LedgerController extends Controller
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // ==========================
-        // Hitung Saldo KAS by kolom `saldo`
+        // 🔹 Hitung Saldo KAS via LaporanKeuanganService (PSAK 45)
+        // dan dibatasi per-role
         // ==========================
-        if ($role === 'Bendahara') {
-            $akunKasId = 1011; // Kas Bendahara
-            // Bendahara => bidang NULL
-            $saldoKas = $this->getLastSaldoBySaldoColumn($akunKasId, $role, null, null);
+        $kasGroupId = 101; // parent "Kas" di CoA
+
+        if ($role === 'Bidang') {
+            // Bidang: kas bidang saja (pakai group + filter bidang_name)
+            $bidangNameForService = $bidang_name;
+
+            $saldoKasRaw = LaporanKeuanganService::getSaldoByGroup(
+                $kasGroupId,
+                $bidangNameForService
+            );
+            $saldoKas = (float) ($saldoKasRaw ?? 0);
         } else {
-            $akunKasMap = [
-                1 => 1012, // Kemasjidan
-                2 => 1013, // Pendidikan
-                3 => 1014, // Sosial
-                4 => 1015, // Usaha
-            ];
-            if (isset($akunKasMap[$bidang_id])) {
-                $akunKasId = $akunKasMap[$bidang_id];
-                // per-bidang => kirim $bidang_name
-                $saldoKas = $this->getLastSaldoBySaldoColumn($akunKasId, $role, $bidang_name, null);
+            // Bendahara: hanya Kas Bendahara (1011) dengan bidang_name NULL
+            $akunKasBendaharaId = 1011;
+            $akunKasBendahara = AkunKeuangan::find($akunKasBendaharaId);
+
+            if ($akunKasBendahara) {
+                $saldoKas = (new LaporanKeuanganService())->getSaldoAkunSampai(
+                    $akunKasBendahara,
+                    Carbon::now()
+                );
             } else {
-                $saldoKas = 0.0; // bidang tidak dikenali
+                $saldoKas = 0;
             }
         }
 
+        // ==========================
         // Ambil data ledger dengan filter bidang_name (seperti sebelumnya)
+        // ==========================
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
             ->whereHas('transaksi', function ($query) use ($bidang_name, $role) {
                 if ($role === 'Bendahara') {

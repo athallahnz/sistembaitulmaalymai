@@ -20,7 +20,7 @@ class UpdateUserLastActivity
         $user = $event->user;
 
         // Menambahkan log untuk memastikan event dipicu dengan benar
-        \Log::info('User Logged In: ' . $user->name);
+        Log::info('User Logged In: ' . ($user->name ?? 'Unknown'));
 
         // Perbarui last_activity_at dan last_login_at
         $updated = $user->update([
@@ -29,11 +29,11 @@ class UpdateUserLastActivity
         ]);
 
         // Log untuk memeriksa apakah update berhasil
-        \Log::info('User Last Activity and Last Login Updated: ' . ($updated ? 'Success' : 'Failed'));
+        Log::info('User Last Activity and Last Login Updated: ' . ($updated ? 'Success' : 'Failed'));
 
         // Jika update gagal, tampilkan alasan kenapa
         if (!$updated) {
-            \Log::error('Failed to update user activity data.');
+            Log::error('Failed to update user activity data.');
         }
     }
 }

@@ -168,24 +168,37 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/piutangs/data', [PiutangController::class, 'getData'])->name('piutangs.data');
     Route::get('/hutangs/data', [HutangController::class, 'getData'])->name('hutangs.data');
 
-    Route::get('/bidang/laporan/arus-kas', [LaporanKeuanganController::class, 'arusKas'])->name('laporan.arus-kas');
-    Route::get('/bidang/laporan/arus-kas/pdf', [LaporanKeuanganController::class, 'exportArusKasPDF'])->name('laporan.arus-kas.pdf');
-    Route::get('/bidang/laporan/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])->name('laporan.posisi-keuangan');
-    Route::get('/bidang/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
-    Route::get('/bidang/laporan/aktivitas', [LaporanKeuanganController::class, 'aktivitas'])->name('laporan.aktivitas');
+    Route::prefix('bidang/laporan')->name('laporan.')->group(function () {
 
-    Route::prefix('laporan')->name('laporan.')->group(function () {
-        // halaman utama (sudah ada):
-        // Route::get('/neraca', [LaporanKeuanganController::class, 'neracaSaldo'])->name('neraca-saldo');
-        // Route::get('/aktivitas', [LaporanKeuanganController::class, 'laporanAktivitas'])->name('aktivitas');
+        // ===== ARUS KAS =====
+        Route::get('/arus-kas', [LaporanKeuanganController::class, 'arusKas'])
+            ->name('arus-kas');
 
-        // export neraca
-        Route::get('/neraca/export/excel', [LaporanKeuanganController::class, 'exportNeracaExcel'])->name('neraca.export.excel');
-        Route::get('/neraca/export/pdf', [LaporanKeuanganController::class, 'exportNeracaPdf'])->name('neraca.export.pdf');
+        Route::get('/arus-kas/export/pdf', [LaporanKeuanganController::class, 'exportArusKasPdf'])
+            ->name('arus-kas.export.pdf');
 
-        // export aktivitas
-        Route::get('/aktivitas/export/excel', [LaporanKeuanganController::class, 'exportAktivitasExcel'])->name('aktivitas.export.excel');
-        Route::get('/aktivitas/export/pdf', [LaporanKeuanganController::class, 'exportAktivitasPdf'])->name('aktivitas.export.pdf');
+        Route::get('/arus-kas/export/excel', [LaporanKeuanganController::class, 'exportArusKasExcel'])
+            ->name('arus-kas.export.excel');
+
+        // ===== POSISI KEUANGAN (Neraca PSAK 45) =====
+        Route::get('/posisi-keuangan', [LaporanKeuanganController::class, 'posisiKeuangan'])
+            ->name('posisi-keuangan');
+
+        Route::get('/posisi-keuangan/export/pdf', [LaporanKeuanganController::class, 'exportPosisiKeuanganPdf'])
+            ->name('posisi-keuangan.export.pdf');
+
+        Route::get('/posisi-keuangan/export/excel', [LaporanKeuanganController::class, 'exportPosisiKeuanganExcel'])
+            ->name('posisi-keuangan.export.excel');
+
+        // ===== AKTIVITAS =====
+        Route::get('/aktivitas', [LaporanKeuanganController::class, 'aktivitas'])
+            ->name('aktivitas');
+
+        Route::get('/aktivitas/export/pdf', [LaporanKeuanganController::class, 'exportAktivitasPdf'])
+            ->name('aktivitas.export.pdf');
+
+        Route::get('/aktivitas/export/excel', [LaporanKeuanganController::class, 'exportAktivitasExcel'])
+            ->name('aktivitas.export.excel');
     });
 
     // Route untuk transaksi
@@ -201,14 +214,18 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::put('{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBank'); // Update bank transaction
         Route::delete('{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
 
+        // Route untuk menyimpan Opening Balance
+        Route::post('/transaksi/opening-balance', [TransaksiController::class, 'storeOpeningBalance'])
+            ->name('transaksi.opening-balance.store');
+
         // Route untuk Cetak Pdf
         Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf'); // Export single transaction PDF
         Route::get('export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf'); // Export all transactions PDF
         Route::get('export-excel', [TransaksiController::class, 'exportExcel'])->name('transaksi.exportExcel'); // Export all transactions Excel
 
         // Route untuk ledger
-        Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index'); // Ledger index
-        Route::get('/ledger/data', [LedgerController::class, 'getData'])->name('ledger.data'); // Ledger data
+        Route::get('/kas', [LedgerController::class, 'index'])->name('ledger.index'); // Ledger index
+        Route::get('/kas/data', [LedgerController::class, 'getData'])->name('ledger.data'); // Ledger data
 
         // Route untuk laporan bank
         Route::get('/bank', [LaporanController::class, 'index'])->name('laporan.bank'); // Bank report index

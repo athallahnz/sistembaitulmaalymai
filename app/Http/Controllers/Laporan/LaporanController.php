@@ -6,12 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 use App\Http\Controllers\Controller;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
 use App\Models\Bidang;
-use App\Services\LaporanService;
+use App\Services\LaporanKeuanganService;
 use Yajra\DataTables\Facades\DataTables;
 
 
@@ -58,33 +59,7 @@ class LaporanController extends Controller
         $bidang_id = $user->bidang_name;
 
         // ==========================
-        // Tentukan akun BANK sesuai role
-        // ==========================
-        if ($role === 'Bendahara') {
-            $akunBankId = 1021; // Bank Bendahara
-            // saldo by kolom `saldo`, konteks Bendahara => bidang NULL
-            $saldoBank = $this->getLastSaldoBySaldoColumn($akunBankId, $role, null, null);
-        } else {
-            $akunBank = [
-                1 => 1022, // Kemasjidan
-                2 => 1023, // Pendidikan
-                3 => 1024, // Sosial
-                4 => 1025, // Usaha
-            ];
-            if (isset($akunBank[$bidang_id])) {
-                $akunBankId = $akunBank[$bidang_id];
-                // saldo by kolom `saldo`, per-bidang => kirim $bidang_name
-                $saldoBank = $this->getLastSaldoBySaldoColumn($akunBankId, $role, $bidang_name, null);
-            } else {
-                $akunBankId = null;
-                $saldoBank = 0.0;
-            }
-        }
-
-        // ==========================
-        // Ambil transaksi (default: semua transaksi user/role ini)
-        // NOTE: kalau mau list KHUSUS akun bank saja & tanpa -LAWAN,
-        //       aktifkan filter primary() dan where akun di blok OPSIONAL di bawah.
+        // Ambil transaksi (untuk tabel DataTable)
         // ==========================
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
 
@@ -92,17 +67,13 @@ class LaporanController extends Controller
             $transaksiQuery->where('bidang_name', $bidang_name);
         }
 
-        // --- OPSIONAL (jika halaman ini memang hanya untuk transaksi BANK):
-        // if ($akunBankId) {
-        //     $transaksiQuery->primary()->where('akun_keuangan_id', $akunBankId);
-        // }
-
         $transaksi = $transaksiQuery->get();
 
         // ==========================
-        // Data akun keuangan (seperti semula)
+        // Data akun keuangan
         // ==========================
         $akunKeuangan = AkunKeuangan::all();
+
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
             ->whereNotIn('id', [103, 104, 105, 201])
             ->get();
@@ -112,7 +83,7 @@ class LaporanController extends Controller
             ->groupBy('parent_id');
 
         // ==========================
-        // Generate kode transaksi (logic sama)
+        // Generate kode transaksi
         // ==========================
         $prefix = '';
         if ($role === 'Bidang') {
@@ -140,28 +111,67 @@ class LaporanController extends Controller
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // ==========================
-        // (Opsional) LaporanService — biarkan
+        // SALDO & TRANSAKSI BANK SESUAI PSAK 45
+        // tapi dibatasi per role (Bidang vs Bendahara)
         // ==========================
-        $bidangName = method_exists($user, 'hasRole') && $user->hasRole('Bidang') ? $bidang_name : null;
-        $bankId = 102; // ID grup bank di service kamu
-        $dataBank = LaporanService::index($bankId, $bidangName);
-        \Log::info('Data Bank:', $dataBank);
-        if (!isset($dataBank['saldo']))
-            $dataBank['saldo'] = 0;
+        $bankGroupId = 102; // parent Bank di CoA
+
+        if ($role === 'Bidang') {
+            // 🔹 Bidang hanya lihat Bank untuk bidangnya sendiri
+            $bidangNameForService = $bidang_name;
+
+            // Transaksi Bank per-bidang
+            $dataBankTransaksi = LaporanKeuanganService::getTransaksiByGroup(
+                $bankGroupId,
+                $bidangNameForService
+            );
+
+            // Saldo Bank per-bidang
+            $saldoBankRaw = LaporanKeuanganService::getSaldoByGroup(
+                $bankGroupId,
+                $bidangNameForService
+            );
+            $saldoBank = (float) ($saldoBankRaw ?? 0);
+        } else {
+            // 🔹 Bendahara hanya lihat Bank Bendahara (misal 1021) & bidang_name NULL
+            $akunBankBendaharaId = 1021;
+
+            $akunBankBendahara = AkunKeuangan::find($akunBankBendaharaId);
+
+            if ($akunBankBendahara) {
+                // Saldo Bank Bendahara pakai ledger sampai hari ini
+                $saldoBank = (new LaporanKeuanganService())->getSaldoAkunSampai(
+                    $akunBankBendahara,
+                    Carbon::now()
+                );
+            } else {
+                $saldoBank = 0;
+            }
+
+            // Transaksi khusus Bank Bendahara
+            $dataBankTransaksi = Ledger::with(['transaksi', 'akun_keuangan'])
+                ->where('akun_keuangan_id', $akunBankBendaharaId)
+                ->whereHas('transaksi', function ($q) {
+                    $q->whereNull('bidang_name')
+                        ->where('kode_transaksi', 'not like', '%-LAWAN');
+                })
+                ->orderBy('created_at', 'asc')
+                ->get();
+        }
 
         // ==========================
         // Kirim ke view
         // ==========================
         return view('laporan.bank', [
-            'transaksiBank' => $dataBank['transaksi'],
-            'totalSaldoBank' => $dataBank['saldo'],
+            'transaksiBank' => $dataBankTransaksi,
+            'totalSaldoBank' => $saldoBank,
             'transaksi' => $transaksi,
             'akunTanpaParent' => $akunTanpaParent,
             'akunDenganParent' => $akunDenganParent,
             'bidang_name' => $bidang_name,
             'akunKeuangan' => $akunKeuangan,
             'kodeTransaksi' => $kodeTransaksi,
-            'lastSaldo' => $saldoBank, // ← saldo bank by kolom `saldo`
+            'lastSaldo' => $saldoBank, // dipakai di kartu & <small id="saldo-bank">
         ]);
     }
 

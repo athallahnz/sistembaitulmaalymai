@@ -12,12 +12,16 @@ class Ledger extends Model
 
     public function transaksi()
     {
-        return $this->belongsTo(Transaksi::class, 'transaksi_id','id'); // Relasi dengan tabel transaksi
+        return $this->belongsTo(Transaksi::class, 'transaksi_id', 'id'); // Relasi dengan tabel transaksi
     }
 
     public function akun_keuangan()
     {
         return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id'); // Relasi dengan tabel akun_keuangan
+    }
+    public function akun()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id');
     }
 }
 

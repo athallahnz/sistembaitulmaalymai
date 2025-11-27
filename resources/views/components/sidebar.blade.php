@@ -221,23 +221,10 @@
                     </a>
                     <ul id="laporanKeuangan"
                         class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo-bendahara', 'laporan.aktivitas') ? 'show' : '' }}">
-                        {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
-                                <i class="align-middle ms-3" data-feather="trending-up"></i>
-                                <span class="align-middle">Arus kas</span>
-                            </a>
-                        </li>
                         <li class="sidebar-item {{ request()->routeIs('laporan.posisi-keuangan') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.posisi-keuangan') }}">
                                 <i class="align-middle ms-3" data-feather="bar-chart"></i>
                                 <span class="align-middle">Posisi Keuangan</span>
-                            </a>
-                        </li> --}}
-                        <li
-                            class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo-bendahara') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo-bendahara') }}">
-                                <i class="align-middle ms-3" data-feather="file-text"></i>
-                                <span class="align-middle">Neraca Saldo</span>
                             </a>
                         </li>
                         <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
@@ -246,6 +233,19 @@
                                 <span class="align-middle">Aktivitas</span>
                             </a>
                         </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
+                                <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                <span class="align-middle">Arus kas</span>
+                            </a>
+                        </li>
+                        {{-- <li
+                            class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo-bendahara') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo-bendahara') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart-2"></i>
+                                <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li> --}}
                     </ul>
                 </li>
             @endrole
@@ -319,22 +319,16 @@
                     </a>
                     <ul id="laporanKeuangan"
                         class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo', 'laporan.aktivitas') ? 'show' : '' }}">
-                        {{-- <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
-                                <i class="align-middle ms-3" data-feather="trending-up"></i>
-                                <span class="align-middle">Arus kas</span>
-                            </a>
-                        </li>
                         <li class="sidebar-item {{ request()->routeIs('laporan.posisi-keuangan') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.posisi-keuangan') }}">
                                 <i class="align-middle ms-3" data-feather="bar-chart"></i>
                                 <span class="align-middle">Posisi Keuangan</span>
                             </a>
-                        </li> --}}
-                        <li class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo') }}">
-                                <i class="align-middle ms-3" data-feather="file-text"></i>
-                                <span class="align-middle">Neraca Saldo</span>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
+                                <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                <span class="align-middle">Arus kas</span>
                             </a>
                         </li>
                         <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
@@ -343,6 +337,12 @@
                                 <span class="align-middle">Aktivitas</span>
                             </a>
                         </li>
+                        {{-- <li class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart-2"></i>
+                                <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li> --}}
                     </ul>
                 </li>
                 @if (auth()->user()->bidang && auth()->user()->bidang->name === 'Pendidikan')
