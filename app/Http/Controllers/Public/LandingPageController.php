@@ -11,6 +11,7 @@ use App\Models\Slideshow;
 use App\Models\Kajian;
 use App\Models\SidebarSetting;
 use App\Models\Transaksi;
+use App\Models\AkunKeuangan;
 
 class LandingPageController extends Controller
 {
@@ -91,13 +92,28 @@ class LandingPageController extends Controller
         $akunKas = 1012;
         $akunBank = 1022;
 
+        // 🔹 Ambil semua akun REVENUE + EXPENSE
+        $akunRevenueExpense = AkunKeuangan::whereIn('tipe_akun', ['revenue', 'expense'])
+            ->pluck('id')
+            ->toArray();
+
         /* ======================================================================
-        BASE FILTER: TAMPILKAN HANYA TRANSAKSI REAL (bukan transfer antar kantong)
+        BASE FILTER: TRANSAKSI REAL (penerimaan/pengeluaran)
+        HANYA UNTUK AKUN REVENUE + EXPENSE
         ====================================================================== */
+
         $baseFilter = Transaksi::where('bidang_name', $bidang)
             ->where('kode_transaksi', 'like', $prefix . '%')
             ->where('kode_transaksi', 'not like', '%-LAWAN')
             ->whereIn('type', ['penerimaan', 'pengeluaran'])
+
+            // 🔹 Hanya transaksi yang melibatkan akun REVENUE/EXPENSE
+            ->where(function ($q) use ($akunRevenueExpense) {
+                $q->whereIn('akun_keuangan_id', $akunRevenueExpense)
+                    ->orWhereIn('parent_akun_id', $akunRevenueExpense);
+            })
+
+            // 🔹 Buang transfer antar rekening internal (kas/bank ↔ kas/bank)
             ->where(function ($q) use ($rekeningInternal) {
                 $q->whereNull('parent_akun_id')
                     ->orWhereNot(function ($qq) use ($rekeningInternal) {

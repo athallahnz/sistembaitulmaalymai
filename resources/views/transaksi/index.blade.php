@@ -51,6 +51,11 @@
             <i class="bi bi-box-arrow-in-down"></i> Opening Balance
         </button>
 
+        <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal"
+            data-bs-target="#transferModal">
+            <i class="bi bi-arrow-left-right"></i> Transfer Kas / Bank
+        </button>
+
         <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 me-2 shadow">
             <i class="bi bi-filetype-pdf"></i> Unduh PDF
         </a>
@@ -72,6 +77,13 @@
                         <form action="{{ route('transaksi.opening-balance.store') }}" method="POST">
                             @csrf
                             <input type="hidden" name="is_opening_balance" id="is_opening_balance" value="1">
+
+                            {{-- Kode & Tanggal --}}
+                            <div class="mb-3">
+                                <label for="kode_transaksi" class="form-label mb-2">Kode Transaksi</label>
+                                <input type="text" class="form-control" id="kode_transaksi" name="kode_transaksi"
+                                    value="{{ $kodeTransaksi }}" readonly>
+                            </div>
 
                             {{-- PILIH KAS / BANK YANG AKAN DIDEbit --}}
                             <div class="mb-3">
@@ -110,12 +122,7 @@
                                 </div>
                             </div>
 
-                            {{-- Kode & Tanggal --}}
-                            <div class="mb-3">
-                                <label for="kode_transaksi" class="form-label mb-2">Kode Transaksi</label>
-                                <input type="text" class="form-control" id="kode_transaksi" name="kode_transaksi"
-                                    value="{{ $kodeTransaksi }}" readonly>
-                            </div>
+
 
                             <div class="mb-3">
                                 <label class="mb-2">Tanggal Transaksi</label>
@@ -178,6 +185,123 @@
             </div>
         </div>
 
+        {{-- Modal Transfer Antar Kas / Bank / Bidang --}}
+        <div class="modal fade" id="transferModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-labelledby="transferModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="transferModalLabel">Transfer Antar Kas / Bank / Bidang</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <form action="{{ route('transaksi.transfer.store') }}" method="POST">
+                            @csrf
+
+                            {{-- Flag khusus transfer --}}
+                            <input type="hidden" name="is_transfer" value="1">
+
+                            {{-- KODE & TANGGAL --}}
+                            <div class="mb-3">
+                                <label for="kode_transaksi_transfer" class="form-label mb-2">Kode Transaksi</label>
+                                <input type="text" class="form-control" id="kode_transaksi_transfer"
+                                    name="kode_transaksi" value="{{ $kodeTransaksiTransfer ?? ($kodeTransaksi ?? '') }}"
+                                    readonly>
+                            </div>
+
+                            {{-- PILIH SUMBER (KAS/BANK bidang aktif) --}}
+                            <div class="mb-3">
+                                <label class="mb-2 d-block">Pilih Sumber Dana (Kas / Bank)</label>
+                                <div class="row g-2">
+
+                                    {{-- Sumber: Kas --}}
+                                    @if ($kasAkun)
+                                        <div class="col-md-6">
+                                            <div class="form-check border rounded p-2 h-100">
+                                                <input class="form-check-input" type="radio" name="sumber_akun_id"
+                                                    id="sumberKas" value="{{ $kasAkun->id }}" checked>
+                                                <label class="form-check-label w-100" for="sumberKas">
+                                                    <div class="fw-bold">{{ $kasAkun->nama_akun }}</div>
+                                                    <div>
+                                                        <small class="text-muted">
+                                                            Saldo saat ini: Rp {{ number_format($saldoKas, 0, ',', '.') }}
+                                                        </small>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    {{-- Sumber: Bank --}}
+                                    @if ($bankAkun)
+                                        <div class="col-md-6">
+                                            <div class="form-check border rounded p-2 h-100">
+                                                <input class="form-check-input" type="radio" name="sumber_akun_id"
+                                                    id="sumberBank" value="{{ $bankAkun->id }}">
+                                                <label class="form-check-label w-100" for="sumberBank">
+                                                    <div class="fw-bold">{{ $bankAkun->nama_akun }}</div>
+                                                    <div>
+                                                        <small class="text-muted">
+                                                            Saldo saat ini: Rp {{ number_format($saldoBank, 0, ',', '.') }}
+                                                        </small>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="mb-2">Tanggal Transaksi</label>
+                                <input type="date" name="tanggal_transaksi" class="form-control" required>
+                            </div>
+
+                            {{-- TUJUAN DANA --}}
+                            <div class="mb-3">
+                                <label class="form-label mb-2">Tujuan Dana</label>
+                                <select class="form-control" id="tujuan_akun_id" name="tujuan_akun_id" required>
+                                    <option value="">— Pilih Akun Tujuan —</option>
+
+                                    @foreach ($kasBankTujuan as $akun)
+                                        <option value="{{ $akun->id }}">
+                                            {{ $akun->nama_akun }}
+                                            @if ($akun->id == optional($kasAkun)->id)
+                                                — [Kas Bidang Ini]
+                                            @elseif ($akun->id == optional($bankAkun)->id)
+                                                — [Bank Bidang Ini]
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- DESKRIPSI --}}
+                            <div class="mb-3">
+                                <label class="mb-2">Deskripsi Transaksi</label>
+                                <input type="text" name="deskripsi" class="form-control"
+                                    placeholder="Misal: Transfer kas Bidang Pendidikan ke Bendahara" required>
+                            </div>
+
+                            {{-- JUMLAH --}}
+                            <div class="mb-3">
+                                <label class="form-label mb-2">Jumlah</label>
+                                <input type="text" id="formattedAmountTransfer" class="form-control"
+                                    oninput="formatInputTransfer(this)">
+                                <input type="number" name="amount" id="amountTransfer" class="form-control d-none">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Simpan</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabel Data Transaksi -->
         <div class="p-3 shadow table-responsive rounded">
             <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
                 <thead class="table-light">
@@ -244,6 +368,39 @@
                     }
                 });
             }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const sumberRadios = document.querySelectorAll('input[name="sumber_akun_id"]');
+            const tujuanSelect = document.getElementById('tujuan_akun_id');
+
+            if (!sumberRadios.length || !tujuanSelect) return;
+
+            function filterTujuan() {
+                const checked = document.querySelector('input[name="sumber_akun_id"]:checked');
+                const sumberId = checked ? checked.value : null;
+
+                Array.from(tujuanSelect.options).forEach(option => {
+                    if (option.value === "") return; // placeholder
+
+                    if (sumberId && option.value === sumberId) {
+                        option.style.display = 'none';
+                        if (tujuanSelect.value === option.value) {
+                            tujuanSelect.value = "";
+                        }
+                    } else {
+                        option.style.display = 'block';
+                    }
+                });
+            }
+
+            // pasang listener ke radio sumber
+            sumberRadios.forEach(r => {
+                r.addEventListener('change', filterTujuan);
+            });
+
+            // panggil sekali di awal (pakai default sumber)
+            filterTujuan();
         });
 
         $(document).ready(function() {
@@ -341,6 +498,14 @@
                 s[1] += new Array(prec - s[1].length + 1).join('0');
             }
             return s.join(dec);
+        }
+
+        function formatInputTransfer(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+
+            input.value = formatted;
+            document.getElementById("amountTransfer").value = rawValue;
         }
     </script>
 @endpush

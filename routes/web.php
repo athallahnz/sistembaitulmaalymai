@@ -218,6 +218,10 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::post('/transaksi/opening-balance', [TransaksiController::class, 'storeOpeningBalance'])
             ->name('transaksi.opening-balance.store');
 
+        // Route untuk menyimpan Transfer antar Akun
+        Route::post('/transaksi/transfer', [TransaksiController::class, 'storeTransfer'])
+            ->name('transaksi.transfer.store');
+
         // Route untuk Cetak Pdf
         Route::get('nota/{id}', [TransaksiController::class, 'exportNota'])->name('transaksi.exportPdf'); // Export single transaction PDF
         Route::get('export-pdf', [TransaksiController::class, 'exportAllPdf'])->name('transaksi.exportAllPdf'); // Export all transactions PDF

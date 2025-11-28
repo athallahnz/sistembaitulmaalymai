@@ -30,9 +30,7 @@ class AkunKeuangan extends Model
         'saldo_normal',
         'is_kas_bank',
         'cashflow_category',
-        'icon',
-        'created_at',
-        'updated_at',
+        'icon'
     ];
 
     /* ============================

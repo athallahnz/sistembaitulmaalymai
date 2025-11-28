@@ -74,11 +74,13 @@ class LaporanController extends Controller
         // ==========================
         $akunKeuangan = AkunKeuangan::all();
 
+        // --- data lain: akunTanpaParent, akunDenganParent, kodeTransaksi, dsb ---
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
-            ->whereNotIn('id', [103, 104, 105, 201])
+            ->whereIn('tipe_akun', ['revenue', 'expense'])
             ->get();
 
         $akunDenganParent = AkunKeuangan::whereNotNull('parent_id')
+            ->whereIn('tipe_akun', ['revenue', 'expense'])
             ->get()
             ->groupBy('parent_id');
 
@@ -178,54 +180,124 @@ class LaporanController extends Controller
     public function getData()
     {
         $user = auth()->user();
-        $bidang_id = $user->bidang_name; // Ambil bidang_id dari user
+        $role = $user->role;
+        $bidang_id = $user->bidang_name;  // ini integer ID bidang
 
-        // Cek apakah pengguna adalah Bendahara
-        if ($user->role == 'Bendahara') {
-            $akun_keuangan_id = 1021; // Akun Kas Bendahara
+        // ==============================
+        // 🔹 Tentukan akun KAS yang aktif
+        // ==============================
+        if ($role === 'Bendahara') {
+            $akun_keuangan_id = 1021; // Bank Bendahara
         } else {
-            // Pastikan bidang ada dalam database
-            $bidang = Bidang::find($bidang_id);
-
-            if (!$bidang) {
-                return response()->json(['error' => 'Bidang tidak ditemukan'], 400);
-            }
-
-            // Mapping bidang_id ke akun_keuangan_id
-            $akunBank = [
-                1 => 1022, // Kemasjidan
-                2 => 1023, // Pendidikan
-                3 => 1024, // Sosial
-                4 => 1025, // Usaha
+            $akunKasMap = [
+                1 => 1022, // Bidang 1 (ubah dari 1012 -> 1022)
+                2 => 1023, // Bidang 2 (ubah dari 1013 -> 1023)
+                3 => 1024, // Bidang 3 (ubah dari 1014 -> 1024)
+                4 => 1025, // Bidang 4 (ubah dari 1015 -> 1025)
             ];
 
-            // Ambil akun_keuangan_id berdasarkan bidang_id
-            $akun_keuangan_id = $akunBank[$bidang_id] ?? null;
+            $akun_keuangan_id = $akunKasMap[$bidang_id] ?? null;
         }
+
         if (!$akun_keuangan_id) {
             return response()->json(['error' => 'Bidang tidak valid'], 400);
         }
 
-        // Ambil data ledger berdasarkan bidang_id
+        // ==============================
+        // 🔹 Ambil ledger khusus akun KAS ini
+        // ==============================
         $ledgers = Ledger::with(['transaksi', 'akun_keuangan'])
-            ->whereHas('transaksi', function ($query) use ($bidang_id, $akun_keuangan_id) {
-                $query->where('bidang_name', $bidang_id) // bidang_name sekarang adalah INTEGER ID
-                    ->where(function ($q) use ($akun_keuangan_id) {
-                        $q->whereIn('akun_keuangan_id', [$akun_keuangan_id]) // Dari tabel transaksis
-                            ->orWhereIn('parent_akun_id', [$akun_keuangan_id]); // Dari tabel transaksis
-                    })
-                    ->where('kode_transaksi', 'not like', '%-LAWAN'); // Hindari transaksi lawan
+            ->where('akun_keuangan_id', $akun_keuangan_id)          // ⬅ cuma ledger kas
+            ->whereHas('transaksi', function ($q) use ($role, $bidang_id) {
+                // Filter per-bidang hanya untuk role Bidang
+                if ($role === 'Bidang') {
+                    $q->where('bidang_name', $bidang_id);
+                } else {
+                    $q->whereNull('bidang_name'); // Bendahara global
+                }
             })
+            ->orderBy('created_at', 'asc')
             ->get();
 
         return DataTables::of($ledgers)
-            ->addColumn('kode_transaksi', function ($item) {
-                return $item->transaksi ? $item->transaksi->kode_transaksi : 'N/A';
+
+            // ================== TANGGAL ==================
+            ->addColumn('tanggal', function ($item) {
+                $trx = $item->transaksi;
+                if (!$trx || !$trx->tanggal_transaksi) {
+                    return '-';
+                }
+
+                try {
+                    // kalau sudah di-cast ke Carbon, langsung format
+                    if ($trx->tanggal_transaksi instanceof Carbon) {
+                        return $trx->tanggal_transaksi->format('d-m-Y');
+                    }
+
+                    // kalau masih string, parse dulu
+                    return Carbon::parse($trx->tanggal_transaksi)->format('d-m-Y');
+                } catch (\Exception $e) {
+                    return (string) $trx->tanggal_transaksi; // fallback
+                }
             })
-            ->addColumn('akun_nama', function ($item) {
-                return $item->akun_keuangan ? $item->akun_keuangan->nama_akun : 'N/A';
+
+            // ================== AKUN SUMBER ==================
+            ->addColumn('akun_sumber', function ($item) {
+                $trx = $item->transaksi;
+                if (!$trx) {
+                    return '-';
+                }
+
+                $parentId = $trx->parent_akun_id;
+
+                // Jika kredit > 0 → ledger ini sumber
+                if ($item->credit > 0) {
+                    return optional($item->akun_keuangan)->nama_akun ?? '-';
+                }
+
+                // Jika debit > 0 → sumber ada di parent_akun_id
+                if ($item->debit > 0 && $parentId) {
+                    $akunParent = AkunKeuangan::find($parentId);
+                    return $akunParent ? $akunParent->nama_akun : '-';
+                }
+
+                return '-';
             })
-            ->rawColumns(['kode_transaksi', 'akun_nama'])
+
+            // ================== AKUN TUJUAN ==================
+            ->addColumn('akun_tujuan', function ($item) {
+                $trx = $item->transaksi;
+                if (!$trx) {
+                    return '-';
+                }
+
+                $parentId = $trx->parent_akun_id;
+
+                // Jika debit > 0 → ledger ini tujuan
+                if ($item->debit > 0) {
+                    return optional($item->akun_keuangan)->nama_akun ?? '-';
+                }
+
+                // Jika kredit > 0 → tujuan ada di parent_akun_id
+                if ($item->credit > 0 && $parentId) {
+                    $akunParent = AkunKeuangan::find($parentId);
+                    return $akunParent ? $akunParent->nama_akun : '-';
+                }
+
+                return '-';
+            })
+
+            // ================== DEBIT ==================
+            ->addColumn('debit', function ($item) {
+                return number_format($item->debit ?? 0, 0, ',', '.');
+            })
+
+            // ================== KREDIT ==================
+            ->addColumn('kredit', function ($item) {
+                return number_format($item->credit ?? 0, 0, ',', '.');
+            })
+
+            ->rawColumns(['tanggal', 'akun_sumber', 'akun_tujuan'])
             ->make(true);
     }
 

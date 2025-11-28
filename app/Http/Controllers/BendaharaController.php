@@ -152,7 +152,7 @@ class BendaharaController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $bidangId = $user->bidang_name ?? null; // integer id bidang (kalau suatu saat controller ini dipakai multi-rol)
+        $bidangId = $user->bidang_name ?? null; // integer id bidang
         $role = $user->role;
 
         $lapService = new LaporanKeuanganService();
@@ -160,11 +160,6 @@ class BendaharaController extends Controller
         // ==================================
         // 🔹 Kas & Bank AKTIF untuk Bendahara
         // ==================================
-        // Karena controller ini pakai middleware role:Bendahara,
-        // maka yang relevan adalah akun:
-        //   Kas Bendahara   = 1011
-        //   Bank Bendahara  = 1021
-
         $akunKasId = ($role === 'Bendahara')
             ? 1011
             : ([1 => 1012, 2 => 1013, 3 => 1014, 4 => 1015][$bidangId] ?? null);
@@ -257,7 +252,17 @@ class BendaharaController extends Controller
         // === Biaya & pendapatan dinamis (per "bidang aktif") ===
         $bidangName = $bidangId;
 
-        $jumlahDonasi = $this->sumTransaksiByParent(202, $bidangName);
+        // 🔹 Pendapatan per-kategori (COA baru 201–207)
+        $jumlahPendapatanPMB = $this->sumTransaksiByParent(201, $bidangName);
+        $jumlahPendapatanSPP = $this->sumTransaksiByParent(202, $bidangName);
+        $jumlahPendapatanLainPendidikan = $this->sumTransaksiByParent(203, $bidangName);
+        $jumlahPendapatanInfaqTidakTerikat = $this->sumTransaksiByParent(204, $bidangName);
+        $jumlahPendapatanInfaqTerikat = $this->sumTransaksiByParent(205, $bidangName);
+        $jumlahPendapatanUsaha = $this->sumTransaksiByParent(206, $bidangName);
+        $jumlahPendapatanBendaharaUmum = $this->sumTransaksiByParent(207, $bidangName);
+
+        // 🔹 Donasi (dipakai di view lama) = Infaq Tidak Terikat + Infaq Terikat
+        $jumlahDonasi = $jumlahPendapatanInfaqTidakTerikat + $jumlahPendapatanInfaqTerikat;
 
         $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
             ->when(
@@ -284,17 +289,27 @@ class BendaharaController extends Controller
         $totalInventaris = Transaksi::where('akun_keuangan_id', 105)->sum('amount');
         $totalHutang = Hutang::where('status', 'belum_lunas')->sum('jumlah');
 
-        $totalDonasi = $this->sumTransaksiByParent(202, null);
+        // 🔹 Total pendapatan per-kategori tanpa filter bidang
+        $totalPendapatanPMB = $this->sumTransaksiByParent(201, null);
+        $totalPendapatanSPP = $this->sumTransaksiByParent(202, null);
+        $totalPendapatanLainPendidikan = $this->sumTransaksiByParent(203, null);
+        $totalPendapatanInfaqTidakTerikat = $this->sumTransaksiByParent(204, null);
+        $totalPendapatanInfaqTerikat = $this->sumTransaksiByParent(205, null);
+        $totalPendapatanUsaha = $this->sumTransaksiByParent(206, null);
+        $totalPendapatanBendaharaUmum = $this->sumTransaksiByParent(207, null);
+
+        // 🔹 TotalDonasi (variabel lama yang dipakai di Blade) = Infaq Tidak Terikat + Terikat
+        $totalDonasi = $totalPendapatanInfaqTidakTerikat + $totalPendapatanInfaqTerikat;
+
         $totalPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)->sum('amount');
         $totalBebanGaji = $this->sumTransaksiByParent(302, null);
         $totalBiayaOperasional = $this->sumTransaksiByParent(303, null);
-        $totalBiayaKegiatanSiswa = $this->sumTransaksiByParent(304, null);
-        $totalBiayaPemeliharaan = $this->sumTransaksiByParent(305, null);
-        $totalBiayaSosial = $this->sumTransaksiByParent(306, null);
-        $totalBiayaPerlengkapanExtra = $this->sumTransaksiByParent(307, null);
-        $totalBiayaSeragam = $this->sumTransaksiByParent(308, null);
-        $totalBiayaPeningkatanSDM = $this->sumTransaksiByParent(309, null);
-        $totalBiayadibayardimuka = $this->sumTransaksiByParent(310, null);
+        $totalBiayaKegiatan = $this->sumTransaksiByParent(304, null);
+        $totalBiayaKonsumsi = $this->sumTransaksiByParent(305, null);
+        $totalBiayaPemeliharaan = $this->sumTransaksiByParent(306, null);
+        $totalPengeluaranTerikat = $this->sumTransaksiByParent(307, null);
+        $totalBiayaLainLain = $this->sumTransaksiByParent(308, null);
+        $totalPengeluaranBendahara = $this->sumTransaksiByParent(309, null);
 
         return view('bendahara.index', compact(
             'saldoKas',
@@ -330,13 +345,19 @@ class BendaharaController extends Controller
             'totalPenyusutanAsset',
             'totalBebanGaji',
             'totalBiayaOperasional',
-            'totalBiayaKegiatanSiswa',
+            'totalBiayaKegiatan',
+            'totalBiayaKonsumsi',
             'totalBiayaPemeliharaan',
-            'totalBiayaSosial',
-            'totalBiayaPerlengkapanExtra',
-            'totalBiayaSeragam',
-            'totalBiayaPeningkatanSDM',
-            'totalBiayadibayardimuka'
+            'totalPengeluaranTerikat',
+            'totalBiayaLainLain',
+            'totalPengeluaranBendahara',
+            'totalPendapatanPMB',
+            'totalPendapatanSPP',
+            'totalPendapatanLainPendidikan',
+            'totalPendapatanInfaqTidakTerikat',
+            'totalPendapatanInfaqTerikat',
+            'totalPendapatanUsaha',
+            'totalPendapatanBendaharaUmum'
         ));
     }
 

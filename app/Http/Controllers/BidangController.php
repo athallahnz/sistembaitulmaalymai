@@ -153,19 +153,36 @@ class BidangController extends Controller
             ->where('tanggal_jatuh_tempo', '<=', Carbon::now()->addDays(7))
             ->count();
 
-        // Pendapatan & Biaya (berdasar parent_akun_id – sesuaikan dengan COA kamu)
+        // Pendapatan & Biaya (berdasar parent_akun_id – COA baru)
         $bidangName = $bidangId;
 
-        $jumlahDonasi = $this->sumTransaksiByParent(202, $bidangName);
-        $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)->where('bidang_name', $bidangName)->sum('amount');
+        // 🔹 Pendapatan per kategori (201–207)
+        $jumlahPendapatanPMB = $this->sumTransaksiByParent(201, $bidangName);
+        $jumlahPendapatanSPP = $this->sumTransaksiByParent(202, $bidangName);
+        $jumlahPendapatanLainPendidikan = $this->sumTransaksiByParent(203, $bidangName);
+        $jumlahPendapatanInfaqTidakTerikat = $this->sumTransaksiByParent(204, $bidangName);
+        $jumlahPendapatanInfaqTerikat = $this->sumTransaksiByParent(205, $bidangName);
+        $jumlahPendapatanUsaha = $this->sumTransaksiByParent(206, $bidangName);
+        $jumlahPendapatanBendaharaUmum = $this->sumTransaksiByParent(207, $bidangName);
+
+        // 🔹 Donasi (dipakai di kartu lama) = Infaq Tidak Terikat + Terikat
+        $jumlahDonasi = $jumlahPendapatanInfaqTidakTerikat + $jumlahPendapatanInfaqTerikat;
+
+        // 🔹 Beban (301–309)
+        $jumlahPenyusutanAsset = Transaksi::where('akun_keuangan_id', 301)
+            ->where('bidang_name', $bidangName)
+            ->sum('amount');
+
         $jumlahBebanGaji = $this->sumTransaksiByParent(302, $bidangName);
         $jumlahBiayaOperasional = $this->sumTransaksiByParent(303, $bidangName);
-        $jumlahBiayaKegiatanSiswa = $this->sumTransaksiByParent(304, $bidangName);
-        $jumlahBiayaPemeliharaan = $this->sumTransaksiByParent(305, $bidangName);
-        $jumlahBiayaSosial = $this->sumTransaksiByParent(306, $bidangName);
-        $jumlahBiayaPerlengkapanExtra = $this->sumTransaksiByParent(307, $bidangName);
-        $jumlahBiayaSeragam = $this->sumTransaksiByParent(308, $bidangName);
-        $jumlahBiayaPeningkatanSDM = $this->sumTransaksiByParent(309, $bidangName);
+        $jumlahBiayaKegiatan = $this->sumTransaksiByParent(304, $bidangName);
+        $jumlahBiayaKonsumsi = $this->sumTransaksiByParent(305, $bidangName);
+        $jumlahBiayaPemeliharaan = $this->sumTransaksiByParent(306, $bidangName);
+        $jumlahPengeluaranTerikat = $this->sumTransaksiByParent(307, $bidangName);
+        $jumlahBiayaLainLain = $this->sumTransaksiByParent(308, $bidangName);
+        $jumlahPengeluaranBendahara = $this->sumTransaksiByParent(309, $bidangName);
+
+        // 🔹 Biaya dibayar di muka (310)
         $jumlahBiayadibayardimuka = $this->sumTransaksiByParent(310, $bidangName);
 
         // ==================================
@@ -193,17 +210,29 @@ class BidangController extends Controller
             'jumlahInventaris',
             'jumlahHutang',
             'hutangJatuhTempo',
+
+            // 🔹 Pendapatan (201–207)
+            'jumlahPendapatanPMB',
+            'jumlahPendapatanSPP',
+            'jumlahPendapatanLainPendidikan',
+            'jumlahPendapatanInfaqTidakTerikat',
+            'jumlahPendapatanInfaqTerikat',
+            'jumlahPendapatanUsaha',
+            'jumlahPendapatanBendaharaUmum',
             'jumlahDonasi',
+
+            // 🔹 Beban (301–309) + biaya dibayar di muka
             'jumlahPenyusutanAsset',
             'jumlahBebanGaji',
-            'jumlahBiayaKegiatanSiswa',
             'jumlahBiayaOperasional',
+            'jumlahBiayaKegiatan',
+            'jumlahBiayaKonsumsi',
             'jumlahBiayaPemeliharaan',
-            'jumlahBiayaSosial',
-            'jumlahBiayaPerlengkapanExtra',
-            'jumlahBiayaSeragam',
-            'jumlahBiayaPeningkatanSDM',
+            'jumlahPengeluaranTerikat',
+            'jumlahBiayaLainLain',
+            'jumlahPengeluaranBendahara',
             'jumlahBiayadibayardimuka',
+
             'akunTanpaParent',
             'akunDenganParent'
         ));

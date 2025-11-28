@@ -11,7 +11,7 @@ use App\Services\LaporanKeuanganService;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
@@ -21,15 +21,19 @@ class TransaksiController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $bidang_id = $user->bidang_name;
+        $bidangId = $user->bidang_name; // integer id bidang
         $role = $user->role;
-        $bidang_name = $user->bidang_name;
+        $bidangName = $user->bidang_name;
 
+        $lapService = new LaporanKeuanganService();
+
+        // ==========================
         // Ambil transaksi (untuk tabel)
+        // ==========================
         $transaksiQuery = Transaksi::with('parentAkunKeuangan', 'user');
 
         if ($role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $bidang_name);
+            $transaksiQuery->where('bidang_name', $bidangName);
         }
 
         $transaksi = $transaksiQuery->get();
@@ -37,7 +41,9 @@ class TransaksiController extends Controller
         // Semua akun (kalau masih dipakai di tempat lain)
         $akunKeuangan = AkunKeuangan::all();
 
-        // 🔹 Aset Neto: Induk & Anak (untuk dropdown tujuan)
+        // ==========================
+        // 🔹 Aset Neto: Induk & Anak (untuk dropdown tujuan OB)
+        // ==========================
         $akunTanpaParent = AkunKeuangan::where('tipe_akun', 'equity')
             ->whereNull('parent_id')
             ->orderBy('kode_akun')
@@ -49,25 +55,27 @@ class TransaksiController extends Controller
             ->get()
             ->groupBy('parent_id');
 
-        // 🔹 Prefix kode transaksi
+        // ==========================
+        // 🔹 Prefix kode transaksi (transaksi biasa)
+        // ==========================
         $prefix = '';
         if ($role === 'Bidang') {
-            switch ($bidang_id) {
+            switch ($bidangId) {
                 case 1:
                     $prefix = 'SJD';
-                    break; // Pendidikan?
+                    break; // Pendidikan
                 case 2:
                     $prefix = 'PND';
-                    break;
+                    break; // Kemasjidan
                 case 3:
                     $prefix = 'SOS';
-                    break;
+                    break; // Sosial
                 case 4:
                     $prefix = 'UHA';
-                    break;
+                    break; // Usaha
                 case 5:
                     $prefix = 'BGN';
-                    break;
+                    break; // Pembangunan
             }
         } elseif ($role === 'Bendahara') {
             $prefix = 'BDH';
@@ -75,7 +83,9 @@ class TransaksiController extends Controller
 
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
+        // ==========================
         // 🔹 Mapping Kas & Bank per role/bidang
+        // ==========================
         $kasMap = [
             1 => 1012,
             2 => 1013,
@@ -94,52 +104,57 @@ class TransaksiController extends Controller
             $kasAkunId = 1011; // Kas Bendahara
             $bankAkunId = 1021; // Bank Bendahara
         } else {
-            $kasAkunId = $kasMap[$bidang_id] ?? null;
-            $bankAkunId = $bankMap[$bidang_id] ?? null;
+            $kasAkunId = $kasMap[$bidangId] ?? null;
+            $bankAkunId = $bankMap[$bidangId] ?? null;
         }
 
         $kasAkun = $kasAkunId ? AkunKeuangan::find($kasAkunId) : null;
         $bankAkun = $bankAkunId ? AkunKeuangan::find($bankAkunId) : null;
 
-        // 🔹 Saldo Kas
-        $lastSaldoKas = null;
-        if ($kasAkunId) {
-            $qKas = Transaksi::where('akun_keuangan_id', $kasAkunId)
-                ->orderBy('tanggal_transaksi', 'asc');
-
-            if ($role === 'Bidang') {
-                $qKas->where('bidang_name', $bidang_name);
-            }
-
-            $lastSaldoKas = $qKas->get()->last();
+        // ==========================
+        // 🔹 Saldo Kas via LaporanKeuanganService
+        // ==========================
+        if ($kasAkun) {
+            $saldoKas = $lapService->getSaldoAkunSampai($kasAkun, Carbon::now());
+        } else {
+            $saldoKas = 0;
         }
-        $saldoKas = $lastSaldoKas ? $lastSaldoKas->saldo : 0;
 
-        // 🔹 Saldo Bank
-        $lastSaldoBank = null;
-        if ($bankAkunId) {
-            $qBank = Transaksi::where('akun_keuangan_id', $bankAkunId)
-                ->orderBy('tanggal_transaksi', 'asc');
-
-            if ($role === 'Bidang') {
-                $qBank->where('bidang_name', $bidang_name);
-            }
-
-            $lastSaldoBank = $qBank->get()->last();
+        // 🔹 Saldo Bank via LaporanKeuanganService
+        if ($bankAkun) {
+            $saldoBank = $lapService->getSaldoAkunSampai($bankAkun, Carbon::now());
+        } else {
+            $saldoBank = 0;
         }
-        $saldoBank = $lastSaldoBank ? $lastSaldoBank->saldo : 0;
+
+        // ==========================
+        // 🔹 Data untuk modal TRANSFER
+        // ==========================
+        // ==========================
+
+        // 🔹 Daftar akun kas/bank tujuan (semua anak kas/bank)
+        $kasBankTujuan = AkunKeuangan::where('is_kas_bank', 1)
+            ->whereNotNull('parent_id')
+            ->orderBy('kode_akun')
+            ->get();
+
+        // kode transaksi khusus transfer
+        $kodeTransaksiTransfer = 'TRF-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         return view('transaksi.index', compact(
             'transaksi',
             'akunTanpaParent',
             'akunDenganParent',
-            'bidang_name',
+            'bidangName',
             'akunKeuangan',
             'kodeTransaksi',
             'saldoKas',
             'saldoBank',
             'kasAkun',
-            'bankAkun'
+            'bankAkun',
+            'kasBankTujuan',
+            'kodeTransaksiTransfer',
+            'bankAkunId',
         ));
     }
 
@@ -743,6 +758,87 @@ class TransaksiController extends Controller
 
         return back()->with('success', 'Saldo awal (opening balance) berhasil dicatat.');
     }
+
+    public function storeTransfer(Request $request)
+    {
+        $request->validate([
+            'kode_transaksi' => 'required|string|max:255',
+            'tanggal_transaksi' => 'required|date',
+            'sumber_akun_id' => 'required|exists:akun_keuangans,id',
+            'tujuan_akun_id' => 'required|exists:akun_keuangans,id|different:sumber_akun_id',
+            'amount' => 'required|numeric|min:1',
+            'deskripsi' => 'required|string|max:255',
+        ]);
+
+        $amount = (float) $request->amount;
+        $sumberId = (int) $request->sumber_akun_id;
+        $tujuanId = (int) $request->tujuan_akun_id;
+        $kode = $request->kode_transaksi;
+        $tanggal = Carbon::parse($request->tanggal_transaksi)->toDateString();
+        $deskripsi = $request->deskripsi;
+
+        $user = auth()->user();
+        $bidangName = $user->role === 'Bidang' ? $user->bidang_name : null;
+
+        DB::transaction(function () use ($amount, $sumberId, $tujuanId, $kode, $tanggal, $deskripsi, $bidangName) {
+            // Pastikan akun ada (sekalian bisa dipakai untuk logging kalau perlu)
+            $akunSumber = AkunKeuangan::findOrFail($sumberId);
+            $akunTujuan = AkunKeuangan::findOrFail($tujuanId);
+
+            // ================================
+            // 🔹 1) TRANSAKSI SUMBER (KREDIT)
+            //     type = pengeluaran
+            //     parent_akun_id = ID akun tujuan
+            // ================================
+            $trxSumber = Transaksi::create([
+                'kode_transaksi' => $kode,
+                'tanggal_transaksi' => $tanggal,
+                'type' => 'pengeluaran',
+                'akun_keuangan_id' => $sumberId,
+                'parent_akun_id' => $tujuanId,   // ⬅ tujuan kas/bank
+                'deskripsi' => $deskripsi,
+                'amount' => $amount,
+                'saldo' => 0,
+                'bidang_name' => $bidangName,
+                'sumber' => 'transfer',
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $trxSumber->id,
+                'akun_keuangan_id' => $sumberId,
+                'debit' => 0,
+                'credit' => $amount,
+            ]);
+
+            // ================================
+            // 🔹 2) TRANSAKSI TUJUAN (DEBIT)
+            //     type = penerimaan
+            //     parent_akun_id = ID akun tujuan (konsisten)
+            // ================================
+            $trxTujuan = Transaksi::create([
+                'kode_transaksi' => $kode .'-LAWAN',
+                'tanggal_transaksi' => $tanggal,
+                'type' => 'penerimaan',
+                'akun_keuangan_id' => $tujuanId,
+                'parent_akun_id' => $tujuanId,   // ⬅ tetap akun tujuan
+                'deskripsi' => $deskripsi,
+                'amount' => $amount,
+                'saldo' => 0,
+                'bidang_name' => $bidangName,
+                'sumber' => 'transfer',
+            ]);
+
+            Ledger::create([
+                'transaksi_id' => $trxTujuan->id,
+                'akun_keuangan_id' => $tujuanId,
+                'debit' => $amount,
+                'credit' => 0,
+            ]);
+        });
+
+        return back()->with('success', 'Transfer antar akun berhasil!');
+    }
+
 
     public function updateBankTransaction(Request $request, $id)
     {
