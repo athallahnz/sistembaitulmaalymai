@@ -196,6 +196,17 @@
                     </div>
 
                     <div class="modal-body">
+                        {{-- Tampilkan error global kalau ada --}}
+                        @if ($errors->any() && old('is_transfer'))
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    @foreach ($errors->all() as $msg)
+                                        <li>{{ $msg }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
                         <form action="{{ route('transaksi.transfer.store') }}" method="POST">
                             @csrf
 
@@ -206,7 +217,8 @@
                             <div class="mb-3">
                                 <label for="kode_transaksi_transfer" class="form-label mb-2">Kode Transaksi</label>
                                 <input type="text" class="form-control" id="kode_transaksi_transfer"
-                                    name="kode_transaksi" value="{{ $kodeTransaksiTransfer ?? ($kodeTransaksi ?? '') }}"
+                                    name="kode_transaksi"
+                                    value="{{ old('kode_transaksi', $kodeTransaksiTransfer ?? ($kodeTransaksi ?? '')) }}"
                                     readonly>
                             </div>
 
@@ -220,7 +232,8 @@
                                         <div class="col-md-6">
                                             <div class="form-check border rounded p-2 h-100">
                                                 <input class="form-check-input" type="radio" name="sumber_akun_id"
-                                                    id="sumberKas" value="{{ $kasAkun->id }}" checked>
+                                                    id="sumberKas" value="{{ $kasAkun->id }}"
+                                                    {{ old('sumber_akun_id', $kasAkun->id) == $kasAkun->id ? 'checked' : '' }}>
                                                 <label class="form-check-label w-100" for="sumberKas">
                                                     <div class="fw-bold">{{ $kasAkun->nama_akun }}</div>
                                                     <div>
@@ -238,7 +251,8 @@
                                         <div class="col-md-6">
                                             <div class="form-check border rounded p-2 h-100">
                                                 <input class="form-check-input" type="radio" name="sumber_akun_id"
-                                                    id="sumberBank" value="{{ $bankAkun->id }}">
+                                                    id="sumberBank" value="{{ $bankAkun->id }}"
+                                                    {{ old('sumber_akun_id') == $bankAkun->id ? 'checked' : '' }}>
                                                 <label class="form-check-label w-100" for="sumberBank">
                                                     <div class="fw-bold">{{ $bankAkun->nama_akun }}</div>
                                                     <div>
@@ -252,11 +266,18 @@
                                     @endif
 
                                 </div>
+                                @error('sumber_akun_id')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
                             <div class="mb-3">
                                 <label class="mb-2">Tanggal Transaksi</label>
-                                <input type="date" name="tanggal_transaksi" class="form-control" required>
+                                <input type="date" name="tanggal_transaksi" class="form-control"
+                                    value="{{ old('tanggal_transaksi') }}" required>
+                                @error('tanggal_transaksi')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
                             {{-- TUJUAN DANA --}}
@@ -266,7 +287,8 @@
                                     <option value="">— Pilih Akun Tujuan —</option>
 
                                     @foreach ($kasBankTujuan as $akun)
-                                        <option value="{{ $akun->id }}">
+                                        <option value="{{ $akun->id }}"
+                                            {{ old('tujuan_akun_id') == $akun->id ? 'selected' : '' }}>
                                             {{ $akun->nama_akun }}
                                             @if ($akun->id == optional($kasAkun)->id)
                                                 — [Kas Bidang Ini]
@@ -276,21 +298,33 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('tujuan_akun_id')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
                             {{-- DESKRIPSI --}}
                             <div class="mb-3">
                                 <label class="mb-2">Deskripsi Transaksi</label>
                                 <input type="text" name="deskripsi" class="form-control"
-                                    placeholder="Misal: Transfer kas Bidang Pendidikan ke Bendahara" required>
+                                    placeholder="Misal: Transfer Kas Bidang ke Bank Bendahara"
+                                    value="{{ old('deskripsi') }}" required>
+                                @error('deskripsi')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
                             {{-- JUMLAH --}}
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
                                 <input type="text" id="formattedAmountTransfer" class="form-control"
-                                    oninput="formatInputTransfer(this)">
-                                <input type="number" name="amount" id="amountTransfer" class="form-control d-none">
+                                    oninput="formatInputTransfer(this)"
+                                    value="{{ old('amount') ? number_format(old('amount'), 0, ',', '.') : '' }}">
+                                <input type="number" name="amount" id="amountTransfer" class="form-control d-none"
+                                    value="{{ old('amount') }}">
+                                @error('amount')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
                             <button type="submit" class="btn btn-primary">Simpan</button>
@@ -402,6 +436,24 @@
             // panggil sekali di awal (pakai default sumber)
             filterTujuan();
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-buka modal transfer kalau error & ini request transfer
+            @if ($errors->any() && old('is_transfer'))
+                const modalEl = document.getElementById('transferModal');
+                if (modalEl) {
+                    const transferModal = new bootstrap.Modal(modalEl);
+                    transferModal.show();
+                }
+            @endif
+        });
+
+        function formatInputTransfer(input) {
+            let rawValue = input.value.replace(/\D/g, ""); // hanya angka
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+            input.value = formatted;
+            document.getElementById("amountTransfer").value = rawValue;
+        }
 
         $(document).ready(function() {
             var table = $('.yajra-datatable').DataTable({

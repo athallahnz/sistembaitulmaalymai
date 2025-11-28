@@ -5,8 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Exports\BukuHarianExport;
-use App\Exports\TransaksisExport;
+use App\Exports\BukuKasBankExport;
 use App\Services\LaporanKeuanganService;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
@@ -761,84 +760,126 @@ class TransaksiController extends Controller
 
     public function storeTransfer(Request $request)
     {
-        $request->validate([
-            'kode_transaksi' => 'required|string|max:255',
-            'tanggal_transaksi' => 'required|date',
-            'sumber_akun_id' => 'required|exists:akun_keuangans,id',
-            'tujuan_akun_id' => 'required|exists:akun_keuangans,id|different:sumber_akun_id',
-            'amount' => 'required|numeric|min:1',
-            'deskripsi' => 'required|string|max:255',
+        Log::info('====== [TRANSFER] Memulai proses storeTransfer ======', [
+            'payload' => $request->all(),
+            'user' => auth()->id(),
         ]);
 
-        $amount = (float) $request->amount;
-        $sumberId = (int) $request->sumber_akun_id;
-        $tujuanId = (int) $request->tujuan_akun_id;
-        $kode = $request->kode_transaksi;
-        $tanggal = Carbon::parse($request->tanggal_transaksi)->toDateString();
-        $deskripsi = $request->deskripsi;
+        // STEP 1: VALIDASI DASAR
+        Log::info('[TRANSFER] Step 1: Validasi input');
+
+        $validated = $request->validate([
+            'kode_transaksi' => ['required', 'string'],
+            'tanggal_transaksi' => ['required', 'date'],
+            'sumber_akun_id' => ['required', 'exists:akun_keuangans,id'],
+            'tujuan_akun_id' => ['required', 'exists:akun_keuangans,id', 'different:sumber_akun_id'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'deskripsi' => ['required', 'string', 'max:255'],
+            'is_transfer' => ['nullable'], // biar ikut ke old()
+        ]);
 
         $user = auth()->user();
-        $bidangName = $user->role === 'Bidang' ? $user->bidang_name : null;
+        $role = $user->role;
+        $bidangName = $role === 'Bendahara' ? null : $user->bidang_name;
 
-        DB::transaction(function () use ($amount, $sumberId, $tujuanId, $kode, $tanggal, $deskripsi, $bidangName) {
-            // Pastikan akun ada (sekalian bisa dipakai untuk logging kalau perlu)
-            $akunSumber = AkunKeuangan::findOrFail($sumberId);
-            $akunTujuan = AkunKeuangan::findOrFail($tujuanId);
+        $tanggal = \Carbon\Carbon::parse($validated['tanggal_transaksi'])->toDateString();
+        $amount = (float) $validated['amount'];
+        $kode = $validated['kode_transaksi'];
 
-            // ================================
-            // 🔹 1) TRANSAKSI SUMBER (KREDIT)
-            //     type = pengeluaran
-            //     parent_akun_id = ID akun tujuan
-            // ================================
-            $trxSumber = Transaksi::create([
+        $sumberId = (int) $validated['sumber_akun_id'];
+        $tujuanId = (int) $validated['tujuan_akun_id'];
+
+        Log::info('[TRANSFER] Step 2: Hitung saldo sumber sebelum transfer', [
+            'akun_sumber' => $sumberId,
+            'tanggal' => $tanggal,
+            'bidang' => $bidangName,
+            'role' => $role,
+        ]);
+
+        // STEP 2: HITUNG SALDO SUMBER (pakai helper yg sama dengan storeTransaction)
+        $saldoSumber = $this->getSaldoLedgerSampaiTanggal(
+            $sumberId,
+            $tanggal,
+            $bidangName,
+            $role
+        );
+
+        Log::info('[TRANSFER] Saldo sumber sebelum transfer', [
+            'akun_sumber' => $sumberId,
+            'saldo' => $saldoSumber,
+            'amount' => $amount,
+        ]);
+
+        // STEP 3: VALIDASI SALDO TIDAK BOLEH KURANG DARI JUMLAH TRANSFER
+        if ($amount > $saldoSumber) {
+            Log::warning('[TRANSFER] SALDO TIDAK CUKUP!', [
+                'saldo_sumber' => $saldoSumber,
+                'amount' => $amount,
+            ]);
+
+            return back()
+                ->withErrors([
+                    'amount' => 'Saldo sumber tidak mencukupi. Saldo saat ini: ' .
+                        number_format($saldoSumber, 0, ',', '.') .
+                        ', jumlah yang diminta: ' .
+                        number_format($amount, 0, ',', '.'),
+                ])
+                ->withInput();
+        }
+
+        // STEP 4: SIMPAN TRANSAKSI + LEDGER
+        Log::info('[TRANSFER] Step 3: Simpan transaksi & ledger');
+
+        \DB::transaction(function () use ($validated, $sumberId, $tujuanId, $bidangName, $tanggal, $amount, $kode) {
+
+            // 4a. Transaksi keluar (SUMBER) → pengeluaran, kredit di ledger
+            $trxKeluar = Transaksi::create([
+                'bidang_name' => $bidangName,
                 'kode_transaksi' => $kode,
                 'tanggal_transaksi' => $tanggal,
                 'type' => 'pengeluaran',
                 'akun_keuangan_id' => $sumberId,
-                'parent_akun_id' => $tujuanId,   // ⬅ tujuan kas/bank
-                'deskripsi' => $deskripsi,
+                'parent_akun_id' => $tujuanId,
+                'deskripsi' => $validated['deskripsi'],
                 'amount' => $amount,
-                'saldo' => 0,
-                'bidang_name' => $bidangName,
-                'sumber' => 'transfer',
+                'saldo' => 0, // kalau mau, boleh hitung saldo baru di sini
             ]);
 
             Ledger::create([
-                'transaksi_id' => $trxSumber->id,
+                'transaksi_id' => $trxKeluar->id,
                 'akun_keuangan_id' => $sumberId,
                 'debit' => 0,
                 'credit' => $amount,
             ]);
 
-            // ================================
-            // 🔹 2) TRANSAKSI TUJUAN (DEBIT)
-            //     type = penerimaan
-            //     parent_akun_id = ID akun tujuan (konsisten)
-            // ================================
-            $trxTujuan = Transaksi::create([
-                'kode_transaksi' => $kode .'-LAWAN',
+            // 4b. Transaksi masuk (TUJUAN) → penerimaan, debit di ledger
+            $trxMasuk = Transaksi::create([
+                'bidang_name' => $bidangName,
+                'kode_transaksi' => $kode . '-LAWAN',
                 'tanggal_transaksi' => $tanggal,
                 'type' => 'penerimaan',
                 'akun_keuangan_id' => $tujuanId,
-                'parent_akun_id' => $tujuanId,   // ⬅ tetap akun tujuan
-                'deskripsi' => $deskripsi,
+                'parent_akun_id' => $sumberId,
+                'deskripsi' => '(Lawan) ' . $validated['deskripsi'],
                 'amount' => $amount,
                 'saldo' => 0,
-                'bidang_name' => $bidangName,
-                'sumber' => 'transfer',
             ]);
 
             Ledger::create([
-                'transaksi_id' => $trxTujuan->id,
+                'transaksi_id' => $trxMasuk->id,
                 'akun_keuangan_id' => $tujuanId,
                 'debit' => $amount,
                 'credit' => 0,
+            ]);
+
+            Log::info('[TRANSFER] Transfer berhasil disimpan', [
+                'trx_keluar_id' => $trxKeluar->id,
+                'trx_masuk_id' => $trxMasuk->id,
             ]);
         });
 
         return back()->with('success', 'Transfer antar akun berhasil!');
     }
-
 
     public function updateBankTransaction(Request $request, $id)
     {
@@ -1164,39 +1205,88 @@ class TransaksiController extends Controller
 
     public function exportAllPdf()
     {
-        // Ambil user yang sedang login
         $user = auth()->user();
 
-        // Query transaksi berdasarkan role dan bidang_name
-        $transaksiQuery = Transaksi::with('akunKeuangan', 'parentAkunKeuangan', 'user')
-            ->where('kode_transaksi', 'not like', '%-LAWAN'); // Hindari transaksi lawan
+        // ==========================
+        // 🔹 Tentukan bidang & role
+        // ==========================
+        $bidangId = $user->bidang_name;   // integer
+        $role = $user->role;
 
-        // Filter berdasarkan role 'Bidang'
-        if ($user->role === 'Bidang') {
-            $transaksiQuery->where('bidang_name', $user->bidang_name);
-        }
-
-        // Ambil hasil query
-        $transaksi = $transaksiQuery->get();
-
-        // Pastikan ada data transaksi yang tersedia
-        if ($transaksi->isEmpty()) {
-            return redirect()->route('transaksi.index')->with('error', 'Tidak ada data transaksi untuk diunduh!.');
-        }
-
-        // Siapkan data untuk dikirim ke view PDF
-        $data = [
-            'transaksis' => $transaksi
+        // ==========================
+        // 🔹 Mapping akun Kas/Bank per bidang
+        // ==========================
+        $kasMap = [
+            1 => 1012, // Kemasjidan
+            2 => 1013, // Pendidikan
+            3 => 1014, // Sosial
+            4 => 1015, // Usaha
         ];
 
-        // Ambil bidang_name dari user login sebagai nama file PDF
-        $bidangName = $user->bidang_name ?? 'Transaksi'; // Gunakan bidang_name user atau default 'Transaksi'
+        $bankMap = [
+            1 => 1022,
+            2 => 1023,
+            3 => 1024,
+            4 => 1025,
+        ];
 
-        // Load view untuk PDF, kirimkan data transaksi
-        $pdf = Pdf::loadView('transaksi.export', $data);
+        if ($role === 'Bendahara') {
+            $kasAkunId = 1011; // Kas Bendahara
+            $bankAkunId = 1021; // Bank Bendahara
+        } else {
+            $kasAkunId = $kasMap[$bidangId] ?? null;
+            $bankAkunId = $bankMap[$bidangId] ?? null;
+        }
 
-        // Kembalikan file PDF untuk di-download
-        return $pdf->download('Laporan_Keuangan_' . $bidangName . '.pdf');
+        // ==========================
+        // 🔹 Query Kas (transaksis utk akun kas user ini)
+        // ==========================
+        $kasTransaksis = collect();
+        if ($kasAkunId) {
+            $kasTransaksis = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan', 'user'])
+                ->where('akun_keuangan_id', $kasAkunId)
+                ->when($role === 'Bidang', function ($q) use ($bidangId) {
+                    $q->where('bidang_name', $bidangId);
+                })
+                ->orderBy('tanggal_transaksi')
+                ->orderBy('id')
+                ->get();
+        }
+
+        // ==========================
+        // 🔹 Query Bank (transaksis utk akun bank user ini)
+        // ==========================
+        $bankTransaksis = collect();
+        if ($bankAkunId) {
+            $bankTransaksis = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan', 'user'])
+                ->where('akun_keuangan_id', $bankAkunId)
+                ->when($role === 'Bidang', function ($q) use ($bidangId) {
+                    $q->where('bidang_name', $bidangId);
+                })
+                ->orderBy('tanggal_transaksi')
+                ->orderBy('id')
+                ->get();
+        }
+
+        if ($kasTransaksis->isEmpty() && $bankTransaksis->isEmpty()) {
+            return redirect()
+                ->route('transaksi.index')
+                ->with('error', 'Tidak ada data transaksi Kas/Bank untuk diunduh.');
+        }
+
+        // Kirim ke view
+        $data = [
+            'kasTransaksis' => $kasTransaksis,
+            'bankTransaksis' => $bankTransaksis,
+            'user' => $user,
+        ];
+
+        $bidangNameForFile = $user->bidang->name ?? $user->bidang_name ?? 'Umum';
+
+        $pdf = Pdf::loadView('transaksi.export', $data)
+            ->setPaper('a4', 'landscape');   // ⬅️ Landscape
+
+        return $pdf->download('Buku_Harian_Kas_Bank_' . $bidangNameForFile . '.pdf');
     }
 
     public function exportExcel(Request $request)
@@ -1217,11 +1307,12 @@ class TransaksiController extends Controller
             $endDate = (clone $startDate)->endOfMonth()->endOfDay();
         }
 
-        // ⬇️ Pakai scope yang sudah include:
-        //    - buang internal kas/bank
-        //    - buang kode_transaksi "-LAWAN"
+        // Cek ada transaksi kas/bank untuk filter ini,
+        // tetap pakai scope excludeInternalKasBankAndLawan
         $query = Transaksi::query()
-            ->excludeInternalKasBankAndLawan();
+            ->whereHas('akunKeuangan', function ($q) {
+                $q->whereIn('parent_id', [101, 102]); // 101=Kas, 102=Bank
+            });
 
         if ($bidangName) {
             $query->where('bidang_name', $bidangName);
@@ -1232,18 +1323,20 @@ class TransaksiController extends Controller
         }
 
         if (!$query->exists()) {
-            return back()->with('error', 'Tidak ada transaksi sesuai filter.');
+            return back()->with('error', 'Tidak ada transaksi kas/bank sesuai filter.');
         }
 
-        $fileName = 'Buku_Harian';
-        if ($bidangName)
+        $fileName = 'Buku_Kas_Bank';
+        if ($bidangName) {
             $fileName .= '_Bidang_' . $bidangName;
-        if ($bulan)
+        }
+        if ($bulan) {
             $fileName .= '_' . $bulan;
+        }
         $fileName .= '.xlsx';
 
         return Excel::download(
-            new BukuHarianExport($bidangName, $startDate, $endDate),
+            new BukuKasBankExport($bidangName, $startDate, $endDate),
             $fileName
         );
     }
