@@ -75,7 +75,7 @@
                     <i class="align-middle" data-feather="settings"></i>
                 </a>
                 <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-                    <img src="{{ auth()->user()->foto ? url('storage/' . auth()->user()->foto) : asset('default.jpg') }}"
+                    <img src="{{ auth()->user()->foto ? url('storage/' . auth()->user()->foto) : asset('img/avatars/avatar.jpg') }}"
                         class="avatar rounded me-1" style="object-fit: cover;" alt="User Avatar" />
                     <span class="text-dark">{{ Auth::user()->name }}</span>
                 </a>

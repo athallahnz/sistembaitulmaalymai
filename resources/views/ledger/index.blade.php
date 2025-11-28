@@ -108,10 +108,6 @@
                                 <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
                                     <option value="">Pilih Akun</option>
-                                    @foreach ($akunTanpaParent as $akun)
-                                        <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
-                                            {{ $akun->nama_akun }}</option>
-                                    @endforeach
                                 </select>
                             </div>
 
@@ -134,7 +130,7 @@
                                     oninput="formatInput(this)">
                                 <input type="number" name="amount" id="amount" class="form-control d-none">
                                 <small class="form-text text-muted" id="saldo-akun">
-                                    Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.' ?? 0) }}
+                                    Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.') }}
                                 </small>
                             </div>
 
@@ -151,8 +147,8 @@
                 <thead class="table-light">
                     <tr>
                         <th>Tanggal</th>
-                        <th>Kode Transaksi</th>
-                        <th>Akun</th>
+                        <th>Akun Sumber</th>
+                        <th>Akun Tujuan</th>
                         <th>Debit</th>
                         <th>Kredit</th>
                     </tr>
@@ -165,7 +161,70 @@
 
 @push('scripts')
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
+        // Data dari backend (akunTanpaParent & akunDenganParent)
+        const akunTanpaParent = @json($akunTanpaParent);
+        const akunDenganParent = @json($akunDenganParent);
+
+        function populateAkunSelect(type) {
+            const select = document.getElementById('akun_keuangan');
+            const akunLabel = document.getElementById('akun-label');
+
+            if (!select) return;
+
+            // Reset option
+            select.innerHTML = '<option value="">Pilih Akun</option>';
+
+            // Filter tipe_akun
+            const filterType = type === 'penerimaan' ? 'revenue' : 'expense';
+
+            // Tambahkan option sesuai tipe
+            akunTanpaParent
+                .filter(a => a.tipe_akun === filterType)
+                .forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = (a.kode_akun ? a.kode_akun + ' - ' : '') + a.nama_akun;
+                    opt.dataset.saldoNormal = a.saldo_normal;
+                    select.appendChild(opt);
+                });
+
+            // Reset parent-akun
+            const parentContainer = document.getElementById('parent-akun-container');
+            const parentSelect = document.getElementById('parent_akun_id');
+            if (parentSelect && parentContainer) {
+                parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+                parentContainer.style.display = 'none';
+            }
+        }
+
+        function populateChildAkun(parentId) {
+            const parentContainer = document.getElementById('parent-akun-container');
+            const parentSelect = document.getElementById('parent_akun_id');
+            if (!parentSelect || !parentContainer) return;
+
+            parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+
+            const children = akunDenganParent[parentId] || akunDenganParent[String(parentId)];
+
+            if (children && children.length > 0) {
+                children.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = (a.kode_akun ? a.kode_akun + ' - ' : '') + a.nama_akun;
+                    parentSelect.appendChild(opt);
+                });
+                parentContainer.style.display = 'block';
+            } else {
+                parentContainer.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const penerimaanRadio = document.getElementById('penerimaan');
+            const pengeluaranRadio = document.getElementById('pengeluaran');
+            const akunSelect = document.getElementById('akun_keuangan');
+
+            // ========= Label Asal / Tujuan =========
             const akunLabel = document.getElementById("akun-label");
             const typeRadios = document.querySelectorAll('input[name="type"]');
 
@@ -173,7 +232,6 @@
                 if (!akunLabel) return;
                 const checked = document.querySelector('input[name="type"]:checked');
                 if (!checked) {
-                    // Default sebelum user memilih
                     akunLabel.textContent = "Asal Akun";
                     return;
                 }
@@ -182,93 +240,76 @@
                     "Tujuan Akun";
             }
 
-            // Pasang listener ke kedua radio
-            typeRadios.forEach(r => r.addEventListener("change", updateAkunLabel));
+            typeRadios.forEach(r => r.addEventListener("change", () => {
+                updateAkunLabel();
+            }));
+
+            // ========= Radio: Penerimaan / Pengeluaran =========
+            if (penerimaanRadio) {
+                penerimaanRadio.addEventListener('change', function() {
+                    if (this.checked) {
+                        populateAkunSelect('penerimaan');
+                        updateAkunLabel();
+                    }
+                });
+            }
+
+            if (pengeluaranRadio) {
+                pengeluaranRadio.addEventListener('change', function() {
+                    if (this.checked) {
+                        populateAkunSelect('pengeluaran');
+                        updateAkunLabel();
+                    }
+                });
+            }
+
+            // ========= Change akun_keuangan → load children =========
+            if (akunSelect) {
+                akunSelect.addEventListener('change', function() {
+                    const parentId = this.value;
+                    if (parentId) {
+                        populateChildAkun(parentId);
+                    } else {
+                        const parentContainer = document.getElementById('parent-akun-container');
+                        const parentSelect = document.getElementById('parent_akun_id');
+                        if (parentSelect && parentContainer) {
+                            parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+                            parentContainer.style.display = 'none';
+                        }
+                    }
+                });
+            }
+
             // Set label awal
             updateAkunLabel();
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
-            const akunKeuangan = document.getElementById("akun_keuangan");
-            const parentAkunContainer = document.getElementById("parent-akun-container");
-            const parentAkunSelect = document.getElementById("parent_akun_id");
-
-            if (!akunKeuangan || !parentAkunContainer || !parentAkunSelect) return;
-
-            const akunDenganParent = @json($akunDenganParent);
-
-            akunKeuangan.addEventListener("change", function() {
-                const selectedAkunId = this.value;
-                parentAkunSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
-
-                if (selectedAkunId && akunDenganParent[selectedAkunId]) {
-                    akunDenganParent[selectedAkunId].forEach(akun => {
-                        const opt = document.createElement("option");
-                        opt.value = akun.id;
-                        opt.textContent = akun.nama_akun;
-                        parentAkunSelect.appendChild(opt);
-                    });
-                    parentAkunContainer.style.display = "block";
-                } else {
-                    parentAkunContainer.style.display = "none";
-                }
-
-                // Panggil hanya jika memang ada fungsinya
-                if (typeof updateFormByAkun === "function") {
-                    updateFormByAkun(akunKeuangan);
-                }
-            });
-        });
-
         $(document).ready(function() {
-            var table = $('.yajra-datatable').DataTable({
+            $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('ledger.data') }}", // Sesuaikan dengan route untuk mengambil data ledger
+                ajax: "{{ route('ledger.data') }}",
                 columns: [{
-                        data: 'created_at',
-                        name: 'created_at'
+                        data: 'tanggal',
+                        name: 'tanggal'
                     },
                     {
-                        data: 'kode_transaksi',
-                        name: 'kode_transaksi',
-                        render: function(data, type, row) {
-                            return row.transaksi ? row.transaksi.kode_transaksi : 'N/A';
-                        }
+                        data: 'akun_sumber',
+                        name: 'akun_sumber'
                     },
                     {
-                        data: 'akun_nama',
-                        name: 'akun_nama',
-                        render: function(data, type, row) {
-                            return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
-                        }
+                        data: 'akun_tujuan',
+                        name: 'akun_tujuan'
                     },
                     {
                         data: 'debit',
-                        name: 'debit',
-                        render: function(data, type, row) {
-                            return number_format(data, 2); // Format angka untuk debit
-                        }
+                        name: 'debit'
                     },
                     {
-                        data: 'credit',
-                        name: 'credit',
-                        render: function(data, type, row) {
-                            return number_format(data, 2); // Format angka untuk kredit
-                        }
+                        data: 'kredit',
+                        name: 'kredit'
                     },
-                    // {
-                    //     data: 'saldo',
-                    //     name: 'saldo',
-                    //     render: function(data, type, row) {
-                    //         return 'Rp ' + number_format(data, 2, ',',
-                    //             '.'); // Format angka untuk saldo
-                    //     }
-                    // }
-                ],
-                error: function(xhr, status, error) {
-                    console.log(xhr.responseText); // Debugging error response
-                }
+                ]
             });
         });
 
@@ -296,7 +337,7 @@
         }
 
         function toggleVisibility(icon) {
-            let parent = icon.closest('.card'); // Cari elemen terdekat yang memiliki class 'card'
+            let parent = icon.closest('.card');
             let hiddenValue = parent.querySelector('.hidden-value');
             let maskedValue = parent.querySelector('.masked-value');
 
@@ -314,33 +355,11 @@
         }
 
         function formatInput(input) {
-            let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
+            let rawValue = input.value.replace(/\D/g, "");
             let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
 
-            input.value = formatted; // Tampilkan angka dengan separator
-            document.getElementById("amount").value = rawValue; // Simpan angka asli tanpa separator
-        }
-
-        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-            var n = !isFinite(+number) ? 0 : +number,
-                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
-                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
-                s = '',
-                toFixedFix = function(n, prec) {
-                    var k = Math.pow(10, prec);
-                    return '' + Math.round(n * k) / k;
-                };
-            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-            if (s[0].length > 3) {
-                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-            }
-            if ((s[1] || '').length < prec) {
-                s[1] = s[1] || '';
-                s[1] += new Array(prec - s[1].length + 1).join('0');
-            }
-            return s.join(dec);
+            input.value = formatted;
+            document.getElementById("amount").value = rawValue;
         }
     </script>
 @endpush

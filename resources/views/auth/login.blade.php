@@ -40,10 +40,61 @@
         }
 
         body {
+            position: relative;
+            overflow: hidden;
             background: url("{{ $sidebarSetting?->background_login
                 ? url('storage/' . $sidebarSetting->background_login)
                 : asset('img/photos/img-background-login.webp') }}") no-repeat center center fixed;
             background-size: cover;
+        }
+
+        /* Konten utama di atas shining */
+        body>.wrapper,
+        body>.auth-wrapper,
+        body>.container {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ===== Efek Shining Bergerak ===== */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -30%;
+            /* keluar sedikit dari layar */
+
+            /* bikin kelihatan dulu, nanti bisa dihalusin */
+            background:
+                radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.32), transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(255, 220, 160, 0.25), transparent 60%);
+
+            animation: shineMove 5s infinite linear;
+            pointer-events: none;
+            z-index: 1;
+            /* di atas background body, di bawah konten */
+        }
+
+        /* Animasi pelan, muter-muter */
+        @keyframes shineMove {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            25% {
+                transform: translate3d(-8%, 6%, 0);
+            }
+
+            50% {
+                transform: translate3d(-15%, -10%, 0);
+            }
+
+            75% {
+                transform: translate3d(10%, -12%, 0);
+            }
+
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
         }
 
         .card {

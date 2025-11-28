@@ -7,11 +7,12 @@ use App\Models\User;
 use App\Models\Bidang;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Hash;
-use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
+use Yajra\DataTables\Facades\DataTables;
 
 class UserController extends Controller
 {
@@ -25,7 +26,7 @@ class UserController extends Controller
     {
         if ($request->ajax()) {
             $users = User::withTrashed() // Menampilkan data yang sudah dihapus
-                ->select('id', 'name', 'email', 'nomor', 'role', 'bidang_name', 'deleted_at', 'last_activity_at','is_active'); // Include 'last_activity_at'
+                ->select('id', 'name', 'email', 'nomor', 'role', 'bidang_name', 'deleted_at', 'last_activity_at', 'is_active'); // Include 'last_activity_at'
 
             $data = DataTables::of($users)
                 ->addColumn('bidang_name', function ($user) {
@@ -210,20 +211,35 @@ class UserController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $user = auth()->user();
-        Log::info("Mulai update profil", ['user_id' => $user->id]);
+        try {
+            $user = auth()->user();
+            Log::info("Mulai update profil", ['user_id' => $user->id]);
 
-        // Validasi form
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'nomor' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'pin' => ['nullable', 'string', 'min:4', 'max:6'],
-            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
+            // Validasi form
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+                'nomor' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
+                'pin' => ['nullable', 'string', 'min:4', 'max:6'],
+                'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            ]);
+
+        } catch (ValidationException $e) {
+
+            // 🔥 Tangkap error khusus foto lebih dari 2MB
+            if ($e->errors()['foto'][0] ?? false) {
+                if (str_contains($e->errors()['foto'][0], 'kilobytes')) {
+                    return back()->with('error', 'Ukuran foto maksimal 2 MB!')->withInput();
+                }
+            }
+
+            // error lainnya -> default
+            throw $e;
+        }
 
         Log::info("Validasi berhasil");
 
+        // =========== lanjut proses update, sama seperti kode kamu ===========
         $userData = [
             'name' => $request->name,
             'email' => $request->email,
@@ -235,26 +251,19 @@ class UserController extends Controller
         }
 
         if ($request->hasFile('foto')) {
-            // Hapus foto lama jika ada
             if ($user->foto && Storage::exists('public/' . $user->foto)) {
                 Storage::delete('public/' . $user->foto);
-                Log::info("Foto lama dihapus", ['foto' => $user->foto]);
             }
 
-            // Simpan foto baru
             $file = $request->file('foto');
             $filename = 'foto_' . time() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs('public/foto_user', $filename);
             $userData['foto'] = 'foto_user/' . $filename;
         }
 
-
-        // Cek isi userData sebelum update
-        Log::info("Data yang akan disimpan", $userData);
-
         $user->update($userData);
-        Log::info("Update user berhasil");
 
         return redirect()->route('profile.edit')->with('success', 'Profil berhasil diperbarui!');
     }
+
 }

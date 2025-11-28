@@ -106,13 +106,8 @@
 
                             <div class="mb-3">
                                 <label class="form-label mb-2" id="akun-label">Asal Akun</label> <!-- Label dinamis -->
-                                <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" value="102"
-                                    required>
+                                <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
                                     <option value="">Pilih Akun</option>
-                                    @foreach ($akunTanpaParent as $akun)
-                                        <option value="{{ $akun->id }}" data-saldo-normal="{{ $akun->saldo_normal }}">
-                                            {{ $akun->nama_akun }}</option>
-                                    @endforeach
                                 </select>
                             </div>
 
@@ -154,8 +149,8 @@
                 <thead class="table-light">
                     <tr>
                         <th>Tanggal</th>
-                        <th>Kode Transaksi</th>
-                        <th>Akun</th>
+                        <th>Akun Sumber</th>
+                        <th>Akun Tujuan</th>
                         <th>Debit</th>
                         <th>Kredit</th>
                     </tr>
@@ -168,6 +163,129 @@
 
 @push('scripts')
     <script>
+        // Data dari backend (akunTanpaParent & akunDenganParent)
+        const akunTanpaParent = @json($akunTanpaParent);
+        const akunDenganParent = @json($akunDenganParent);
+
+        function populateAkunSelect(type) {
+            const select = document.getElementById('akun_keuangan');
+            const akunLabel = document.getElementById('akun-label');
+
+            if (!select) return;
+
+            // Reset option
+            select.innerHTML = '<option value="">Pilih Akun</option>';
+
+            // Filter tipe_akun
+            const filterType = type === 'penerimaan' ? 'revenue' : 'expense';
+
+            // Tambahkan option sesuai tipe
+            akunTanpaParent
+                .filter(a => a.tipe_akun === filterType)
+                .forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = (a.kode_akun ? a.kode_akun + ' - ' : '') + a.nama_akun;
+                    opt.dataset.saldoNormal = a.saldo_normal;
+                    select.appendChild(opt);
+                });
+
+            // Reset parent-akun
+            const parentContainer = document.getElementById('parent-akun-container');
+            const parentSelect = document.getElementById('parent_akun_id');
+            if (parentSelect && parentContainer) {
+                parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+                parentContainer.style.display = 'none';
+            }
+        }
+
+        function populateChildAkun(parentId) {
+            const parentContainer = document.getElementById('parent-akun-container');
+            const parentSelect = document.getElementById('parent_akun_id');
+            if (!parentSelect || !parentContainer) return;
+
+            parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+
+            const children = akunDenganParent[parentId] || akunDenganParent[String(parentId)];
+
+            if (children && children.length > 0) {
+                children.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = (a.kode_akun ? a.kode_akun + ' - ' : '') + a.nama_akun;
+                    parentSelect.appendChild(opt);
+                });
+                parentContainer.style.display = 'block';
+            } else {
+                parentContainer.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const penerimaanRadio = document.getElementById('penerimaan');
+            const pengeluaranRadio = document.getElementById('pengeluaran');
+            const akunSelect = document.getElementById('akun_keuangan');
+
+            // ========= Label Asal / Tujuan =========
+            const akunLabel = document.getElementById("akun-label");
+            const typeRadios = document.querySelectorAll('input[name="type"]');
+
+            function updateAkunLabel() {
+                if (!akunLabel) return;
+                const checked = document.querySelector('input[name="type"]:checked');
+                if (!checked) {
+                    akunLabel.textContent = "Asal Akun";
+                    return;
+                }
+                akunLabel.textContent = (checked.value === "penerimaan") ?
+                    "Asal Akun" :
+                    "Tujuan Akun";
+            }
+
+            typeRadios.forEach(r => r.addEventListener("change", () => {
+                updateAkunLabel();
+            }));
+
+            // ========= Radio: Penerimaan / Pengeluaran =========
+            if (penerimaanRadio) {
+                penerimaanRadio.addEventListener('change', function() {
+                    if (this.checked) {
+                        populateAkunSelect('penerimaan');
+                        updateAkunLabel();
+                    }
+                });
+            }
+
+            if (pengeluaranRadio) {
+                pengeluaranRadio.addEventListener('change', function() {
+                    if (this.checked) {
+                        populateAkunSelect('pengeluaran');
+                        updateAkunLabel();
+                    }
+                });
+            }
+
+            // ========= Change akun_keuangan → load children =========
+            if (akunSelect) {
+                akunSelect.addEventListener('change', function() {
+                    const parentId = this.value;
+                    if (parentId) {
+                        populateChildAkun(parentId);
+                    } else {
+                        const parentContainer = document.getElementById('parent-akun-container');
+                        const parentSelect = document.getElementById('parent_akun_id');
+                        if (parentSelect && parentContainer) {
+                            parentSelect.innerHTML = '<option value="">Pilih Akun Parent</option>';
+                            parentContainer.style.display = 'none';
+                        }
+                    }
+                });
+            }
+
+            // Set label awal
+            updateAkunLabel();
+        });
+
         document.addEventListener("DOMContentLoaded", function() {
             const akunLabel = document.getElementById("akun-label");
             const typeRadios = document.querySelectorAll('input[name="type"]');
@@ -229,49 +347,26 @@
                 serverSide: true,
                 ajax: "{{ route('laporan.bank.data') }}", // Sesuaikan dengan route untuk mengambil data ledger
                 columns: [{
-                        data: 'created_at',
-                        name: 'created_at'
+                        data: 'tanggal',
+                        name: 'tanggal'
                     },
                     {
-                        data: 'kode_transaksi',
-                        name: 'kode_transaksi',
-                        render: function(data, type, row) {
-                            return row.transaksi ? row.transaksi.kode_transaksi : 'N/A';
-                        }
+                        data: 'akun_sumber',
+                        name: 'akun_sumber'
                     },
                     {
-                        data: 'akun_nama',
-                        name: 'akun_nama',
-                        render: function(data, type, row) {
-                            return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
-                        }
+                        data: 'akun_tujuan',
+                        name: 'akun_tujuan'
                     },
                     {
                         data: 'debit',
-                        name: 'debit',
-                        render: function(data, type, row) {
-                            return number_format(data, 2); // Format angka untuk debit
-                        }
+                        name: 'debit'
                     },
                     {
-                        data: 'credit',
-                        name: 'credit',
-                        render: function(data, type, row) {
-                            return number_format(data, 2); // Format angka untuk kredit
-                        }
+                        data: 'kredit',
+                        name: 'kredit'
                     },
-                    // {
-                    //     data: 'saldo',
-                    //     name: 'saldo',
-                    //     render: function(data, type, row) {
-                    //         return 'Rp ' + number_format(data, 2, ',',
-                    //             '.'); // Format angka untuk saldo
-                    //     }
-                    // }
-                ],
-                error: function(xhr, status, error) {
-                    console.log(xhr.responseText); // Debugging error response
-                }
+                ]
             });
         });
 

@@ -102,12 +102,12 @@
     @stack('styles')
 
     <!-- SweetAlert2 Notifications -->
-    @if (session('login success'))
+    @if (session('login_success'))
         <script>
             Swal.fire({
                 icon: 'success',
                 title: 'Login Berhasil!',
-                text: "{{ session('login success') }}",
+                text: "{{ session('login_success') }}",
                 confirmButtonColor: '#28a745',
             });
         </script>

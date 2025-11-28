@@ -6,7 +6,7 @@
             <div class="card-body text-center">
                 <div class="position-relative d-inline-block mb-3">
                     <img id="profile-image"
-                        src="{{ auth()->user()->foto ? asset('storage/' . auth()->user()->foto) : asset('default.jpg') }}"
+                        src="{{ auth()->user()->foto ? url('storage/' . auth()->user()->foto) : asset('img/avatars/avatar.jpg') }}"
                         class="rounded-circle" width="100" height="100"
                         style="object-fit: cover; border: 4px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 

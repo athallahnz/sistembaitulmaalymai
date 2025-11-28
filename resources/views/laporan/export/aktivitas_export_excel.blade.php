@@ -1,45 +1,140 @@
-<table>
-    <tr>
-        <td><strong>Laporan Aktivitas</strong></td>
-    </tr>
-    <tr>
-        <td>Periode {{ \Carbon\Carbon::parse($startDate)->format('d/m/Y') }} –
-            {{ \Carbon\Carbon::parse($endDate)->format('d/m/Y') }}</td>
-    </tr>
-</table>
+<!DOCTYPE html>
+<html>
 
-<table>
-    <thead>
-        <tr>
-            <th>Tanggal</th>
-            <th>Deskripsi</th>
-            <th style="text-align:right">Penerimaan</th>
-            <th style="text-align:right">Pengeluaran</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach ($aktivitas as $row)
-            <tr>
-                <td>{{ \Carbon\Carbon::parse($row->tanggal_transaksi)->format('d/m/Y') }}</td>
-                <td>{{ $row->deskripsi }}</td>
-                <td style="text-align:right">
-                    {{ $row->type === 'penerimaan' ? 'Rp' . number_format($row->amount, 2, ',', '.') : 'Rp0,00' }}</td>
-                <td style="text-align:right">
-                    {{ $row->type === 'pengeluaran' ? 'Rp' . number_format($row->amount, 2, ',', '.') : 'Rp0,00' }}</td>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Aktivitas (Excel)</title>
+</head>
+
+<body>
+
+    {{-- HEADER --}}
+    <h2>Yayasan Masjid Al Iman</h2>
+    <h3>Laporan Aktivitas</h3>
+    <p>
+        Periode:
+        {{ \Carbon\Carbon::parse($startDate)->format('d/m/Y') }}
+        s/d
+        {{ \Carbon\Carbon::parse($endDate)->format('d/m/Y') }}
+    </p>
+
+    {{-- ===========================
+        PENDAPATAN
+    ============================ --}}
+    <h3>Pendapatan</h3>
+
+    <table border="1" cellpadding="6" cellspacing="0" width="100%">
+        <thead>
+            <tr style="background:#f2f2f2;">
+                <th>Kelompok</th>
+                <th>Nama Akun</th>
+                <th>Jumlah (Rp)</th>
             </tr>
-        @endforeach
-        <tr>
-            <td colspan="2" style="text-align:right"><strong>Total Penerimaan</strong></td>
-            <td style="text-align:right"><strong>Rp{{ number_format($totalPenerimaan, 2, ',', '.') }}</strong></td>
-            <td></td>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:right"><strong>Total Pengeluaran</strong></td>
-            <td style="text-align:right"><strong>Rp{{ number_format($totalPengeluaran, 2, ',', '.') }}</strong></td>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:right"><strong>Surplus/(Defisit)</strong></td>
-            <td style="text-align:right"><strong>Rp{{ number_format($surplusDefisit, 2, ',', '.') }}</strong></td>
-        </tr>
-    </tbody>
-</table>
+        </thead>
+
+        <tbody>
+            @php
+                $labelPembatasan = [
+                    'tidak_terikat' => 'Tidak Terikat',
+                    'terikat_temporer' => 'Terikat Temporer',
+                    'terikat_permanen' => 'Terikat Permanen',
+                ];
+            @endphp
+
+            @foreach (['tidak_terikat', 'terikat_temporer', 'terikat_permanen'] as $key)
+                @php
+                    $rows = $pendapatan[$key] ?? [];
+                    $totalKelompok = $totalPendapatan[$key] ?? 0;
+                @endphp
+
+                @if (!empty($rows))
+                    <tr style="background:#e8e8e8;">
+                        <td colspan="3"><strong>{{ $labelPembatasan[$key] }}</strong></td>
+                    </tr>
+
+                    @foreach ($rows as $row)
+                        <tr>
+                            <td></td>
+                            <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
+                            <td>{{ $row['saldo'] }}</td>
+                        </tr>
+                    @endforeach
+
+                    <tr>
+                        <td colspan="2" align="right"><strong>Subtotal {{ $labelPembatasan[$key] }}</strong></td>
+                        <td><strong>{{ $totalKelompok }}</strong></td>
+                    </tr>
+                @endif
+            @endforeach
+
+            {{-- Total Pendapatan --}}
+            <tr style="background:#d9ead3;font-weight:bold;">
+                <td colspan="2" align="right">Total Pendapatan</td>
+                <td>
+                    <strong>
+                        {{ ($totalPendapatan['tidak_terikat'] ?? 0) +
+                            ($totalPendapatan['terikat_temporer'] ?? 0) +
+                            ($totalPendapatan['terikat_permanen'] ?? 0) }}
+                    </strong>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    {{-- ===========================
+        BEBAN
+    ============================ --}}
+    <h3 style="margin-top:20px;">Beban</h3>
+
+    <table border="1" cellpadding="6" cellspacing="0" width="100%">
+        <thead>
+            <tr style="background:#f2f2f2;">
+                <th>Nama Akun</th>
+                <th>Jumlah (Rp)</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach ($bebanList as $row)
+                <tr>
+                    <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
+                    <td>{{ $row['saldo'] }}</td>
+                </tr>
+            @endforeach
+
+            <tr style="background:#f2f2f2;font-weight:bold;">
+                <td align="right">Total Beban</td>
+                <td>{{ $totalBeban }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {{-- ===========================
+        PERUBAHAN ASET NETO
+    ============================ --}}
+    <h3 style="margin-top:20px;">Ringkasan Perubahan Aset Neto</h3>
+
+    <table border="1" cellpadding="6" cellspacing="0" width="100%">
+        <tbody>
+            <tr>
+                <td>Perubahan Aset Neto Tidak Terikat</td>
+                <td>{{ $perubahanTidakTerikat }}</td>
+            </tr>
+            <tr>
+                <td>Perubahan Aset Neto Terikat Temporer</td>
+                <td>{{ $perubahanTemporer }}</td>
+            </tr>
+            <tr>
+                <td>Perubahan Aset Neto Terikat Permanen</td>
+                <td>{{ $perubahanPermanen }}</td>
+            </tr>
+            <tr style="background:#d9ead3;font-weight:bold;">
+                <td>Total Perubahan Aset Neto</td>
+                <td>{{ $totalPerubahanAsetNeto }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+
+</html>
