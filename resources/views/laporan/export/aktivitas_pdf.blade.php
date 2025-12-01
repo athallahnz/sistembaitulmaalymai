@@ -30,10 +30,6 @@
             text-align: center;
         }
 
-        .text-end {
-            text-align: right;
-        }
-
         .mt-1 {
             margin-top: 4px;
         }
@@ -44,6 +40,10 @@
 
         .mt-3 {
             margin-top: 12px;
+        }
+
+        .mt-4 {
+            margin-top: 16px;
         }
 
         .mb-1 {
@@ -58,6 +58,10 @@
             margin-bottom: 12px;
         }
 
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -68,19 +72,31 @@
         th,
         td {
             border: 1px solid #ddd;
-            padding: 6px;
+            padding: 4px 6px;
         }
 
-        .fw-bold {
+        th {
+            background: #f5f5f5;
             font-weight: bold;
         }
 
-        .table-light {
-            background: #f7f7f7;
+        .text-right {
+            text-align: right;
         }
 
-        .table-success {
-            background: #e9f7ef;
+        .section-header {
+            background: #efefef;
+            font-weight: bold;
+        }
+
+        .muted {
+            color: #777;
+            font-style: italic;
+        }
+
+        .summary-row {
+            background: #eaeaea;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -98,19 +114,18 @@
         </p>
     </div>
 
-    {{-- PENDAPATAN --}}
-    <h4 class="mt-2">Pendapatan</h4>
+    {{-- ===================== PENDAPATAN ===================== --}}
+    <h4 class="mt-3 mb-1">Pendapatan</h4>
 
     <table>
-        <thead class="table-light">
+        <thead>
             <tr>
-                <th>Kelompok</th>
-                <th>Nama Akun</th>
-                <th class="text-end">Jumlah (Rp)</th>
+                <th style="width: 30%">Kelompok</th>
+                <th style="width: 40%">Akun</th>
+                <th style="width: 30%" class="text-right">Jumlah (Rp)</th>
             </tr>
         </thead>
         <tbody>
-            {{-- Tidak Terikat --}}
             @php
                 $labelPembatasan = [
                     'tidak_terikat' => 'Tidak Terikat',
@@ -126,112 +141,172 @@
                 @endphp
 
                 @if (!empty($rows))
-                    <tr class="table-light">
-                        <td colspan="3" class="fw-bold">
-                            {{ $labelPembatasan[$key] }}
-                        </td>
+                    <tr class="section-header">
+                        <td colspan="3">{{ $labelPembatasan[$key] }}</td>
                     </tr>
 
                     @foreach ($rows as $row)
                         <tr>
                             <td></td>
                             <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
-                            <td class="text-end">
-                                Rp{{ number_format($row['saldo'], 2, ',', '.') }}
-                            </td>
+                            <td class="text-right">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
                         </tr>
                     @endforeach
 
-                    <tr class="fw-bold">
-                        <td colspan="2" class="text-end">Subtotal {{ $labelPembatasan[$key] }}</td>
-                        <td class="text-end">
-                            Rp{{ number_format($totalKelompok, 2, ',', '.') }}
+                    <tr class="summary-row">
+                        <td colspan="2" class="text-right">
+                            Subtotal {{ $labelPembatasan[$key] }}
+                        </td>
+                        <td class="text-right">
+                            {{ number_format($totalKelompok, 0, ',', '.') }}
                         </td>
                     </tr>
                 @endif
             @endforeach
 
-            {{-- Total Pendapatan --}}
-            <tr class="fw-bold table-success">
-                <td colspan="2" class="text-end">Total Pendapatan</td>
-                <td class="text-end">
-                    Rp{{ number_format(
-                        ($totalPendapatan['tidak_terikat'] ?? 0) +
-                            ($totalPendapatan['terikat_temporer'] ?? 0) +
-                            ($totalPendapatan['terikat_permanen'] ?? 0),
-                        2,
-                        ',',
-                        '.',
-                    ) }}
+            @php
+                $totalPendapatanAll =
+                    ($totalPendapatan['tidak_terikat'] ?? 0) +
+                    ($totalPendapatan['terikat_temporer'] ?? 0) +
+                    ($totalPendapatan['terikat_permanen'] ?? 0);
+            @endphp
+
+            <tr class="summary-row">
+                <td colspan="2" class="text-right">
+                    <strong>Total Pendapatan</strong>
+                </td>
+                <td class="text-right">
+                    <strong>{{ number_format($totalPendapatanAll, 0, ',', '.') }}</strong>
                 </td>
             </tr>
         </tbody>
     </table>
 
-    {{-- BEBAN --}}
-    <h4 class="mt-3">Beban</h4>
+    {{-- ===================== BEBAN ===================== --}}
+    <h4 class="mt-4 mb-1">Beban</h4>
 
     <table>
-        <thead class="table-light">
+        <thead>
             <tr>
-                <th>Nama Akun</th>
-                <th class="text-end">Jumlah (Rp)</th>
+                <th style="width: 40%">Akun</th>
+                <th style="width: 30%">Kelompok</th>
+                <th style="width: 30%" class="text-right">Jumlah (Rp)</th>
             </tr>
         </thead>
         <tbody>
-            @forelse ($bebanList as $row)
-                <tr>
-                    <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
-                    <td class="text-end">
-                        Rp{{ number_format($row['saldo'], 2, ',', '.') }}
+            {{-- Beban Tidak Terikat --}}
+            @php $bbTT = $bebanTidakTerikat ?? []; @endphp
+            @if (!empty($bbTT))
+                <tr class="section-header">
+                    <td colspan="3">Beban Tidak Terikat</td>
+                </tr>
+                @foreach ($bbTT as $row)
+                    <tr>
+                        <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
+                        <td>Tidak Terikat</td>
+                        <td class="text-right">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+                <tr class="summary-row">
+                    <td class="text-right">Subtotal Beban Tidak Terikat</td>
+                    <td></td>
+                    <td class="text-right">
+                        {{ number_format($totalBebanTidakTerikat ?? 0, 0, ',', '.') }}
                     </td>
                 </tr>
-            @empty
-                <tr>
-                    <td colspan="2" class="text-center">Tidak ada beban pada periode ini.</td>
-                </tr>
-            @endforelse
+            @endif
 
-            <tr class="fw-bold table-light">
-                <td class="text-end">Total Beban</td>
-                <td class="text-end">
-                    Rp{{ number_format($totalBeban, 2, ',', '.') }}
+            {{-- Beban Terikat Temporer --}}
+            @php $bbTemp = $bebanTerikatTemporer ?? []; @endphp
+            @if (!empty($bbTemp))
+                <tr class="section-header">
+                    <td colspan="3">Beban Terikat Temporer</td>
+                </tr>
+                @foreach ($bbTemp as $row)
+                    <tr>
+                        <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
+                        <td>Terikat Temporer</td>
+                        <td class="text-right">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+                <tr class="summary-row">
+                    <td class="text-right">Subtotal Beban Terikat Temporer</td>
+                    <td></td>
+                    <td class="text-right">
+                        {{ number_format($totalBebanTemporer ?? 0, 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endif
+
+            {{-- Beban Terikat Permanen --}}
+            @php $bbPerm = $bebanTerikatPermanen ?? []; @endphp
+            @if (!empty($bbPerm))
+                <tr class="section-header">
+                    <td colspan="3">Beban Terikat Permanen</td>
+                </tr>
+                @foreach ($bbPerm as $row)
+                    <tr>
+                        <td>{{ $row['akun']->kode_akun }} - {{ $row['akun']->nama_akun }}</td>
+                        <td>Terikat Permanen</td>
+                        <td class="text-right">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+                <tr class="summary-row">
+                    <td class="text-right">Subtotal Beban Terikat Permanen</td>
+                    <td></td>
+                    <td class="text-right">
+                        {{ number_format($totalBebanPermanen ?? 0, 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endif
+
+            @php
+                $grandTotalBeban =
+                    ($totalBebanTidakTerikat ?? 0) + ($totalBebanTemporer ?? 0) + ($totalBebanPermanen ?? 0);
+            @endphp
+
+            <tr class="summary-row">
+                <td class="text-right"><strong>Total Seluruh Beban</strong></td>
+                <td></td>
+                <td class="text-right">
+                    <strong>{{ number_format($grandTotalBeban, 0, ',', '.') }}</strong>
                 </td>
             </tr>
         </tbody>
     </table>
 
-    {{-- RINGKASAN PERUBAHAN ASET NETO --}}
-    <h4 class="mt-3">Ringkasan Perubahan Aset Neto</h4>
+    {{-- ===================== PERUBAHAN ASET NETO ===================== --}}
+    <h4 class="mt-4 mb-1">Ringkasan Perubahan Aset Neto</h4>
 
     <table>
         <tbody>
             <tr>
                 <td>Perubahan Aset Neto Tidak Terikat</td>
-                <td class="text-end">
-                    Rp{{ number_format($perubahanTidakTerikat, 2, ',', '.') }}
+                <td class="text-right">
+                    {{ number_format($perubahanTidakTerikat ?? 0, 0, ',', '.') }}
                 </td>
             </tr>
             <tr>
                 <td>Perubahan Aset Neto Terikat Temporer</td>
-                <td class="text-end">
-                    Rp{{ number_format($perubahanTemporer, 2, ',', '.') }}
+                <td class="text-right">
+                    {{ number_format($perubahanTemporer ?? 0, 0, ',', '.') }}
                 </td>
             </tr>
             <tr>
                 <td>Perubahan Aset Neto Terikat Permanen</td>
-                <td class="text-end">
-                    Rp{{ number_format($perubahanPermanen, 2, ',', '.') }}
+                <td class="text-right">
+                    {{ number_format($perubahanPermanen ?? 0, 0, ',', '.') }}
                 </td>
             </tr>
-            <tr class="fw-bold table-success">
-                <td>Total Perubahan Aset Neto</td>
-                <td class="text-end">
-                    Rp{{ number_format($totalPerubahanAsetNeto, 2, ',', '.') }}
+            <tr class="summary-row">
+                <td><strong>Total Perubahan Aset Neto</strong></td>
+                <td class="text-right">
+                    <strong>{{ number_format($totalPerubahanAsetNeto ?? 0, 0, ',', '.') }}</strong>
                 </td>
             </tr>
         </tbody>
     </table>
+
 </body>
 
 </html>

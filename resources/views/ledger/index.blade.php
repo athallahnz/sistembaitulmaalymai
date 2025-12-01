@@ -127,8 +127,8 @@
                             <div class="mb-3">
                                 <label class="form-label mb-2">Jumlah</label>
                                 <input type="text" id="formattedAmount" class="form-control"
-                                    oninput="formatInput(this)">
-                                <input type="number" name="amount" id="amount" class="form-control d-none">
+                                    oninput="formatInput(this)" required>
+                                <input type="number" name="amount" id="amount" class="form-control d-none" required>
                                 <small class="form-text text-muted" id="saldo-akun">
                                     Saldo Kas: Rp {{ number_format($saldoKas, 2, ',', '.') }}
                                 </small>

@@ -87,6 +87,19 @@
                         </div>
                     </a>
                 </div>
+                <div class="col-md-3 mb-4">
+                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 'piutang-perantara']) }}"
+                        class="text-decoration-none">
+                        <div class="card">
+                            <div class="icon bi bi-arrow-left-right"></div>
+                            <h6><strong>Piutang Perantara</strong></h6>
+                            <div class="value {{ $jumlahPiutangPerantara >= 0 ? 'positive' : 'negative' }}">
+                                {{ number_format($jumlahPiutangPerantara, 0, ',', '.') }}
+                            </div>
+                            <div class="description">Total s/d Bulan ini</div>
+                        </div>
+                    </a>
+                </div>
             </div>
             <h4 class="mb-4">Pendapatan, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
@@ -99,7 +112,7 @@
                             <div class="value {{ $jumlahPendapatanPMB >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanPMB, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 201 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -113,7 +126,7 @@
                             <div class="value {{ $jumlahPendapatanSPP >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanSPP, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 202 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -127,7 +140,7 @@
                             <div class="value {{ $jumlahPendapatanLainPendidikan >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanLainPendidikan, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 203 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -141,7 +154,7 @@
                             <div class="value {{ $jumlahPendapatanInfaqTidakTerikat >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanInfaqTidakTerikat, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 204 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -155,7 +168,7 @@
                             <div class="value {{ $jumlahPendapatanInfaqTerikat >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanInfaqTerikat, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 205 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -169,7 +182,7 @@
                             <div class="value {{ $jumlahPendapatanUsaha >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanUsaha, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 206 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>
@@ -183,7 +196,7 @@
                             <div class="value {{ $jumlahPendapatanBendaharaUmum >= 0 ? 'positive' : 'negative' }}">
                                 {{ number_format($jumlahPendapatanBendaharaUmum, 0, ',', '.') }}
                             </div>
-                            <div class="description">Total 207 & turunannya</div>
+                            <div class="description">Total tahun ini</div>
                         </div>
                     </a>
                 </div>

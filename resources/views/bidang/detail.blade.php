@@ -9,15 +9,7 @@
             <h1 class="mb-0">
                 Detail Transaksi:
                 <strong>
-                    @if ($parentAkun?->nama_akun && $type)
-                        {{ $parentAkun->nama_akun }} ({{ ucfirst($type) }})
-                    @elseif ($parentAkun?->nama_akun)
-                        {{ $parentAkun->nama_akun }}
-                    @elseif ($type)
-                        {{ ucfirst($type) }}
-                    @else
-                        Tidak Ditemukan
-                    @endif
+                    {{ $labelAkun ?? ($parentAkun->nama_akun ?? 'Detail Transaksi') }}
                 </strong>
             </h1>
 
@@ -29,8 +21,8 @@
                         <th>Tanggal</th>
                         <th>Kode Transaksi</th>
                         <th>Jenis Transaksi</th>
-                        <th>Akun</th>
-                        <th>Sub Akun</th>
+                        <th>Akun Sumber</th>
+                        <th>Akun Tujuan</th>    
                         <th>Deskripsi</th>
                         <th>Jumlah</th>
                     </tr>

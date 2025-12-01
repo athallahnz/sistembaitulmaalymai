@@ -37,31 +37,33 @@
     </style>
 
     <div class="container">
-        <h1 class="mb-4">
+        <div class="mb-4">
+            <!-- Button untuk membuka modal Opening Balance -->
+            <button type="button" class="btn btn-warning mb-3 me-2 shadow" id="btn-opening-balance" data-bs-toggle="modal"
+                data-bs-target="#transactionModal">
+                <i class="bi bi-box-arrow-in-down"></i> Opening Balance
+            </button>
+
+            <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal"
+                data-bs-target="#transferModal">
+                <i class="bi bi-arrow-left-right"></i> Transfer Kas / Bank
+            </button>
+
+            <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 me-2 shadow">
+                <i class="bi bi-filetype-pdf"></i> Unduh PDF
+            </a>
+            <a href="{{ route('transaksi.exportExcel') }}" class="btn btn-success mb-3 shadow">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </a>
+        </div>
+
+        <h1>
             @if (auth()->user()->hasRole('Bidang'))
                 Data Buku Harian <strong>Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}</strong>
             @elseif(auth()->user()->hasRole('Bendahara'))
                 Seluruh Data Transaksi Buku Harian <strong>Bidang</strong>
             @endif
         </h1>
-
-        <!-- Button untuk membuka modal Opening Balance -->
-        <button type="button" class="btn btn-warning mb-3 me-2 shadow" id="btn-opening-balance" data-bs-toggle="modal"
-            data-bs-target="#transactionModal">
-            <i class="bi bi-box-arrow-in-down"></i> Opening Balance
-        </button>
-
-        <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal"
-            data-bs-target="#transferModal">
-            <i class="bi bi-arrow-left-right"></i> Transfer Kas / Bank
-        </button>
-
-        <a href="{{ route('transaksi.exportAllPdf') }}" class="btn btn-danger mb-3 me-2 shadow">
-            <i class="bi bi-filetype-pdf"></i> Unduh PDF
-        </a>
-        <a href="{{ route('transaksi.exportExcel') }}" class="btn btn-success mb-3 shadow">
-            <i class="bi bi-file-earmark-excel"></i> Export Excel
-        </a>
 
         <!-- Modal -->
         <div class="modal fade" id="transactionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
@@ -148,7 +150,7 @@
                                 <label class="form-label mb-2" id="akun-label">Induk Aset Neto</label>
                                 <select class="form-control" name="akun_keuangan_id" id="akun_keuangan" required>
                                     <option value="">Pilih Induk Aset Neto</option>
-                                    @foreach ($akunTanpaParent as $akun)
+                                    @foreach ($equityTanpaParent as $akun)
                                         <option value="{{ $akun->id }}">
                                             {{ $akun->kode_akun }} — {{ $akun->nama_akun }}
                                         </option>
@@ -335,6 +337,89 @@
             </div>
         </div>
 
+        {{-- Modal Edit Transaksi --}}
+        <div class="modal fade" id="editTransactionModal" data-bs-backdrop="static" data-bs-keyboard="false"
+            tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editTransactionModalLabel">Edit Transaksi</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <form id="formEditTransaksi" method="POST">
+                            @csrf
+                            @method('PUT')
+
+                            <input type="hidden" name="bidang_name" id="edit_bidang_name">
+                            <input type="hidden" name="akun_keuangan_id" id="edit_akun_keuangan_hidden">
+
+                            <div class="mb-3">
+                                <label for="edit_kode_transaksi" class="form-label mb-2">Kode Transaksi</label>
+                                <input type="text" class="form-control" id="edit_kode_transaksi"
+                                    name="kode_transaksi" readonly>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="mb-2">Tanggal Transaksi</label>
+                                <input type="date" name="tanggal_transaksi" id="edit_tanggal_transaksi"
+                                    class="form-control" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label mb-2">Tipe Transaksi</label>
+                                <div class="d-flex gap-2" id="edit-transaction-type-buttons">
+                                    <input type="radio" class="btn-check" name="type" id="edit_penerimaan"
+                                        value="penerimaan" autocomplete="off">
+                                    <label class="btn btn-outline-success" for="edit_penerimaan">Penerimaan</label>
+
+                                    <input type="radio" class="btn-check" name="type" id="edit_pengeluaran"
+                                        value="pengeluaran" autocomplete="off">
+                                    <label class="btn btn-outline-danger" for="edit_pengeluaran">Pengeluaran</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label mb-2" id="edit-akun-label">Asal Akun</label>
+                                <select class="form-control" name="akun_keuangan_id" id="edit_akun_keuangan" required>
+                                    <option value="">Pilih Akun</option>
+                                    @foreach ($akunTanpaParent as $akun)
+                                        <option value="{{ $akun->id }}">
+                                            {{ $akun->kode_akun }} — {{ $akun->nama_akun }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="mb-3" id="edit-parent-akun-container" style="display: none;">
+                                <label class="mb-2">Akun Parent</label>
+                                <select class="form-control" name="parent_akun_id" id="edit_parent_akun_id">
+                                    <option value="">Pilih Akun Parent</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="mb-2">Deskripsi Transaksi</label>
+                                <input type="text" name="deskripsi" id="edit_deskripsi" class="form-control"
+                                    required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label mb-2">Jumlah</label>
+                                <input type="text" id="edit_formattedAmount" class="form-control"
+                                    oninput="formatInputEdit(this)">
+                                <input type="number" name="amount" id="edit_amount" class="form-control d-none">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Update</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tabel Data Transaksi -->
         <div class="p-3 shadow table-responsive rounded">
             <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
@@ -347,6 +432,31 @@
                         <th>Akun Tujuan</th>
                         <th>Deskripsi</th>
                         <th>Jumlah</th>
+                        <th>Dibuat Oleh</th>
+                        <th>Diupdate Oleh</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Tabel Mutasi Antar Bidang/Bendahara -->
+        <div class="p-3 shadow table-responsive rounded mt-4">
+            <h1>Mutasi <strong>(internal)</strong></h1>
+            <p class="text-muted">Menampilkan transaksi transfer antar kas/bank dan bidang/bendahara</p>
+            <table id="mutasi-table" class="p-2 table table-striped table-bordered rounded yajra-mutasi">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Kode T.</th>
+                        <th>Jenis T.</th>
+                        <th>Akun Asal</th>
+                        <th>Akun Tujuan</th>
+                        <th>Deskripsi</th>
+                        <th>Jumlah</th>
+                        <th>Dibuat Oleh</th>
+                        <th>Diupdate Oleh</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -358,7 +468,9 @@
 @endsection
 @push('script')
     <script>
-        // JS label type (masih bisa dipakai kalau nanti modal transaksi umum diaktifkan lagi)
+        // ==========================
+        // 1) OPENING BALANCE: label & Anak Aset Neto
+        // ==========================
         document.addEventListener("DOMContentLoaded", function() {
             const akunLabel = document.getElementById("akun-label");
             const typeRadios = document.querySelectorAll('input[name="type"]');
@@ -370,27 +482,26 @@
                     akunLabel.textContent = "Induk Aset Neto";
                     return;
                 }
-                // Di OB, label tetap Induk Aset Neto, logic ini disimpan kalau nanti type dipakai lagi
+                // Di OB, label tetap Induk Aset Neto (disimpan kalau nanti mau dipakai lagi)
                 akunLabel.textContent = "Induk Aset Neto";
             }
 
             typeRadios.forEach(r => r.addEventListener("change", updateAkunLabel));
             updateAkunLabel();
 
-            // JS: handle Anak Aset Neto berdasarkan Induk
             const akunKeuangan = document.getElementById("akun_keuangan");
             const parentAkunContainer = document.getElementById("parent-akun-container");
             const parentAkunSelect = document.getElementById("parent_akun_id");
 
             if (akunKeuangan && parentAkunContainer && parentAkunSelect) {
-                const akunDenganParent = @json($akunDenganParent);
+                const equityDenganParent = @json($equityDenganParent);
 
                 akunKeuangan.addEventListener("change", function() {
                     const selectedAkunId = this.value;
                     parentAkunSelect.innerHTML = '<option value="">Pilih Anak Aset Neto</option>';
 
-                    if (selectedAkunId && akunDenganParent[selectedAkunId]) {
-                        akunDenganParent[selectedAkunId].forEach(akun => {
+                    if (selectedAkunId && equityDenganParent[selectedAkunId]) {
+                        equityDenganParent[selectedAkunId].forEach(akun => {
                             const opt = document.createElement("option");
                             opt.value = akun.id;
                             opt.textContent = `${akun.kode_akun} — ${akun.nama_akun}`;
@@ -404,6 +515,9 @@
             }
         });
 
+        // ==========================
+        // 2) FILTER TUJUAN TRANSFER (hindari tujuan = sumber)
+        // ==========================
         document.addEventListener('DOMContentLoaded', function() {
             const sumberRadios = document.querySelectorAll('input[name="sumber_akun_id"]');
             const tujuanSelect = document.getElementById('tujuan_akun_id');
@@ -428,17 +542,14 @@
                 });
             }
 
-            // pasang listener ke radio sumber
-            sumberRadios.forEach(r => {
-                r.addEventListener('change', filterTujuan);
-            });
-
-            // panggil sekali di awal (pakai default sumber)
+            sumberRadios.forEach(r => r.addEventListener('change', filterTujuan));
             filterTujuan();
         });
 
+        // ==========================
+        // 3) AUTO BUKA MODAL TRANSFER JIKA VALIDASI ERROR
+        // ==========================
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-buka modal transfer kalau error & ini request transfer
             @if ($errors->any() && old('is_transfer'))
                 const modalEl = document.getElementById('transferModal');
                 if (modalEl) {
@@ -448,15 +559,52 @@
             @endif
         });
 
+        // ==========================
+        // 4) FORMAT INPUT (CREATE & TRANSFER)
+        // ==========================
+        function formatInput(input) {
+            let rawValue = input.value.replace(/\D/g, "");
+            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+            input.value = formatted;
+            const hidden = document.getElementById("amount");
+            if (hidden) hidden.value = rawValue;
+        }
+
         function formatInputTransfer(input) {
             let rawValue = input.value.replace(/\D/g, ""); // hanya angka
             let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
             input.value = formatted;
-            document.getElementById("amountTransfer").value = rawValue;
+            const hidden = document.getElementById("amountTransfer");
+            if (hidden) hidden.value = rawValue;
         }
 
+        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+            var n = !isFinite(+number) ? 0 : +number,
+                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+                s = '',
+                toFixedFix = function(n, prec) {
+                    var k = Math.pow(10, prec);
+                    return '' + Math.round(n * k) / k;
+                };
+            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+            if (s[0].length > 3) {
+                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            }
+            if ((s[1] || '').length < prec) {
+                s[1] = s[1] || '';
+                s[1] += new Array(prec - s[1].length + 1).join('0');
+            }
+            return s.join(dec);
+        }
+
+        // ==========================
+        // 5) DATATABLE TRANSAKSI
+        // ==========================
         $(document).ready(function() {
-            var table = $('.yajra-datatable').DataTable({
+            $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: "{{ route('transaksi.data') }}",
@@ -510,6 +658,14 @@
                         }
                     },
                     {
+                        data: 'user_name', // NEW
+                        name: 'user.name'
+                    },
+                    {
+                        data: 'updated_by_name', // NEW
+                        name: 'updatedBy.name'
+                    },
+                    {
                         data: 'actions',
                         name: 'actions',
                         orderable: false,
@@ -522,42 +678,219 @@
             });
         });
 
-        function formatInput(input) {
-            let rawValue = input.value.replace(/\D/g, "");
-            let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
+        // ==========================
+        // DATATABLE MUTASI (TRANSFER)
+        // ==========================
+        $(document).ready(function() {
+            $('.yajra-mutasi').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ route('transaksi.mutasi.data') }}", // ROUTE BARU
+                columns: [{
+                        data: 'tanggal_transaksi',
+                        name: 'tanggal_transaksi'
+                    },
+                    {
+                        data: 'kode_transaksi',
+                        name: 'kode_transaksi'
+                    },
+                    {
+                        data: 'type',
+                        name: 'type',
+                        render: function(data, type, row) {
+                            if (data === 'penerimaan') {
+                                return '<span class="badge bg-success">Penerimaan</span>';
+                            } else if (data === 'pengeluaran') {
+                                return '<span class="badge bg-danger">Pengeluaran</span>';
+                            } else if (data === 'pendapatan belum diterima') {
+                                return '<span class="badge bg-warning">Belum Diterima</span>';
+                            } else {
+                                return '<span class="badge bg-secondary">Unknown</span>';
+                            }
+                        }
+                    },
+                    {
+                        data: 'akun_keuangan_id',
+                        name: 'akun_keuangan_id',
+                        render: function(data, type, row) {
+                            return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
+                        }
+                    },
+                    {
+                        data: 'parent_akun_id',
+                        name: 'parent_akun_id',
+                        render: function(data, type, row) {
+                            return row.parent_akun_keuangan ? row.parent_akun_keuangan.nama_akun :
+                                'N/A';
+                        }
+                    },
+                    {
+                        data: 'deskripsi',
+                        name: 'deskripsi'
+                    },
+                    {
+                        data: 'amount',
+                        name: 'amount',
+                        render: function(data, type, row) {
+                            return number_format(data);
+                        }
+                    },
+                    {
+                        data: 'user_name',
+                        name: 'user.name'
+                    },
+                    {
+                        data: 'updated_by_name',
+                        name: 'updatedBy.name'
+                    },
+                    {
+                        data: 'actions',
+                        name: 'actions',
+                        orderable: false,
+                        searchable: false
+                    }
+                ],
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText);
+                }
+            });
+        });
 
-            input.value = formatted;
-            document.getElementById("amount").value = rawValue;
-        }
+        // ==========================
+        // 6) EDIT MODAL (AJAX + FILL FORM)
+        // ==========================
+        const akunDenganParentEdit = @json($akunDenganParent);
 
-        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-            var n = !isFinite(+number) ? 0 : +number,
-                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
-                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
-                s = '',
-                toFixedFix = function(n, prec) {
-                    var k = Math.pow(10, prec);
-                    return '' + Math.round(n * k) / k;
-                };
-            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-            if (s[0].length > 3) {
-                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+        function populateParentForEdit(parentId, selectedChildId = null) {
+            const container = document.getElementById('edit-parent-akun-container');
+            const select = document.getElementById('edit_parent_akun_id');
+            if (!container || !select) return;
+
+            select.innerHTML = '<option value="">Pilih Akun Parent</option>';
+
+            const children = akunDenganParentEdit[parentId] || akunDenganParentEdit[String(parentId)];
+
+            if (children && children.length > 0) {
+                children.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = (a.kode_akun ? a.kode_akun + ' — ' : '') + a.nama_akun;
+                    if (selectedChildId && Number(selectedChildId) === Number(a.id)) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
             }
-            if ((s[1] || '').length < prec) {
-                s[1] = s[1] || '';
-                s[1] += new Array(prec - s[1].length + 1).join('0');
-            }
-            return s.join(dec);
         }
 
-        function formatInputTransfer(input) {
-            let rawValue = input.value.replace(/\D/g, ""); // hanya angka
+        function formatInputEdit(input) {
+            let rawValue = input.value.replace(/\D/g, '');
             let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
-
             input.value = formatted;
-            document.getElementById("amountTransfer").value = rawValue;
+            const hidden = document.getElementById("edit_amount");
+            if (hidden) hidden.value = rawValue;
         }
+
+        // Tombol Edit di tabel diklik
+        $(document).on('click', '.btn-edit-transaksi', function() {
+            const id = $(this).data('id');
+
+            // generate URL dari named route lalu replace :id
+            const url = "{{ route('transaksi.json', ['id' => ':id']) }}".replace(':id', id);
+
+            $.get(url, function(res) {
+                const modal = $('#editTransactionModal');
+                const form = $('#formEditTransaksi');
+
+                form.attr('action', res.update_url);
+
+                // LOG: Cek apakah update_url sudah benar
+                console.log('Transaction ID:', id);
+                console.log('Update URL:', res.update_url);
+                console.log('Response Data:', res);
+
+                $('#edit_bidang_name').val(res.bidang_name ?? '');
+                $('#edit_kode_transaksi').val(res.kode_transaksi ?? '');
+                $('#edit_tanggal_transaksi').val(res.tanggal_transaksi ?? '');
+                $('#edit_deskripsi').val(res.deskripsi ?? '');
+
+                const amt = parseFloat(res.amount) || 0;
+                $('#edit_amount').val(amt);
+                $('#edit_formattedAmount').val(
+                    amt ? new Intl.NumberFormat('id-ID').format(amt) : ''
+                );
+
+                if (res.type === 'penerimaan') {
+                    $('#edit_penerimaan').prop('checked', true);
+                    $('#edit_pengeluaran').prop('checked', false);
+                    $('#edit-akun-label').text('Asal Akun');
+                } else if (res.type === 'pengeluaran') {
+                    $('#edit_penerimaan').prop('checked', false);
+                    $('#edit_pengeluaran').prop('checked', true);
+                    $('#edit-akun-label').text('Tujuan Akun');
+                }
+
+                // set induk akun (Pendapatan/Beban/dll) di dropdown
+                $('#edit_akun_keuangan').val(res.akun_keuangan_id || '');
+                console.log('Akun Keuangan ID:', res.akun_keuangan_id);
+
+                // hidden: simpan kas/bank sumber asli (untuk backend update)
+                $('#edit_akun_keuangan_hidden').val(res.akun_sumber_id || '');
+                console.log('Akun Sumber ID (Kas/Bank):', res.akun_sumber_id);
+
+                // isi dropdown anak akun berdasarkan induk + selected child
+                populateParentForEdit(res.akun_keuangan_id, res.parent_akun_id);
+
+                modal.modal('show');
+            }).fail(function(xhr) {
+                console.error('Gagal load JSON transaksi:', xhr.responseText);
+                console.error('Status:', xhr.status);
+            });
+        });
+
+        // Ubah induk akun di modal edit
+        $('#edit_akun_keuangan').on('change', function() {
+            const parentId = this.value;
+            populateParentForEdit(parentId, null);
+            $('#edit_akun_keuangan_hidden').val(parentId || '');
+        });
+
+        // Ubah label kalau tipe diubah di modal edit
+        $('#edit_penerimaan, #edit_pengeluaran').on('change', function() {
+            const checked = $('input[name="type"]:checked').val();
+            if (checked === 'penerimaan') {
+                $('#edit-akun-label').text('Asal Akun');
+            } else if (checked === 'pengeluaran') {
+                $('#edit-akun-label').text('Tujuan Akun');
+            }
+        });
+
+        // ==========================
+        // 7) DELETE DENGAN SWEETALERT
+        // ==========================
+        $(document).on('click', '.delete-btn', function(e) {
+            e.preventDefault();
+
+            const id = $(this).data('id');
+            const formId = '#delete-form-' + id;
+
+            Swal.fire({
+                title: "Apakah Anda yakin?",
+                text: "Data ini akan dihapus dan tidak dapat dikembalikan!",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#3085d6",
+                confirmButtonText: "Ya, hapus!",
+                cancelButtonText: "Batal"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $(formId).submit();
+                }
+            });
+        });
     </script>
 @endpush
