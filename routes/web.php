@@ -209,10 +209,12 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         Route::post('/store', [TransaksiController::class, 'store'])->name('transaksi.store'); // Store transaction
         Route::post('/storebank', [TransaksiController::class, 'storeBankTransaction'])->name('transaksi.storeBank'); // Store bank transaction
         Route::get('data', [TransaksiController::class, 'getData'])->name('transaksi.data'); // Get transaction data
+        Route::get('/mutasi/data', [TransaksiController::class, 'getMutasiData'])->name('transaksi.mutasi.data');
         Route::get('{id}/edit', [TransaksiController::class, 'edit'])->name('transaksi.edit'); // Edit transaction form
         Route::put('{id}/update', [TransaksiController::class, 'update'])->name('transaksi.update'); // Update transaction
         Route::put('{id}/update-bank', [TransaksiController::class, 'updateBankTransaction'])->name('transaksi.updateBank'); // Update bank transaction
         Route::delete('{id}', [TransaksiController::class, 'destroy'])->name('transaksi.destroy');
+        Route::get('/{id}/json', [TransaksiController::class, 'showJson'])->name('transaksi.json');
 
         // Route untuk menyimpan Opening Balance
         Route::post('/transaksi/opening-balance', [TransaksiController::class, 'storeOpeningBalance'])

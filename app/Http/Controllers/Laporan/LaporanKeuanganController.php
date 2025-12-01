@@ -582,33 +582,63 @@ class LaporanKeuanganController extends Controller
             $totalPendapatan[$pembatasan] += $nilaiLaporan;
         }
 
-        // ===== Beban (anggap semuanya tidak terikat) =====
-        $bebanList = [];
-        $totalBeban = 0;
+        // ===== Pisahkan Beban Sesuai Pembatasan =====
+        $bebanTidakTerikat = [];
+        $bebanTerikatTemporer = [];
+        $bebanTerikatPermanen = [];
+
+        $totalBebanTidakTerikat = 0;
+        $totalBebanTemporer = 0;
+        $totalBebanPermanen = 0;
 
         foreach ($akunBeban as $akun) {
             $agg = $saldoPerAkun->get($akun->id);
             $saldo = $this->hitungSaldoAkun($akun, $agg);
+
             if (abs($saldo) < 0.005) {
                 continue;
             }
 
-            $nilaiLaporan = abs($saldo);
+            $nilai = abs($saldo);
 
-            $bebanList[] = [
-                'akun' => $akun,
-                'saldo' => $nilaiLaporan,
-            ];
+            // Mapping pembatasan dari kolom atau dari kode akun
+            $pembatasan = $akun->pembatasan
+                ?? ($akun->kode_akun < 310 ? 'tidak_terikat'
+                    : ($akun->kode_akun < 330 ? 'terikat_temporer'
+                        : 'terikat_permanen'));
 
-            $totalBeban += $nilaiLaporan;
+            if ($pembatasan === 'tidak_terikat') {
+                $bebanTidakTerikat[] = ['akun' => $akun, 'saldo' => $nilai];
+                $totalBebanTidakTerikat += $nilai;
+
+            } elseif ($pembatasan === 'terikat_temporer') {
+                $bebanTerikatTemporer[] = ['akun' => $akun, 'saldo' => $nilai];
+                $totalBebanTemporer += $nilai;
+
+            } elseif ($pembatasan === 'terikat_permanen') {
+                $bebanTerikatPermanen[] = ['akun' => $akun, 'saldo' => $nilai];
+                $totalBebanPermanen += $nilai;
+            }
         }
 
         // ===== Perubahan Aset Neto =====
-        $perubahanTidakTerikat = ($totalPendapatan['tidak_terikat'] ?? 0) - $totalBeban;
-        $perubahanTemporer = $totalPendapatan['terikat_temporer'] ?? 0;
-        $perubahanPermanen = $totalPendapatan['terikat_permanen'] ?? 0;
+        $perubahanTidakTerikat =
+            ($totalPendapatan['tidak_terikat'] ?? 0)
+            - $totalBebanTidakTerikat;
 
-        $totalPerubahanAsetNeto = $perubahanTidakTerikat + $perubahanTemporer + $perubahanPermanen;
+        $perubahanTemporer =
+            ($totalPendapatan['terikat_temporer'] ?? 0)
+            - $totalBebanTemporer;
+
+        $perubahanPermanen =
+            ($totalPendapatan['terikat_permanen'] ?? 0)
+            - $totalBebanPermanen;
+
+        $totalPerubahanAsetNeto =
+            $perubahanTidakTerikat
+            + $perubahanTemporer
+            + $perubahanPermanen;
+
 
         return [
             'role' => $role,
@@ -617,15 +647,26 @@ class LaporanKeuanganController extends Controller
             'startDate' => $startDate,
             'endDate' => $endDate,
 
+            // Pendapatan
             'pendapatan' => $pendapatan,
             'totalPendapatan' => $totalPendapatan,
 
-            'bebanList' => $bebanList,
-            'totalBeban' => $totalBeban,
+            // Beban per pembatasan
+            'bebanTidakTerikat' => $bebanTidakTerikat,
+            'bebanTerikatTemporer' => $bebanTerikatTemporer,
+            'bebanTerikatPermanen' => $bebanTerikatPermanen,
 
+            // Total per pembatasan
+            'totalBebanTidakTerikat' => $totalBebanTidakTerikat,
+            'totalBebanTemporer' => $totalBebanTemporer,
+            'totalBebanPermanen' => $totalBebanPermanen,
+
+            // Perubahan aset neto per pembatasan
             'perubahanTidakTerikat' => $perubahanTidakTerikat,
             'perubahanTemporer' => $perubahanTemporer,
             'perubahanPermanen' => $perubahanPermanen,
+
+            // Total perubahan aset neto
             'totalPerubahanAsetNeto' => $totalPerubahanAsetNeto,
         ];
     }

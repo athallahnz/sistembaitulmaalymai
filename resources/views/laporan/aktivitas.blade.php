@@ -137,7 +137,12 @@
                                 <td colspan="3" class="fw-bold pt-3">BEBAN</td>
                             </tr>
 
-                            @forelse ($bebanList as $row)
+                            {{-- Beban Tidak Terikat --}}
+                            <tr>
+                                <td colspan="3" class="text-muted">Beban Tidak Terikat</td>
+                            </tr>
+                            @php $bbTT = $bebanTidakTerikat ?? []; @endphp
+                            @forelse ($bbTT as $row)
                                 <tr>
                                     <td>{{ $row['akun']->kode_akun }}</td>
                                     <td>{{ $row['akun']->nama_akun }}</td>
@@ -145,12 +150,72 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-muted fst-italic">Tidak ada beban dalam periode ini.</td>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada beban tidak terikat.</td>
                                 </tr>
                             @endforelse
                             <tr class="table-light fw-bold">
-                                <td colspan="2" class="text-end">Jumlah Beban</td>
-                                <td class="text-end">{{ number_format(abs($totalBeban ?? 0), 0, ',', '.') }}</td>
+                                <td colspan="2" class="text-end">Jumlah Beban Tidak Terikat</td>
+                                <td class="text-end">
+                                    {{ number_format($totalBebanTidakTerikat ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- Beban Terikat Temporer --}}
+                            <tr>
+                                <td colspan="3" class="text-muted pt-3">Beban Terikat Temporer</td>
+                            </tr>
+                            @php $bbTemp = $bebanTerikatTemporer ?? []; @endphp
+                            @forelse ($bbTemp as $row)
+                                <tr>
+                                    <td>{{ $row['akun']->kode_akun }}</td>
+                                    <td>{{ $row['akun']->nama_akun }}</td>
+                                    <td class="text-end">{{ number_format(abs($row['saldo']), 0, ',', '.') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada beban terikat temporer.</td>
+                                </tr>
+                            @endforelse
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Jumlah Beban Terikat Temporer</td>
+                                <td class="text-end">
+                                    {{ number_format($totalBebanTemporer ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- Beban Terikat Permanen --}}
+                            <tr>
+                                <td colspan="3" class="text-muted pt-3">Beban Terikat Permanen</td>
+                            </tr>
+                            @php $bbPerm = $bebanTerikatPermanen ?? []; @endphp
+                            @forelse ($bbPerm as $row)
+                                <tr>
+                                    <td>{{ $row['akun']->kode_akun }}</td>
+                                    <td>{{ $row['akun']->nama_akun }}</td>
+                                    <td class="text-end">{{ number_format(abs($row['saldo']), 0, ',', '.') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada beban terikat permanen.</td>
+                                </tr>
+                            @endforelse
+                            @php
+                                $grandTotalBeban =
+                                    ($totalBebanTidakTerikat ?? 0) +
+                                    ($totalBebanTemporer ?? 0) +
+                                    ($totalBebanPermanen ?? 0);
+                            @endphp
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Jumlah Beban Terikat Permanen</td>
+                                <td class="text-end">
+                                    {{ number_format($totalBebanPermanen ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="2" class="text-end">Total Seluruh Beban</td>
+                                <td class="text-end">
+                                    {{ number_format($grandTotalBeban, 0, ',', '.') }}
+                                </td>
                             </tr>
 
                             {{-- ===================== PERUBAHAN ASET NETO ===================== --}}
@@ -165,13 +230,13 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2">Kenaikan Aset Neto Terikat Temporer</td>
+                                <td colspan="2">Kenaikan (Penurunan) Aset Neto Terikat Temporer</td>
                                 <td class="text-end">
                                     {{ number_format($perubahanTemporer ?? 0, 0, ',', '.') }}
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2">Kenaikan Aset Neto Terikat Permanen</td>
+                                <td colspan="2">Kenaikan (Penurunan) Aset Neto Terikat Permanen</td>
                                 <td class="text-end">
                                     {{ number_format($perubahanPermanen ?? 0, 0, ',', '.') }}
                                 </td>
