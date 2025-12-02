@@ -136,7 +136,7 @@ class BidangController extends Controller
 
         $jumlahPiutangPerantara = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
             ->where('kode_transaksi', 'not like', '%-LAWAN')
-            // ⛔ JANGAN parent_akun_id yang isinya akun kas/bank bidang ini sendiri
+            ->where('bidang_name', $bidangId)
             ->whereNotIn('parent_akun_id', [$akunKasId, $akunBankId])
             ->sum('amount');
 

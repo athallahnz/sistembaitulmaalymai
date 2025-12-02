@@ -214,6 +214,11 @@ class BendaharaController extends Controller
             ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
+        $jumlahHutangPerantara = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
+            ->where('kode_transaksi', 'not like', '%-LAWAN')
+            ->whereIn('parent_akun_id', [1011, 1021])
+            ->sum('amount');
+
         $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::when(
             is_null($bidangId),
             fn($q) => $q->whereNull('bidang_name'),
@@ -320,6 +325,7 @@ class BendaharaController extends Controller
             'totalKeuanganSemuaBidang',
             'jumlahTransaksi',
             'jumlahPiutang',
+            'jumlahHutangPerantara',
             'jumlahPendapatanBelumDiterima',
             'jumlahTanahBangunan',
             'jumlahInventaris',
@@ -423,22 +429,52 @@ class BendaharaController extends Controller
 
     public function showDetailBendahara(Request $request)
     {
-        $parentAkunId = $request->input('parent_akun_id'); // Ambil parent_akun_id dari URL
+        $parentAkunId = $request->input('parent_akun_id'); // dari URL
         $type = $request->input('type');
 
-        // Ambil semua ID anak (sub-akun) dari tabel akun_keuangans berdasarkan parent_id
-        $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
+        $transaksiData = collect();
+        $parentAkun = null;
+        $jumlahBiayaOperasional = 0;
 
-        // Ambil data transaksi terkait sub-akun (tanpa filter bidang_name)
-        $transaksiData = Transaksi::whereIn('parent_akun_id', $subAkunIds)->get();
+        // =====================================
+        // 🔹 MODE KHUSUS: Hutang Perantara
+        // =====================================
+        if ($parentAkunId === 'hutang-perantara') {
 
-        // Hitung total jumlah transaksi
-        $jumlahBiayaOperasional = $transaksiData->sum('amount');
+            $transaksiData = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
+                ->where('kode_transaksi', 'like', '%-LAWAN')
+                ->whereIn('parent_akun_id', [1011, 1021]) // Kas & Bank Bendahara
+                ->when($type, fn($q) => $q->where('type', $type))
+                ->with(['akunKeuangan', 'parentAkunKeuangan'])
+                ->get();
 
-        // Ambil nama_akun dari parent_akun_id
-        $parentAkun = AkunKeuangan::find($parentAkunId);
+            $jumlahBiayaOperasional = $transaksiData->sum('amount');
+            // parentAkun sengaja dibiarkan null, judul bisa di-handle di view
 
-        return view('bendahara.detail', compact('transaksiData', 'jumlahBiayaOperasional', 'parentAkunId', 'parentAkun', 'type'));
+        } else {
+            // =====================================
+            // 🔹 MODE NORMAL: Detail per kelompok akun (kode lama)
+            // =====================================
+            $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
+                ->pluck('id')
+                ->toArray();
+
+            $transaksiData = Transaksi::whereIn('parent_akun_id', $subAkunIds)
+                ->when($type, fn($q) => $q->where('type', $type))
+                ->with(['akunKeuangan', 'parentAkunKeuangan'])
+                ->get();
+
+            $jumlahBiayaOperasional = $transaksiData->sum('amount');
+            $parentAkun = AkunKeuangan::find($parentAkunId);
+        }
+
+        return view('bendahara.detail', compact(
+            'transaksiData',
+            'jumlahBiayaOperasional',
+            'parentAkunId',
+            'parentAkun',
+            'type'
+        ));
     }
 
     public function getDetailDataBendahara(Request $request)
@@ -448,13 +484,34 @@ class BendaharaController extends Controller
 
         $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']);
 
-        if ($type) {
-            $query->where('type', $type);
-        }
+        // =====================================
+        // 🔹 MODE KHUSUS: Hutang Perantara
+        // =====================================
+        if ($parentAkunId === 'hutang-perantara') {
 
-        if ($parentAkunId) {
-            $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)->pluck('id')->toArray();
-            $query->whereIn('parent_akun_id', $subAkunIds);
+            $query->where('kode_transaksi', 'like', 'TRF-%')
+                ->where('kode_transaksi', 'like', '%-LAWAN')
+                ->whereIn('parent_akun_id', [1011, 1021]); // Kas & Bank Bendahara
+
+            if ($type) {
+                $query->where('type', $type);
+            }
+
+        } else {
+            // =====================================
+            // 🔹 MODE NORMAL: pakai parent_akun_id (sub-akun)
+            // =====================================
+            if ($type) {
+                $query->where('type', $type);
+            }
+
+            if ($parentAkunId) {
+                $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
+                    ->pluck('id')
+                    ->toArray();
+
+                $query->whereIn('parent_akun_id', $subAkunIds);
+            }
         }
 
         return DataTables::of($query)
