@@ -60,7 +60,11 @@
                             <tr>
                                 <td colspan="4" class="fw-bold">ARUS KAS DARI AKTIVITAS OPERASIONAL</td>
                             </tr>
-
+                            {{-- DEBUG SEMENTARA --}}
+                            @php
+                                // dump singkat, jangan di-production
+                                // dd($arus, $totalOperasional, $openingCash, $endingCash);
+                            @endphp
                             @php
                                 $oper = $arus['operasional'] ?? [];
                                 $operDebit = collect($oper)->sum(function ($row) {

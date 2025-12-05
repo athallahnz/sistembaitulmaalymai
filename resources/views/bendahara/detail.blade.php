@@ -9,7 +9,9 @@
             <h1 class="mb-0">
                 Detail Transaksi:
                 <strong>
-                    @if ($parentAkun?->nama_akun && $type)
+                    @if ($parentAkunId === 'hutang-perantara')
+                        Hutang Perantara – Bidang
+                    @elseif ($parentAkun?->nama_akun && $type)
                         {{ $parentAkun->nama_akun }} ({{ ucfirst($type) }})
                     @elseif ($parentAkun?->nama_akun)
                         {{ $parentAkun->nama_akun }}

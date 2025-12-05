@@ -1,124 +1,178 @@
+@php
+    /** @var \App\Models\TagihanSpp $tagihan */
+@endphp
 <!DOCTYPE html>
-<html>
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
-    <title>Kwitansi Pembayaran</title>
+    <title>Kwitansi Pembayaran SPP</title>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            width: 58mm;
             margin: 0;
-            padding: 5px;
+            padding: 0;
             font-family: monospace, Arial, sans-serif;
-            font-size: 10x;
+            font-size: 10px;
             color: #000;
+            background: #fff;
+        }
+
+        .receipt {
+            width: 58mm;
+            margin: 0 auto;
+            padding: 8px 6px;
+            /* sedikit turun + ada padding samping */
         }
 
         .logo {
             text-align: center;
-            margin-bottom: 3px;
+            margin-bottom: 10px;
         }
 
         .logo img {
-            height: 100px;
+            height: 75px;
         }
 
         .heading {
             text-align: center;
             font-weight: bold;
-            margin: 5px 0;
-            padding: 4px 0;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+
+        .subheading {
+            text-align: center;
+            font-size: 9px;
+            margin: 0;
+        }
+
+        .line {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
         }
 
         .title {
             text-align: center;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
-            margin: 5px 0;
-            padding: 4px 0;
+            margin: 6px 0;
+            padding: 3px 0;
             border-top: 1px dashed #000;
             border-bottom: 1px dashed #000;
         }
 
+        .meta,
         .info {
-            margin-top: 5px;
+            font-size: 9.5px;
             line-height: 1.4;
+            margin-top: 4px;
         }
 
-        .info p {
-            margin: 2px 0;
+        .row {
+            display: flex;
+            margin: 1px 0;
         }
 
-        .qr-verifikasi {
+        .label {
+            min-width: 50px;
+        }
+
+        .colon {
+            width: 8px;
             text-align: center;
-            margin: 8px 0;
         }
 
-        .qr-verifikasi img {
-            height: 50px;
+        .value {
+            flex: 1;
+        }
+
+        .amount {
+            font-weight: bold;
         }
 
         .footer-note,
         .signature {
             text-align: center;
             font-size: 9px;
-            margin-top: 10px;
+            margin-top: 8px;
+            line-height: 1.4;
         }
 
         .signature u {
             display: inline-block;
-            margin-top: 25px;
-        }
-
-        hr {
-            border: none;
-            border-top: 1px dashed #000;
-            margin: 8px 0;
+            margin-top: 14px;
         }
     </style>
 </head>
 
-<body onload="window.print()">
+<body>
+    <div class="receipt">
+        {{-- LOGO & KOP --}}
+        <div class="logo">
+            <img src="{{ $logo }}" alt="Logo Yayasan">
+        </div>
 
-    <div class="logo">
-        <img src="{{ $logo }}" alt="Logo Yayasan">
+        <h3 class="heading">KB-TK AL-IMAN SURABAYA</h3>
+        <p class="subheading">Jl. Sutorejo Tengah No. 2-4, Surabaya</p>
+
+        <div class="title">KWITANSI PEMBAYARAN SPP</div>
+
+        {{-- META KWITANSI --}}
+        <div class="meta">
+            <p><span class="label">No</span>: {{ $nomorKwitansi }}</p>
+            <p><span class="label">Tanggal</span>:
+                {{ \Carbon\Carbon::parse($tagihan->tanggal)->format('d-m-Y') }}
+            </p>
+        </div>
+
+        <div class="line"></div>
+
+        {{-- DATA PEMBAYARAN --}}
+        <div class="info">
+            <p>
+                <span class="label">Nama</span>:
+                <strong>{{ optional($tagihan->student)->name ?? '-' }}</strong>
+            </p>
+            <p>
+                <span class="label">Kelas</span>:
+                {{ optional(optional($tagihan->student)->eduClass)->name ?? '-' }}
+            </p>
+            <p>
+                <span class="label">Jumlah</span>:
+                <span class="amount">
+                    Rp {{ number_format($tagihan->jumlah ?? 0, 0, ',', '.') }}
+                </span>
+            </p>
+            <p>
+                <span class="label">Ket</span>:
+                {{ $keterangan ?? '-' }}
+            </p>
+        </div>
+
+        <div class="line"></div>
+
+        {{-- CATATAN & TANDA TANGAN --}}
+        <div class="footer-note">
+            Telah diterima pembayaran tersebut<br>
+            untuk keperluan administrasi sekolah.
+        </div>
+
+        <div class="signature">
+            {{ now()->translatedFormat('d F Y') }}<br>
+            <strong>Operator Sistem Keuangan KB/TK Al Iman</strong><br>
+            <u>{{ optional(auth()->user())->name ?? '________________' }}</u>
+        </div>
+
+        <div class="footer-note" style="margin-top: 4px;">
+            * Kwitansi ini dicetak otomatis dari sistem<br>
+            dan sah tanpa tanda tangan basah.
+        </div>
     </div>
-
-    <h3 class="heading">KB-TK AL-IMAN SURABAYA</h3>
-
-    <div class="title">KWITANSI PEMBAYARAN</div>
-    <p>No: {{ $nomorKwitansi }}</p>
-
-    <div class="info">
-        <p>Nama: <strong>{{ $tagihan->student->name }}</strong></p>
-        <p>Kelas: {{ $tagihan->student->edu_class->name ?? '-' }}</p>
-        <p>Tanggal: {{ \Carbon\Carbon::parse($tagihan->tanggal)->format('d-m-Y') }}</p>
-        <p>Jumlah: <strong>Rp {{ number_format($tagihan->jumlah, 0, ',', '.') }}</strong></p>
-        <p>Ket: {{ $keterangan }}</p>
-    </div>
-
-    <div class="qr-verifikasi">
-        <p class="footer-note">Kode QR Verifikasi:</p>
-        <img src="{{ $qrPath }}" alt="QR Code">
-    </div>
-
-    <hr>
-
-    <div class="footer-note">
-        Telah diterima pembayaran tersebut<br>
-        untuk keperluan administrasi sekolah.
-    </div>
-
-    <div class="signature">
-        {{ now()->translatedFormat('d F Y') }}<br>
-        <strong>Bendahara</strong><br>
-        <u>____________________</u>
-    </div>
-
-    <div class="footer-note" style="margin-top: 6px;">
-        * Kwitansi dicetak otomatis dan sah tanpa tanda tangan jika sesuai QR
-    </div>
-
 </body>
 
 </html>

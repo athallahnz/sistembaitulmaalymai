@@ -190,7 +190,7 @@
                                 @foreach ($akunKeuangans as $akun)
                                     <option value="{{ $akun->id }}"
                                         {{ $akun->id == $cost->akun_keuangan_id ? 'selected' : '' }}>
-                                        {{ $akun->nama_akun }}
+                                        {{ str_replace('Pendapatan ', '', $akun->nama_akun) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -258,13 +258,17 @@
                 akunSelect.classList.remove('akun-template');
                 akunSelect.classList.add('form-select');
 
+                // Update text untuk setiap option
+                Array.from(akunSelect.options).forEach(option => {
+                    option.text = option.text.replace('Pendapatan ', '');
+                });
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
             <td></td>
             <td><input type="number" name="biaya[nominal][]" class="form-control nominal-input" required></td>
             <td><button type="button" class="btn btn-sm btn-danger remove-row">Hapus</button></td>
         `;
-
                 row.children[0].appendChild(akunSelect);
                 tableBody.appendChild(row);
             });
@@ -285,6 +289,6 @@
             // Hitung total saat load pertama
             calculateTotal();
         });
-        
+
     </script>
 @endpush

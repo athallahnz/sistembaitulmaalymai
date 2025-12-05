@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Pendidikan;
 
 use App\Http\Controllers\Controller;
-use App\Services\StudentPaymentSPPService;
-use App\Models\Student;
-use App\Models\EduClass;
-use App\Models\TagihanSpp;
 use App\Exports\TagihanSppExport;
+use App\Models\EduClass;
+use App\Models\Student;
+use App\Models\TagihanSpp;
+use App\Models\SidebarSetting;
+use App\Services\RevenueRecognitionService;
+use App\Services\StudentPaymentSPPService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\DataTables;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class TagihanSppController extends Controller
 {
@@ -93,7 +95,7 @@ class TagihanSppController extends Controller
             ], [
                 'jumlah' => $request->jumlah,
                 'status' => 'belum_lunas',
-                'tanggal_aktif' => \Carbon\Carbon::parse($request->tanggal_aktif),
+                'tanggal_aktif' => Carbon::parse($request->tanggal_aktif),
             ]);
 
             app(\App\Services\StudentFinanceService::class)->handleNewStudentSPPFinance($student, $request->jumlah, $request->bulan, $request->tahun, );
@@ -267,8 +269,15 @@ class TagihanSppController extends Controller
 
     public function getChartBulanan(Request $request)
     {
-        $tahun = $request->tahun;
-        $kelas = $request->kelas;
+        $tahun = $request->input('tahun', date('Y'));
+        $kelas = $request->input('kelas');
+
+        \Log::info('Chart filter', [
+            'tahun' => $tahun,
+            'kelas' => $kelas,
+            'count_tahun' => TagihanSpp::where('tahun', $tahun)->count(),
+            'count_2026' => TagihanSpp::where('tahun', 2026)->count(),
+        ]);
 
         $bulanList = [
             1 => 'Januari',
@@ -288,15 +297,13 @@ class TagihanSppController extends Controller
         $tagihanPerBulan = [];
         $pembayaranPerBulan = [];
 
+        $studentsQuery = Student::query();
+        if ($kelas) {
+            $studentsQuery->where('edu_class_id', $kelas);
+        }
+        $studentIds = $studentsQuery->pluck('id');
+
         foreach ($bulanList as $num => $namaBulan) {
-            $students = Student::query();
-
-            if ($kelas) {
-                $students->where('edu_class_id', $kelas);
-            }
-
-            $studentIds = $students->pluck('id');
-
             $totalTagihan = TagihanSpp::whereIn('student_id', $studentIds)
                 ->where('tahun', $tahun)
                 ->where('bulan', $num)
@@ -322,40 +329,126 @@ class TagihanSppController extends Controller
     public function printReceipt($id)
     {
         $tagihan = TagihanSpp::with('student.eduClass')->findOrFail($id);
-        $tahunAjaran = $tagihan->student->eduClass->tahun_ajaran;
-        $nomorInduk = $tagihan->student->no_induk;
-        $logo = public_path('img/photos/logo_yys.png');
 
         if ($tagihan->status !== 'lunas') {
             abort(403, 'Kwitansi hanya tersedia untuk tagihan yang lunas.');
         }
 
-        $nomorKwitansi = 'SPP/' . $tahunAjaran . '/' . $nomorInduk . '/' . str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT);
-        $keterangan = 'Pembayaran SPP bulan ' . \Carbon\Carbon::create()->month($tagihan->bulan)->translatedFormat('F');
-        $urlVerifikasi = route('spp.verifikasi', $tagihan->id);
+        $setting = SidebarSetting::first();
 
-        $filename = 'spp_' . $tagihan->id . '.svg';
-        $qrPath = storage_path('app/public/qrcodes/' . $filename); // path fisik
+        // Logo: ambil dari SidebarSetting kalau ada, kalau tidak pakai default
+        $logo = public_path(
+            $setting && $setting->logo_path
+            ? 'storage/' . $setting->logo_path
+            : 'img/photos/logo_yys.png'
+        );
 
-        // Pastikan foldernya ada
-        if (!file_exists(dirname($qrPath))) {
-            mkdir(dirname($qrPath), 0755, true);
-        }
-        file_put_contents($qrPath, QrCode::format('svg')->size(100)->generate($urlVerifikasi));
+        $tahunAjaran = $tagihan->student->eduClass->tahun_ajaran ?? '-';
+        $nomorInduk = $tagihan->student->no_induk ?? '-';
+
+        $nomorKwitansi = 'SPP/' . $tahunAjaran . '/' . $nomorInduk . '/' .
+            str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT);
+
+        $keterangan = 'Pembayaran SPP bulan ' .
+            Carbon::create()->month($tagihan->bulan)->translatedFormat('F');
 
         $tahunAjaranBersih = str_replace(['/', '\\'], '-', $tahunAjaran);
         $namaSiswaBersih = preg_replace('/[^A-Za-z0-9\-]/', '_', $tagihan->student->name);
-        $namaFile = 'SPP-' . $tahunAjaranBersih . '-' . $nomorInduk . str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT) . '-' . $namaSiswaBersih . '.pdf';
 
-        // Versi HTML untuk cetak langsung atau PDF
-        $pdf = Pdf::loadView('bidang.pendidikan.payments.tagihan_spp.kwitansi-per-pembayaran', compact(
-            'tagihan',
-            'nomorKwitansi',
-            'keterangan',
-            'qrPath',
-            'logo'
-        ))->setPaper([0, 0, 227, 600]); // 80mm x ±210mm
+        $namaFile = 'SPP-' . $tahunAjaranBersih . '-' .
+            $nomorInduk . str_pad($tagihan->bulan, 2, '0', STR_PAD_LEFT) .
+            '-' . $namaSiswaBersih . '.pdf';
+
+        // 58mm slip → ±164pt, tinggi 600pt (cukup untuk kwitansi)
+        $paperSize = [0, 0, 250, 400];
+
+        $pdf = Pdf::loadView(
+            'bidang.pendidikan.payments.tagihan_spp.kwitansi-per-pembayaran',
+            [
+                'tagihan' => $tagihan,
+                'nomorKwitansi' => $nomorKwitansi,
+                'keterangan' => $keterangan,
+                'logo' => $logo,
+            ]
+        )->setPaper($paperSize, 'portrait');
 
         return $pdf->stream($namaFile);
     }
+
+    public function recognizeStudentSPP(Request $request, Student $student)
+    {
+        $request->validate([
+            'bulan' => 'required|integer|min:1|max:12',
+            'tahun' => 'required|integer|min:2000',
+        ]);
+
+        $bulan = (int) $request->bulan;
+        $tahun = (int) $request->tahun;
+
+        // Cek dulu: apakah siswa ini punya tagihan SPP LUNAS di bulan/tahun tsb?
+        $tagihan = TagihanSpp::where('student_id', $student->id)
+            ->where('bulan', $bulan)
+            ->where('tahun', $tahun)
+            ->where('status', 'lunas')
+            ->first();
+
+        if (!$tagihan) {
+            return back()->with(
+                'error',
+                "Tidak ada tagihan SPP dengan status LUNAS untuk {$student->name} pada bulan {$bulan}/{$tahun}. Pengakuan pendapatan dibatalkan."
+            );
+        }
+
+        // Kalau lolos, baru lakukan pengakuan pendapatan
+        RevenueRecognitionService::recognizeSPP($student, $bulan, $tahun);
+
+        return back()->with(
+            'success',
+            "Pengakuan pendapatan SPP {$student->name} bulan {$bulan}/{$tahun} berhasil."
+        );
+    }
+
+    public function recognizeSPPBulk(Request $request)
+    {
+        $request->validate([
+            'bulan' => 'required|integer|min:1|max:12',
+            'tahun' => 'required|integer|min:2000',
+        ]);
+
+        $bulan = (int) $request->bulan;
+        $tahun = (int) $request->tahun;
+
+        // Ambil semua siswa yang PUNYA tagihan SPP LUNAS di bulan/tahun itu
+        $studentIds = TagihanSpp::where('bulan', $bulan)
+            ->where('tahun', $tahun)
+            ->where('status', 'lunas')
+            ->pluck('student_id')
+            ->unique();
+
+        // ⛔ Jika tidak ada student yang lunas → gagalkan
+        if ($studentIds->isEmpty()) {
+            return back()->with(
+                'error',
+                "Tidak ada siswa dengan tagihan SPP LUNAS pada bulan {$bulan}/{$tahun}. Tidak ada pengakuan pendapatan yang diproses."
+            );
+        }
+
+        DB::transaction(function () use ($studentIds, $bulan, $tahun) {
+            $students = Student::whereIn('id', $studentIds)->get();
+
+            foreach ($students as $student) {
+                RevenueRecognitionService::recognizeMonthlySPP(
+                    $student,
+                    $bulan,
+                    $tahun
+                );
+            }
+        });
+
+        return back()->with(
+            'success',
+            "Pengakuan pendapatan SPP BULK bulan {$bulan}/{$tahun} berhasil diproses untuk {$studentIds->count()} siswa (status lunas)."
+        );
+    }
+
 }

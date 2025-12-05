@@ -87,6 +87,11 @@ class Transaksi extends Model
         return $this->belongsTo(AkunKeuangan::class, 'parent_id', 'id');
     }
 
+    public function bidang()
+    {
+        return $this->belongsTo(Bidang::class, 'bidang_name', 'name');
+    }
+    
     // =================== USER LOG ===================
 
     /**
@@ -103,5 +108,24 @@ class Transaksi extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (auth()->check()) {
+                // user yang buat transaksi
+                $model->user_id = $model->user_id ?? auth()->id();
+                $model->updated_by = $model->updated_by ?? auth()->id();
+            }
+        });
+
+        static::updating(function ($model) {
+            if (auth()->check()) {
+                // user terakhir yang update
+                $model->updated_by = auth()->id();
+            }
+        });
     }
 }

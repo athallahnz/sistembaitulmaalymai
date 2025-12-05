@@ -3,17 +3,21 @@
 namespace App\Http\Controllers\Pendidikan;
 
 use App\Http\Controllers\Controller;
-use App\Services\StudentPaymentService;
 use App\Models\EduPayment;
+use App\Models\Piutang;
 use App\Models\Student;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
-use Carbon\Carbon;
+use App\Models\Transaksi;
+use App\Models\EduClass;
+use App\Services\RevenueRecognitionService;
+use App\Services\StudentPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Yajra\DataTables\Facades\DataTables;
 
 class EduPaymentController extends Controller
 {
@@ -40,8 +44,10 @@ class EduPaymentController extends Controller
 
         $labels = $monthlyTren->pluck('bulan');
         $values = $monthlyTren->pluck('total');
+        $kelasList = EduClass::all();
 
-        return view('bidang.pendidikan.payments.dashboard', compact('data', 'labels', 'values'));
+
+        return view('bidang.pendidikan.payments.dashboard', compact('data', 'labels', 'values', 'kelasList'));
     }
 
     public function show(Student $student)
@@ -116,22 +122,85 @@ class EduPaymentController extends Controller
 
     public function getData(Request $request)
     {
-        if ($request->ajax()) {
-            // Ambil data murid dan total bayar (anggap relasi ke `payments`)
-            $data = Student::withSum('payments', 'jumlah') // asumsi kolom jumlah
-                ->select('id', 'name');
-
-            return DataTables::of($data)
-                ->addColumn('total_bayar', function ($row) {
-                    return $row->payments->sum('jumlah');
-                })
-                ->addColumn('actions', function ($row) {
-                    $url = route('payment.show', $row->id);
-                    return '<a href="' . $url . '" class="btn btn-sm btn-info">Lihat Detail</a>';
-                })
-                ->rawColumns(['actions'])
-                ->make(true);
+        if (!$request->ajax()) {
+            abort(404);
         }
+
+        $tahun = $request->input('tahun');  // ex: 2025
+        $bulan = $request->input('bulan');  // 1–12 atau null
+        $kelasId = $request->input('kelas');  // id edu_class atau null
+
+        // Query dasar: murid + kelas + sum pembayaran (filtered by tahun/bulan)
+        $query = Student::query()
+            ->select('id', 'name', 'edu_class_id')
+            ->with('eduClass')
+            ->withSum([
+                'payments as total_bayar' => function ($q) use ($tahun, $bulan) {
+                    if ($tahun) {
+                        $q->whereYear('tanggal', $tahun);
+                    }
+                    if ($bulan) {
+                        $q->whereMonth('tanggal', $bulan);
+                    }
+                }
+            ], 'jumlah');
+
+        // Filter kelas kalau dipilih
+        if (!empty($kelasId)) {
+            $query->where('edu_class_id', $kelasId);
+        }
+
+        return DataTables::of($query)
+            // total_bayar sudah dihitung via withSum
+            ->addColumn('kelas', function ($row) {
+                return $row->eduClass->name ?? '-';
+            })
+            ->addColumn('total_bayar', function ($row) {
+                return (int) ($row->total_bayar ?? 0);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('payment.show', $row->id);
+                return '<a href="' . $url . '" class="btn btn-sm btn-info">Lihat Detail</a>';
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
+    }
+
+    public function chartBulanan(Request $request)
+    {
+        $tahun = $request->input('tahun', now()->year);
+        $bulan = $request->input('bulan'); // optional
+        $kelasId = $request->input('kelas');
+
+        // Query total pembayaran per bulan
+        $query = EduPayment::selectRaw('MONTH(tanggal) as bulan, SUM(jumlah) as total')
+            ->whereYear('tanggal', $tahun);
+
+        if ($bulan) {
+            $query->whereMonth('tanggal', $bulan);
+        }
+
+        if ($kelasId) {
+            $query->whereHas('student', function ($q) use ($kelasId) {
+                $q->where('edu_class_id', $kelasId);
+            });
+        }
+
+        $rows = $query->groupBy('bulan')->orderBy('bulan')->get();
+
+        $labels = [];
+        $values = [];
+
+        for ($i = 1; $i <= 12; $i++) {
+            $labels[] = Carbon::create()->month($i)->translatedFormat('M');
+            $item = $rows->firstWhere('bulan', $i);
+            $values[] = $item ? (int) $item->total : 0;
+        }
+
+        return response()->json([
+            'labels' => $labels,
+            'values' => $values,
+        ]);
     }
 
     public function history($student_id)
@@ -220,8 +289,65 @@ class EduPaymentController extends Controller
             'qrPath' => $qrFilePath,
             'logo' => $logo,
         ])
-        ->setPaper([0, 0, 227, 600]) // ➜ 80mm x ±210mm tinggi
-        // ->setPaper([0, 0, 164, 500]) // Lebar 58mm, tinggi 176mm
-        ->stream($namaFile);
+            ->setPaper([0, 0, 227, 600]) // ➜ 80mm x ±210mm tinggi
+            // ->setPaper([0, 0, 164, 500]) // Lebar 58mm, tinggi 176mm
+            ->stream($namaFile);
     }
+    public function recognizePMB(Student $student)
+    {
+        $akunPiutangPMB = config('akun.piutang_pmb'); // 1032
+
+        // Ambil piutang utama PMB untuk siswa ini
+        $piutang = Piutang::where('student_id', $student->id)
+            ->where('akun_keuangan_id', $akunPiutangPMB)
+            ->orderBy('id', 'asc')
+            ->first();
+
+        // 1) Kalau piutang TIDAK ADA → anggap tagihan PMB belum pernah dibuat → BLOK
+        if (!$piutang) {
+            return back()->with(
+                'error',
+                "Pengakuan pendapatan PMB untuk {$student->name} tidak dapat dilakukan karena tagihan PMB belum terdaftar (piutang tidak ditemukan)."
+            );
+        }
+
+        // 2) Kalau piutang MASIH ADA SISA (> 0) → BELUM LUNAS → BLOK
+        if ($piutang->jumlah > 0 && $piutang->status === 'belum_lunas') {
+            return back()->with(
+                'error',
+                "Pengakuan pendapatan PMB untuk {$student->name} belum dapat dilakukan karena tagihan PMB masih BELUM LUNAS (sisa: " .
+                number_format($piutang->jumlah, 0, ',', '.') . ")."
+            );
+        }
+
+        // 3) Opsional: kalau status belum diset 'lunas' tapi jumlah sudah 0, kita bisa rapikan:
+        if ($piutang->jumlah <= 0 && $piutang->status !== 'lunas') {
+            $piutang->update([
+                'jumlah' => 0,
+                'status' => 'lunas',
+                'deskripsi' => 'Auto-set lunas sebelum pengakuan pendapatan PMB',
+            ]);
+        }
+
+        // 4) Cek apakah sudah pernah dilakukan pengakuan pendapatan PMB
+        $sudahRecognized = Transaksi::where('type', 'pengakuan_pendapatan')
+            ->where('sumber', $student->id)
+            ->exists();
+
+        if ($sudahRecognized) {
+            return back()->with(
+                'error',
+                "Pengakuan pendapatan PMB untuk {$student->name} sudah pernah dilakukan sebelumnya."
+            );
+        }
+
+        // 5) Baru jalankan pengakuan pendapatan
+        RevenueRecognitionService::recognizePMB($student);
+
+        return back()->with(
+            'success',
+            "Pengakuan pendapatan PMB untuk {$student->name} berhasil diproses."
+        );
+    }
+
 }

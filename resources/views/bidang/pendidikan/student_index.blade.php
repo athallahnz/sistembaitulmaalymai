@@ -1,6 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
+    <style>
+        .modal-xxl {
+            max-width: 95% !important;
+        }
+    </style>
     <div class="container">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -34,7 +39,7 @@
         </form>
         {{-- Modal Form Tambah Student --}}
         <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl">
+            <div class="modal-dialog modal-xxl">
                 <div class="modal-content">
                     <form method="POST" action="{{ route('students.store') }}" enctype="multipart/form-data">
                         @csrf

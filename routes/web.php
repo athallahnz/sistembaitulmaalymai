@@ -152,7 +152,7 @@ Route::middleware(['role:Bendahara'])->group(function () {
 
     Route::get('/bendahara/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldoBendahara'])->name('laporan.neraca-saldo-bendahara');
     Route::get('/bendahara/detail', [BendaharaController::class, 'showDetailBendahara'])->name('bendahara.detail');
-    Route::get('/bendahara/detail/data', [BendaharaController::class, 'getDetailDataBendahara'])->name('bendahara.detail.data');
+    Route::get('/bendahara/detail/data', [BendaharaController::class, 'detailData'])->name('bendahara.detail.data');
     // NEW AJAX ROUTE: Ambil Saldo Akun berdasarkan ID
     Route::get('api/get-saldo/{akunId}', [PengajuanDanaController::class, 'getSaldoAkun'])->name('api.get-saldo');
 });
@@ -246,13 +246,16 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
         return view('bidang.pendidikan.payments.form');
     })->name('pendidikan.payment.form');
 
+    // ========== PMB: Payment Dashboard ==========
     Route::get('/payment-dashboard', [EduPaymentController::class, 'index'])->name('payment.dashboard');
     Route::get('/payment-dashboard/{student}', [EduPaymentController::class, 'show'])->name('payment.show');
     Route::post('/payment/store', [EduPaymentController::class, 'store'])->name('payment.store');
     Route::get('/payments/data', [EduPaymentController::class, 'getData'])->name('payments.data');
+    Route::get('/payments/chart-bulanan', [EduPaymentController::class, 'chartBulanan'])->name('payments.chart-bulanan');
     Route::get('/payment/history/{student_id}', [EduPaymentController::class, 'history'])->name('payment.history');
     Route::get('/payments/{payment}/kwitansi', [EduPaymentController::class, 'cetakKwitansiPerTransaksi'])->name('payments.kwitansi.per');
 
+    // ========== SPP: Tagihan SPP ==========
     Route::get('/pendidikan/tagihan-spp/create', [TagihanSppController::class, 'create'])->name('tagihan-spp.create');
     Route::get('/dashboard-tagihan', [TagihanSppController::class, 'dashboardTagihan'])->name('tagihan-spp.dashboard');
     Route::get('/dashboard-tagihan/data', [TagihanSppController::class, 'getData'])->name('tagihan-spp.data');
@@ -263,6 +266,18 @@ Route::middleware(['role:Bendahara|Bidang'])->group(function () {
     Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
     Route::get('/tagihan-spp/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
     Route::get('/tagihan-spp/kwitansi/{id}', [TagihanSppController::class, 'printReceipt'])->name('tagihan-spp.kwitansi.per');
+
+    // ========== PMB: recognize per siswa dari payment-dashboard ==========
+    Route::post('/payment-dashboard/{student}/recognize-pmb', [EduPaymentController::class, 'recognizePMB'])
+        ->name('payment.recognize_pmb');
+
+    // ========== SPP: recognize per siswa ==========
+    Route::post('/tagihan-spp/{student}/recognize', [TagihanSppController::class, 'recognizeStudentSPP'])
+        ->name('tagihan-spp.recognize.student');
+
+    // ========== SPP: recognize BULK per bulan (semua siswa yang punya tagihan) ==========
+    Route::post('/dashboard-tagihan/recognize-bulk', [TagihanSppController::class, 'recognizeSPPBulk'])
+        ->name('tagihan-spp.recognize.bulk');
 
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
     Route::post('students', [StudentController::class, 'store'])->name('students.store');

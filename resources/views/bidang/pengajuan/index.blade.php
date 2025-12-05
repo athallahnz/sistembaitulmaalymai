@@ -14,7 +14,7 @@
             <div class="d-flex gap-2">
                 {{-- Tombol Trigger Modal --}}
                 @if (auth()->user()->role == 'Bidang')
-                    <button type="button" class="btn btn-primary shadow mt-3" data-bs-toggle="modal"
+                    <button type="button" class="btn shadow mt-3" style="background-color: #8B4513; color: white; border-color: #8B4513;" data-bs-toggle="modal"
                         data-bs-target="#modalCreatePengajuan">
                         <i class="bi bi-plus-circle"></i> Buat Pengajuan Baru
                     </button>
@@ -30,11 +30,11 @@
                     <div class="card-body p-4 d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="text-muted small fw-bold text-uppercase mb-1">Menunggu</div>
-                            <h2 class="mb-0 fw-bold text-warning">{{ $summary->menunggu }}</h2>
+                            <h2 class="mb-0 fw-bold" style="color: #8B4513;">{{ $summary->menunggu }}</h2>
                         </div>
-                        <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 60px; height: 60px;">
-                            <i class="bi bi-hourglass-split text-warning fs-2"></i>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 60px; height: 60px; background-color: #D2B48C;">
+                            <i class="bi bi-hourglass-split fs-2" style="color: #8B4513;"></i>
                         </div>
                     </div>
                 </div>
@@ -42,15 +42,15 @@
 
             {{-- 2. Disetujui --}}
             <div class="col-sm-6 col-xl-3">
-                <div class="card shadow-sm border-0 h-100 border-start border-4 border-primary">
+                <div class="card shadow-sm border-0 h-100 border-start border-4" style="border-color: #A0522D;">
                     <div class="card-body p-4 d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="text-muted small fw-bold text-uppercase mb-1">Disetujui</div>
-                            <h2 class="mb-0 fw-bold text-primary">{{ $summary->disetujui }}</h2>
+                            <h2 class="mb-0 fw-bold" style="color: #A0522D;">{{ $summary->disetujui }}</h2>
                         </div>
-                        <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 60px; height: 60px;">
-                            <i class="bi bi-check-lg text-primary fs-2"></i>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 60px; height: 60px; background-color: #DEB887;">
+                            <i class="bi bi-check-lg fs-2" style="color: #A0522D;"></i>
                         </div>
                     </div>
                 </div>
@@ -58,15 +58,15 @@
 
             {{-- 3. Dicairkan --}}
             <div class="col-sm-6 col-xl-3">
-                <div class="card shadow-sm border-0 h-100 border-start border-4 border-success">
+                <div class="card shadow-sm border-0 h-100 border-start border-4" style="border-color: #CD853F;">
                     <div class="card-body p-4 d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="text-muted small fw-bold text-uppercase mb-1">Dicairkan</div>
-                            <h2 class="mb-0 fw-bold text-success">{{ $summary->dicairkan }}</h2>
+                            <h2 class="mb-0 fw-bold" style="color: #CD853F;">{{ $summary->dicairkan }}</h2>
                         </div>
-                        <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 60px; height: 60px;">
-                            <i class="bi bi-cash-stack text-success fs-2"></i>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 60px; height: 60px; background-color: #F5DEB3;">
+                            <i class="bi bi-cash-stack fs-2" style="color: #CD853F;"></i>
                         </div>
                     </div>
                 </div>
@@ -74,15 +74,15 @@
 
             {{-- 4. Ditolak --}}
             <div class="col-sm-6 col-xl-3">
-                <div class="card shadow-sm border-0 h-100 border-start border-4 border-danger">
+                <div class="card shadow-sm border-0 h-100 border-start border-4" style="border-color: #704214;">
                     <div class="card-body p-4 d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="text-muted small fw-bold text-uppercase mb-1">Ditolak</div>
-                            <h2 class="mb-0 fw-bold text-danger">{{ $summary->ditolak }}</h2>
+                            <h2 class="mb-0 fw-bold" style="color: #704214;">{{ $summary->ditolak }}</h2>
                         </div>
-                        <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 60px; height: 60px;">
-                            <i class="bi bi-x-lg text-danger fs-2"></i>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 60px; height: 60px; background-color: #C9B8A3;">
+                            <i class="bi bi-x-lg fs-2" style="color: #704214;"></i>
                         </div>
                     </div>
                 </div>
@@ -322,7 +322,7 @@
                         success: function(data) {
                             // PASTIKAN: Update Form Action juga menggunakan logika yang sama
                             const baseUpdateUrl =
-                            "{{ route('pengajuan.update', ['id' => 0]) }}";
+                                "{{ route('pengajuan.update', ['id' => 0]) }}";
                             const updateUrl = baseUpdateUrl.replace('/0', '/' + pengajuanId);
                             formPengajuan.setAttribute('action', updateUrl);
 

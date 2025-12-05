@@ -6,7 +6,8 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Carbon\Carbon;
-
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class LogoutListener
 {
@@ -29,7 +30,7 @@ class LogoutListener
                 'is_active' => false,
                 'last_activity_at' => now(),
             ]);
-            \Log::info('User Logged Out: ' . $user->name);
+            // \Log::info('User Logged Out: ' . $user->name);
         }
     }
 }

@@ -57,7 +57,7 @@
                         <div class="description">Total s/d Bulan ini</div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-4">
+                <div class="col-md-6 mb-4">
                     <div class="card">
                         <div class="icon bi bi-building"></div>
                         <h6><strong>Tanah Bangunan</strong></h6>
@@ -66,7 +66,7 @@
                         <div class="description">Total Nilai Asset</div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-4">
+                <div class="col-md-6 mb-4">
                     <div class="card">
                         <div class="icon bi bi-truck"></div>
                         <h6><strong>Inventaris</strong></h6>
@@ -75,76 +75,152 @@
                         <div class="description">Total Nilai Inventaris</div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 103]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-wallet"></div>
-                            <h6><strong>Piutang</strong></h6>
-                            <div class="value {{ $jumlahPiutang >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPiutang, 0, ',', '.') }}</span>
+                @if (auth()->user()->bidang && auth()->user()->bidang->name === 'Pendidikan')
+                    <div class="col-md-4 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => config('akun.group_piutang')]) }}"
+                            class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-wallet2"></div>
+                                <h6><strong>Piutang (Buku Besar)</strong></h6>
+                                <div class="value {{ $piutangLedger >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($piutangLedger, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total Seluruh Piutang</div>
                             </div>
-                            <div class="description">Total s/d Bulan ini</div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 'piutang-perantara']) }}"
-                        class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-arrow-left-right"></div>
-                            <h6><strong>Piutang Perantara</strong></h6>
-                            <div class="value {{ $jumlahPiutangPerantara >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPiutangPerantara, 0, ',', '.') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <a href="{{ route('piutangs.index') }}" class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-people"></div>
+                                <h6><strong>Piutang Murid (SPP/PMB)</strong></h6>
+                                <div class="value {{ $piutangMurid >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($piutangMurid, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total piutang SPP/PMB Murid</div>
                             </div>
-                            <div class="description">Total s/d Bulan ini</div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 'piutang-perantara']) }}"
+                            class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-arrow-left-right"></div>
+                                <h6><strong>Piutang Perantara</strong></h6>
+                                <div class="value {{ $saldoPiutangPerantara >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($saldoPiutangPerantara, 0, ',', '.') }}
+                                </div>
+                                <div class="description">
+                                    Uang Bidang dipegang Bendahara
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                @else
+                    <div class="col-md-6 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => config('akun.group_piutang')]) }}"
+                            class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-wallet2"></div>
+                                <h6><strong>Piutang (Buku Besar)</strong></h6>
+                                <div class="value {{ $piutangLedger >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($piutangLedger, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total Seluruh Piutang</div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 'piutang-perantara']) }}"
+                            class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-arrow-left-right"></div>
+                                <h6><strong>Piutang Perantara</strong></h6>
+                                <div class="value {{ $saldoPiutangPerantara >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($saldoPiutangPerantara, 0, ',', '.') }}
+                                </div>
+                                <div class="description">
+                                    Uang Bidang dipegang Bendahara
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                @endif
+                @if (auth()->user()->bidang && auth()->user()->bidang->name === 'Pendidikan')
+                    <h4 class="mb-4">Nilai Kewajiban, {{ auth()->user()->role }}!</h4>
+                    {{-- Pendapatan Belum Diterima PMB --}}
+                    <div class="col-md-3 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 50012]) }}" class="text-decoration-none">
+                            <div class="card monitoring-card">
+                                <div class="icon bi bi-hourglass-split"></div>
+                                <h6><strong>PBD PMB</strong></h6>
+                                <div class="value {{ $pendapatanBelumDiterimaPMB >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($pendapatanBelumDiterimaPMB, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Kewajiban PMB yang belum diakui</div>
+                            </div>
+                        </a>
+                    </div>
+                    {{-- Pendapatan Belum Diterima SPP --}}
+                    <div class="col-md-3 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 50011]) }}" class="text-decoration-none">
+                            <div class="card monitoring-card">
+                                <div class="icon bi bi-hourglass-split"></div>
+                                <h6><strong>PBD SPP</strong></h6>
+                                <div class="value {{ $pendapatanBelumDiterimaSPP >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($pendapatanBelumDiterimaSPP, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Kewajiban SPP yang belum diakui</div>
+                            </div>
+                        </a>
+                    </div>
+                @endif
             </div>
             <h4 class="mb-4">Pendapatan, Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</h4>
             <div class="row">
-                {{-- 201 - Pendapatan PMB --}}
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 201]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-journal-text"></div>
-                            <h6><strong>Pendapatan PMB</strong></h6>
-                            <div class="value {{ $jumlahPendapatanPMB >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPendapatanPMB, 0, ',', '.') }}
+                @if (auth()->user()->bidang && auth()->user()->bidang->name === 'Pendidikan')
+                    {{-- 201 - Pendapatan PMB --}}
+                    <div class="col-md-3 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 201]) }}" class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-journal-text"></div>
+                                <h6><strong>Pendapatan PMB</strong></h6>
+                                <div class="value {{ $jumlahPendapatanPMB >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($jumlahPendapatanPMB, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total tahun ini</div>
                             </div>
-                            <div class="description">Total tahun ini</div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
 
-                {{-- 202 - Pendapatan SPP --}}
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-journal-check"></div>
-                            <h6><strong>Pendapatan SPP</strong></h6>
-                            <div class="value {{ $jumlahPendapatanSPP >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPendapatanSPP, 0, ',', '.') }}
+                    {{-- 202 - Pendapatan SPP --}}
+                    <div class="col-md-3 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 202]) }}" class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-journal-check"></div>
+                                <h6><strong>Pendapatan SPP</strong></h6>
+                                <div class="value {{ $jumlahPendapatanSPP >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($jumlahPendapatanSPP, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total tahun ini</div>
                             </div>
-                            <div class="description">Total tahun ini</div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
 
-                {{-- 203 - Pendapatan Lain Pendidikan --}}
-                <div class="col-md-3 mb-4">
-                    <a href="{{ route('bidang.detail', ['parent_akun_id' => 203]) }}" class="text-decoration-none">
-                        <div class="card">
-                            <div class="icon bi bi-mortarboard"></div>
-                            <h6><strong>Pendapatan Lain Pendidikan</strong></h6>
-                            <div class="value {{ $jumlahPendapatanLainPendidikan >= 0 ? 'positive' : 'negative' }}">
-                                {{ number_format($jumlahPendapatanLainPendidikan, 0, ',', '.') }}
+                    {{-- 203 - Pendapatan Lain Pendidikan --}}
+                    <div class="col-md-3 mb-4">
+                        <a href="{{ route('bidang.detail', ['parent_akun_id' => 203]) }}" class="text-decoration-none">
+                            <div class="card">
+                                <div class="icon bi bi-mortarboard"></div>
+                                <h6><strong>Pendapatan Lain Pendidikan</strong></h6>
+                                <div class="value {{ $jumlahPendapatanLainPendidikan >= 0 ? 'positive' : 'negative' }}">
+                                    {{ number_format($jumlahPendapatanLainPendidikan, 0, ',', '.') }}
+                                </div>
+                                <div class="description">Total tahun ini</div>
                             </div>
-                            <div class="description">Total tahun ini</div>
-                        </div>
-                    </a>
-                </div>
-
+                        </a>
+                    </div>
+                @endif
                 {{-- 204 - Infaq Tidak Terikat --}}
                 <div class="col-md-3 mb-4">
                     <a href="{{ route('bidang.detail', ['parent_akun_id' => 204]) }}" class="text-decoration-none">

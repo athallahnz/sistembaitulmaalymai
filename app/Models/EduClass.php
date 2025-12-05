@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EduClass extends Model
 {
+
+    protected $table = 'edu_classes';
     protected $fillable = ['name', 'tahun_ajaran'];
 
     public function students()

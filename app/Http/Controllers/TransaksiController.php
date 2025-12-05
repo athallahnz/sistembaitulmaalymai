@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use App\Exports\BukuKasBankExport;
 use App\Services\LaporanKeuanganService;
 use App\Models\AkunKeuangan;
 use App\Models\Transaksi;
 use App\Models\Ledger;
-use Illuminate\Support\Carbon;
+use App\Models\SidebarSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
@@ -245,40 +247,6 @@ class TransaksiController extends Controller
     {
         $akunKasBank = [1011, 1012, 1013, 1014, 1015, 1021, 1022, 1023, 1024, 1025];
         return in_array($akunId, $akunKasBank, true);
-    }
-
-    /**
-     * Ambil saldo terakhir dari KOLOM `saldo` untuk akun tertentu (<= cutoff),
-     * termasuk baris '-LAWAN' (karena saldo akun lawan juga ada di sana).
-     * - Non-Bendahara: filter per-bidang + fallback histori lama (NULL)
-     * - Bendahara: global
-     */
-    protected function getLastSaldoBySaldoColumn(
-        ?int $akunId,
-        string $userRole,
-        $bidangValue,
-        ?string $tanggalCutoff = null
-    ): float {
-        if (!$akunId)
-            return 0.0;
-
-        $q = Transaksi::where('akun_keuangan_id', $akunId);
-
-        if ($tanggalCutoff) {
-            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
-            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
-        }
-
-        if ($userRole !== 'Bendahara') {
-            $q->where(function ($w) use ($bidangValue) {
-                $w->where('bidang_name', $bidangValue)
-                    ->orWhereNull('bidang_name');
-            });
-        }
-
-        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
-            ->orderBy('id', 'desc')
-            ->value('saldo') ?? 0.0);
     }
 
     protected function getSaldoLedgerSampaiTanggal(
@@ -680,7 +648,7 @@ class TransaksiController extends Controller
                 'amount' => 'required|numeric|min:0',
             ]);
             Log::info('✅ Validasi update KAS berhasil', ['validatedData' => $validatedData]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             Log::error('❌ Validasi update KAS gagal', ['errors' => $e->errors()]);
             return back()->withErrors($e->errors());
         }
@@ -1130,8 +1098,8 @@ class TransaksiController extends Controller
         ]);
 
         $user = auth()->user();
-        $role = $user->role;
-        $bidangName = $role === 'Bendahara' ? null : $user->bidang_name;
+        $role = $user->role;                       // 'Bendahara' atau 'Bidang'
+        $bidangName = $user->bidang_name ?? null;        // id bidang kalau user Bidang
 
         $tanggal = \Carbon\Carbon::parse($validated['tanggal_transaksi'])->toDateString();
         $amount = (float) $validated['amount'];
@@ -1140,18 +1108,61 @@ class TransaksiController extends Controller
         $sumberId = (int) $validated['sumber_akun_id'];
         $tujuanId = (int) $validated['tujuan_akun_id'];
 
+        // ===============================
+        //  STEP 1.5: MAP KAS / BANK
+        // ===============================
+
+        // Kas/Bank Bendahara (pusat)
+        $akunKasBankBendahara = [1011, 1021];
+
+        // Kas/Bank per Bidang (mapping id bidang -> [kas, bank])
+        $mapKasBankBidang = [
+            1 => [1012, 1022],
+            2 => [1013, 1023],
+            3 => [1014, 1024],
+            4 => [1015, 1025],
+            // kalau nanti ada bidang 5 dan seterusnya, tambahkan di sini
+        ];
+
+        // Index balik: akun_id -> bidang_id
+        $bidangByAkun = [];
+        foreach ($mapKasBankBidang as $bId => $akunArr) {
+            foreach ($akunArr as $aId) {
+                $bidangByAkun[$aId] = $bId;
+            }
+        }
+
+        $isSumberBendaharaKas = in_array($sumberId, $akunKasBankBendahara);
+        $isTujuanBendaharaKas = in_array($tujuanId, $akunKasBankBendahara);
+
+        $sumberBidang = $bidangByAkun[$sumberId] ?? null;
+        $tujuanBidang = $bidangByAkun[$tujuanId] ?? null;
+
+        // Deteksi jenis transfer:
+        $isBidangToBendahara = !$isSumberBendaharaKas && $isTujuanBendaharaKas && $sumberBidang !== null;
+        $isBendaharaToBidang = $isSumberBendaharaKas && !$isTujuanBendaharaKas && $tujuanBidang !== null;
+
+        Log::info('[TRANSFER] Tipe transfer', [
+            'isBidangToBendahara' => $isBidangToBendahara,
+            'isBendaharaToBidang' => $isBendaharaToBidang,
+            'sumberBidang' => $sumberBidang,
+            'tujuanBidang' => $tujuanBidang,
+        ]);
+
+        // ===============================
+        //  STEP 2: CEK SALDO SUMBER
+        // ===============================
         Log::info('[TRANSFER] Step 2: Hitung saldo sumber sebelum transfer', [
             'akun_sumber' => $sumberId,
             'tanggal' => $tanggal,
-            'bidang' => $bidangName,
+            'bidangName' => $bidangName,
             'role' => $role,
         ]);
 
-        // STEP 2: HITUNG SALDO SUMBER (pakai helper yg sama dengan storeTransaction)
         $saldoSumber = $this->getSaldoLedgerSampaiTanggal(
             $sumberId,
             $tanggal,
-            $bidangName,
+            $role === 'Bendahara' ? null : $bidangName, // pakai aturan lama
             $role
         );
 
@@ -1161,7 +1172,6 @@ class TransaksiController extends Controller
             'amount' => $amount,
         ]);
 
-        // STEP 3: VALIDASI SALDO TIDAK BOLEH KURANG DARI JUMLAH TRANSFER
         if ($amount > $saldoSumber) {
             Log::warning('[TRANSFER] SALDO TIDAK CUKUP!', [
                 'saldo_sumber' => $saldoSumber,
@@ -1178,24 +1188,192 @@ class TransaksiController extends Controller
                 ->withInput();
         }
 
-        // STEP 4: SIMPAN TRANSAKSI + LEDGER
+        // ===============================
+        //  STEP 3: SIMPAN TRANSAKSI
+        // ===============================
         Log::info('[TRANSFER] Step 3: Simpan transaksi & ledger');
 
-        \DB::transaction(function () use ($validated, $sumberId, $tujuanId, $bidangName, $tanggal, $amount, $kode) {
-
+        \DB::transaction(function () use ($validated, $sumberId, $tujuanId, $bidangName, $tanggal, $amount, $kode, $role, $isBidangToBendahara, $isBendaharaToBidang, $sumberBidang, $tujuanBidang) {
             $userId = auth()->id();
 
-            // 4a. Transaksi keluar (SUMBER) → pengeluaran, kredit di ledger
+            // Ambil ID akun perantara dari config / fallback ke hardcoded
+            $akunPiutangPerantara = config('akun.piutang_perantara', 1034);
+            $akunHutangPerantara = config('akun.hutang_perantara_bidang', 50016);
+
+            // ===============================
+            //  CASE 1: BIDANG → BENDAHARA
+            // ===============================
+            if ($isBidangToBendahara) {
+                $bidangId = $sumberBidang;
+
+                // --- 3.1.1 Transaksi BIDANG: Kas Bidang -> Piutang Perantara ---
+                $trxBidang = Transaksi::create([
+                    'bidang_name' => $bidangId,
+                    'kode_transaksi' => $kode,
+                    'tanggal_transaksi' => $tanggal,
+                    'type' => 'mutasi',
+                    'akun_keuangan_id' => $sumberId,              // Kas/Bank Bidang
+                    'parent_akun_id' => $akunPiutangPerantara,  // Lawan: Piutang Perantara
+                    'deskripsi' => $validated['deskripsi'],
+                    'amount' => $amount,
+                    'saldo' => 0,
+                    'user_id' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                // Ledger BIDANG:
+                //  Cr Kas Bidang
+                //  Dr Piutang Perantara
+                Ledger::create([
+                    'transaksi_id' => $trxBidang->id,
+                    'akun_keuangan_id' => $sumberId,
+                    'debit' => 0,
+                    'credit' => $amount,
+                ]);
+
+                Ledger::create([
+                    'transaksi_id' => $trxBidang->id,
+                    'akun_keuangan_id' => $akunPiutangPerantara,
+                    'debit' => $amount,
+                    'credit' => 0,
+                ]);
+
+                // --- 3.1.2 Transaksi BENDAHARA: Kas Bendahara -> Hutang Perantara ---
+                $trxBendahara = Transaksi::create([
+                    'bidang_name' => null, // Bendahara (pusat)
+                    'kode_transaksi' => $kode . '-BDH',
+                    'tanggal_transaksi' => $tanggal,
+                    'type' => 'mutasi',
+                    'akun_keuangan_id' => $tujuanId,              // Kas/Bank Bendahara
+                    'parent_akun_id' => $akunHutangPerantara,   // Lawan: Hutang Perantara
+                    'deskripsi' => '(Bendahara) ' . $validated['deskripsi'],
+                    'amount' => $amount,
+                    'saldo' => 0,
+                    'user_id' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                // Ledger BENDAHARA:
+                //  Dr Kas Bendahara
+                //  Cr Hutang Perantara
+                Ledger::create([
+                    'transaksi_id' => $trxBendahara->id,
+                    'akun_keuangan_id' => $tujuanId,
+                    'debit' => $amount,
+                    'credit' => 0,
+                ]);
+
+                Ledger::create([
+                    'transaksi_id' => $trxBendahara->id,
+                    'akun_keuangan_id' => $akunHutangPerantara,
+                    'debit' => 0,
+                    'credit' => $amount,
+                ]);
+
+                Log::info('[TRANSFER] Bidang → Bendahara tersimpan', [
+                    'trx_bidang_id' => $trxBidang->id,
+                    'trx_bendahara_id' => $trxBendahara->id,
+                ]);
+
+                return;
+            }
+
+            // ===============================
+            //  CASE 2: BENDAHARA → BIDANG
+            // ===============================
+            if ($isBendaharaToBidang) {
+                $bidangId = $tujuanBidang;
+
+                // --- 3.2.1 Transaksi BENDAHARA: Kas Bendahara -> Hutang Perantara ---
+                $trxBendahara = Transaksi::create([
+                    'bidang_name' => null,
+                    'kode_transaksi' => $kode,
+                    'tanggal_transaksi' => $tanggal,
+                    'type' => 'mutasi',
+                    'akun_keuangan_id' => $sumberId,              // Kas/Bank Bendahara
+                    'parent_akun_id' => $akunHutangPerantara,   // Lawan: Hutang Perantara
+                    'deskripsi' => $validated['deskripsi'],
+                    'amount' => $amount,
+                    'saldo' => 0,
+                    'user_id' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                // Ledger BENDAHARA:
+                //  Cr Kas Bendahara
+                //  Dr Hutang Perantara (mengurangi kewajiban)
+                Ledger::create([
+                    'transaksi_id' => $trxBendahara->id,
+                    'akun_keuangan_id' => $sumberId,
+                    'debit' => 0,
+                    'credit' => $amount,
+                ]);
+
+                Ledger::create([
+                    'transaksi_id' => $trxBendahara->id,
+                    'akun_keuangan_id' => $akunHutangPerantara,
+                    'debit' => $amount,
+                    'credit' => 0,
+                ]);
+
+                // --- 3.2.2 Transaksi BIDANG: Kas Bidang -> Piutang Perantara (turun) ---
+                $trxBidang = Transaksi::create([
+                    'bidang_name' => $bidangId,
+                    'kode_transaksi' => $kode . '-BDG',
+                    'tanggal_transaksi' => $tanggal,
+                    'type' => 'mutasi',
+                    'akun_keuangan_id' => $tujuanId,              // Kas/Bank Bidang
+                    'parent_akun_id' => $akunPiutangPerantara,  // Lawan: Piutang Perantara
+                    'deskripsi' => '(Bidang) ' . $validated['deskripsi'],
+                    'amount' => $amount,
+                    'saldo' => 0,
+                    'user_id' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                // Ledger BIDANG:
+                //  Dr Kas Bidang
+                //  Cr Piutang Perantara (piutang berkurang)
+                Ledger::create([
+                    'transaksi_id' => $trxBidang->id,
+                    'akun_keuangan_id' => $tujuanId,
+                    'debit' => $amount,
+                    'credit' => 0,
+                ]);
+
+                Ledger::create([
+                    'transaksi_id' => $trxBidang->id,
+                    'akun_keuangan_id' => $akunPiutangPerantara,
+                    'debit' => 0,
+                    'credit' => $amount,
+                ]);
+
+                Log::info('[TRANSFER] Bendahara → Bidang tersimpan', [
+                    'trx_bendahara_id' => $trxBendahara->id,
+                    'trx_bidang_id' => $trxBidang->id,
+                ]);
+
+                return;
+            }
+
+            // ===============================
+            //  CASE 3: TRANSFER BIASA (internal)
+            //  (fallback: logika lama, antar akun saja)
+            // ===============================
+            $userId = auth()->id();
+            $bidangValue = $role === 'Bendahara' ? null : $bidangName;
+
+            // 4a. Transaksi keluar (SUMBER) – pengeluaran
             $trxKeluar = Transaksi::create([
-                'bidang_name' => $bidangName,
+                'bidang_name' => $bidangValue,
                 'kode_transaksi' => $kode,
                 'tanggal_transaksi' => $tanggal,
-                'type' => 'pengeluaran',
+                'type' => 'mutasi',
                 'akun_keuangan_id' => $sumberId,
                 'parent_akun_id' => $tujuanId,
                 'deskripsi' => $validated['deskripsi'],
                 'amount' => $amount,
-                'saldo' => 0, // kalau mau, boleh hitung saldo baru di sini
+                'saldo' => 0,
                 'user_id' => $userId,
                 'updated_by' => $userId,
             ]);
@@ -1207,12 +1385,12 @@ class TransaksiController extends Controller
                 'credit' => $amount,
             ]);
 
-            // 4b. Transaksi masuk (TUJUAN) → penerimaan, debit di ledger
+            // 4b. Transaksi masuk (TUJUAN) – penerimaan
             $trxMasuk = Transaksi::create([
-                'bidang_name' => $bidangName,
+                'bidang_name' => $bidangValue,
                 'kode_transaksi' => $kode . '-LAWAN',
                 'tanggal_transaksi' => $tanggal,
-                'type' => 'penerimaan',
+                'type' => 'mutasi',
                 'akun_keuangan_id' => $tujuanId,
                 'parent_akun_id' => $sumberId,
                 'deskripsi' => '(Lawan) ' . $validated['deskripsi'],
@@ -1229,7 +1407,7 @@ class TransaksiController extends Controller
                 'credit' => 0,
             ]);
 
-            Log::info('[TRANSFER] Transfer berhasil disimpan', [
+            Log::info('[TRANSFER] Transfer internal biasa berhasil disimpan', [
                 'trx_keluar_id' => $trxKeluar->id,
                 'trx_masuk_id' => $trxMasuk->id,
             ]);
@@ -1347,24 +1525,41 @@ class TransaksiController extends Controller
 
     public function exportNota($id)
     {
-        // Retrieve the transaction data based on ID
-        $transaksi = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])->find($id);
+        $user = auth()->user();
+        $bidangName = $user->bidang_name;
+        // Ambil transaksi
+        $transaksi = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan', 'bidang'])->find($id);
 
-        // Pastikan $transaksi ditemukan sebelum melanjutkan
         if (!$transaksi) {
             return redirect()->route('transaksi.index')->with('error', 'Transaksi tidak ditemukan');
         }
 
-        // Mengambil data yang diperlukan dari transaksi
+        // Ambil setting untuk logo & brand
+        $setting = SidebarSetting::first();
+
+        // Buat absolute path untuk DomPDF
+        $logoPath = null;
+        if ($setting && $setting->logo_path) {
+            $logoPath = public_path('storage/' . $setting->logo_path);
+        }
+
         $tanggal_transaksi = $transaksi->tanggal_transaksi;
         $jenis_transaksi = $transaksi->type;
-        $akun = $transaksi->akunKeuangan ? $transaksi->akunKeuangan->nama_akun : 'N/A';
-        $sub_akun = $transaksi->parentAkunKeuangan ? $transaksi->parentAkunKeuangan->nama_akun : 'N/A';
+        $akun = $transaksi->akunKeuangan->nama_akun ?? 'N/A';
+        $sub_akun = $transaksi->parentAkunKeuangan->nama_akun ?? 'N/A';
 
-        // Generate the PDF from a view
-        $pdf = Pdf::loadView('transaksi.nota', compact('transaksi', 'tanggal_transaksi', 'akun', 'sub_akun', 'jenis_transaksi'));
+        $pdf = Pdf::loadView('transaksi.nota', compact(
+            'transaksi',
+            'tanggal_transaksi',
+            'akun',
+            'sub_akun',
+            'jenis_transaksi',
+            'setting',
+            'bidangName',
+            'logoPath'
+        ))
+            ->setPaper('a5', 'portrait');
 
-        // Return the PDF as a response for download
         return $pdf->download('Invoice_' . $transaksi->kode_transaksi . '.pdf');
     }
 

@@ -3,104 +3,216 @@
 namespace App\Services;
 
 use App\Models\Student;
-use App\Models\StudentCost;
-use App\Models\Piutang;
 use App\Models\PendapatanBelumDiterima;
+use App\Models\Piutang;
 use App\Models\Transaksi;
+use App\Models\Bidang;
 use App\Models\Ledger;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class StudentFinanceService
 {
+    /**
+     * Menangani penyesuaian keuangan ketika data biaya siswa di-update.
+     *
+     * Sekarang pendekatan: REBUILD
+     * - Hapus jejak tagihan awal PMB (Transaksi PBD PMB + Ledger + tracker Piutang & PBD)
+     * - Bangun ulang tagihan awal berdasarkan student_cost terbaru (biayaPairs)
+     *
+     * Detail per akun tetap di student_cost.
+     * Piutang & PendapatanBelumDiterima = 1 row per siswa (total).
+     */
+    public function handleUpdateStudentFinance(
+        Student $student,
+        array $biayaPairs,
+        int $totalBiayaBaru,
+        ?int $totalBiayaLama = null
+    ): void {
+        Log::info('[FinanceUpdate] Mulai handleUpdateStudentFinance (REBUILD)', [
+            'student_id' => $student->id,
+            'student_name' => $student->name,
+            'old_total_biaya' => $totalBiayaLama,
+            'new_total_biaya' => $totalBiayaBaru,
+            'biaya_pairs' => $biayaPairs,
+        ]);
+
+        $akunPiutangPMB = config('akun.piutang_pmb');                  // 1032
+        $akunPBDPMB = config('akun.pendapatan_belum_diterima_pmb'); // 50012
+
+        // 1) HAPUS transaksi "pendapatan belum diterima" PMB + ledger-nya untuk siswa ini
+        $trxPbd = Transaksi::where('type', 'pendapatan belum diterima')
+            ->where('sumber', $student->id)
+            ->get();
+
+        foreach ($trxPbd as $trx) {
+            Ledger::where('transaksi_id', $trx->id)->delete();
+            $trx->delete();
+        }
+
+        Log::info('[FinanceUpdate] Transaksi PBD PMB & ledger dihapus', [
+            'student_id' => $student->id,
+            'deleted_trx' => $trxPbd->pluck('id')->all(),
+        ]);
+
+        // 2) HAPUS tracker PBD (PendapatanBelumDiterima) untuk siswa ini
+        $deletedPbd = PendapatanBelumDiterima::where('student_id', $student->id)->delete();
+
+        // 3) HAPUS tracker piutang PMB untuk siswa ini
+        $deletedPiutang = Piutang::where('student_id', $student->id)
+            ->where('akun_keuangan_id', $akunPiutangPMB)
+            ->delete();
+
+        Log::info('[FinanceUpdate] Tracker PBD & Piutang dihapus', [
+            'student_id' => $student->id,
+            'deleted_pbd_row' => $deletedPbd,
+            'deleted_piutang_row' => $deletedPiutang,
+        ]);
+
+        // 4) BANGUN ULANG berdasarkan biayaPairs (student_cost terbaru)
+        $this->handleNewStudentFinance($student, $biayaPairs);
+
+        Log::info('[FinanceUpdate] handleUpdateStudentFinance (REBUILD) selesai', [
+            'student_id' => $student->id,
+            'total_biaya' => $totalBiayaBaru,
+        ]);
+    }
+
     public function handleNewStudentFinance(Student $student, array $biayaPairs)
     {
-        foreach ($biayaPairs as $akunId => $jumlah) {
-            // Buat transaksi
-            $transaksi = Transaksi::create([
-                'kode_transaksi' => 'PMB-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5)),
-                'tanggal_transaksi' => Carbon::now()->format('Y-m-d'),
-                'type' => 'pendapatan belum diterima',
-                'deskripsi' => 'Pendaftaran murid baru ' . $student->name,
-                'akun_keuangan_id' => 103,
-                'parent_akun_id' => config('akun.piutang_pmb'),
-                'bidang_name' => 2,
-                'amount' => $jumlah,
-                'saldo' => $jumlah,
-            ]);
+        // Total dari seluruh rincian biaya PMB siswa ini
+        $totalBiaya = array_sum($biayaPairs);
 
-            // Jurnal double-entry
-            Ledger::create([
-                'transaksi_id' => $transaksi->id,
-                'akun_keuangan_id' => config('akun.piutang_pmb'), // Piutang
-                'debit' => $jumlah,
-                'credit' => 0,
-            ]);
-
-            Ledger::create([
-                'transaksi_id' => $transaksi->id,
-                'akun_keuangan_id' => config('akun.pendapatan_belum_diterima'), // Pendapatan belum diterima
-                'debit' => 0,
-                'credit' => $jumlah,
-            ]);
-
-            // Tambah ke piutang
-            Piutang::create([
+        if ($totalBiaya <= 0) {
+            Log::warning('[FinanceNew] Total biaya PMB <= 0, skip create finance row.', [
                 'student_id' => $student->id,
-                'akun_keuangan_id' => config('akun.piutang_pmb'),
-                'jumlah' => $jumlah,
-                'tanggal_jatuh_tempo' => now()->addMonths(1),
-                'deskripsi' => 'Pendapatan PMB siswa ' . $student->name,
-                'status' => 'belum_lunas',
-                'bidang_name' => 2,
+                'student_name' => $student->name,
+                'biaya_pairs' => $biayaPairs,
             ]);
-
-            // Tambah ke pendapatan belum diterima
-            PendapatanBelumDiterima::create([
-                'student_id' => $student->id,
-                'jumlah' => $jumlah,
-                'tanggal_pencatatan' => now()->format('Y-m-d'),
-                'deskripsi' => 'Pendapatan PMB siswa ' . $student->name,
-                'bidang_name' => 2,
-            ]);
+            return;
         }
+
+        $akunPiutangPMB = config('akun.piutang_pmb');                  // 1032
+        $akunPBDPMB = config('akun.pendapatan_belum_diterima_pmb'); // 50012
+        $bidangId = 2; // Pendidikan (kalau nanti mau dinamis, bisa di-parameter-kan)
+
+        $tanggal = now();
+        $kode = 'PMB-' . $tanggal->format('YmdHis') . '-' . strtoupper(substr(md5(uniqid('', true)), 0, 5));
+        $deskripsi = 'Pendaftaran murid baru ' . $student->name;
+
+        // ==========================
+        // 1) TRANSKASI HEADER
+        // ==========================
+        $transaksi = Transaksi::create([
+            'kode_transaksi' => $kode,
+            'tanggal_transaksi' => $tanggal->toDateString(),
+            'type' => 'pendapatan belum diterima',
+            'deskripsi' => $deskripsi,
+            // AKUN = PBD (liabilitas)
+            'akun_keuangan_id' => $akunPBDPMB,
+            // LAWAN = Piutang PMB (asset)
+            'parent_akun_id' => $akunPiutangPMB,
+            'bidang_name' => $bidangId,
+            'amount' => $totalBiaya,
+            'saldo' => $totalBiaya,
+            'sumber' => $student->id,
+        ]);
+
+        // ==========================
+        // 2) JURNAL DOUBLE-ENTRY (PMB)
+        // Debit  : Piutang PMB (asset)                = totalBiaya
+        // Kredit : Pendapatan Belum Diterima – PMB    = totalBiaya
+        // ==========================
+        Ledger::create([
+            'transaksi_id' => $transaksi->id,
+            'akun_keuangan_id' => $akunPiutangPMB, // Piutang PMB
+            'debit' => $totalBiaya,
+            'credit' => 0,
+        ]);
+
+        Ledger::create([
+            'transaksi_id' => $transaksi->id,
+            'akun_keuangan_id' => $akunPBDPMB,     // Pendapatan Belum Diterima – PMB
+            'debit' => 0,
+            'credit' => $totalBiaya,
+        ]);
+
+        // ==========================
+        // 3) TRACKER PIUTANG (1 ROW PER STUDENT)
+        // ==========================
+        Piutang::create([
+            'student_id' => $student->id,
+            'akun_keuangan_id' => $akunPiutangPMB,
+            'jumlah' => $totalBiaya,
+            'tanggal_jatuh_tempo' => now()->addMonths(1),
+            'deskripsi' => 'Pendapatan PMB siswa ' . $student->name,
+            'status' => 'belum_lunas',
+            'bidang_name' => $bidangId,
+        ]);
+
+        // ==========================
+        // 4) TRACKER PENDAPATAN BELUM DITERIMA (1 ROW PER STUDENT)
+        // ==========================
+        PendapatanBelumDiterima::create([
+            'student_id' => $student->id,
+            'jumlah' => $totalBiaya,
+            'tanggal_pencatatan' => $tanggal->toDateString(),
+            'deskripsi' => 'Pendapatan PMB siswa ' . $student->name,
+            'bidang_name' => $bidangId,
+            // 'user_id'         => auth()->id(), // kalau ada kolom ini & mau diisi
+        ]);
+
+        Log::info('[FinanceNew] handleNewStudentFinance selesai (single-row trackers)', [
+            'student_id' => $student->id,
+            'total_biaya' => $totalBiaya,
+            'biaya_pairs' => $biayaPairs,
+        ]);
     }
+
     public function handleNewStudentSPPFinance(Student $student, int $jumlah, int $bulan, int $tahun)
     {
-        // Buat transaksi
         $transaksi = Transaksi::create([
             'kode_transaksi' => 'SPP-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5)),
             'tanggal_transaksi' => now()->format('Y-m-d'),
             'type' => 'pendapatan belum diterima',
             'deskripsi' => "Tagihan SPP siswa {$student->name} - {$bulan}/{$tahun}",
-            'akun_keuangan_id' => 103,
+
+            // LAWAN = Pendapatan Belum Diterima SPP
+            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima_spp'),
+
+            // AKUN UTAMA = Piutang SPP
             'parent_akun_id' => config('akun.piutang_spp'),
+
             'bidang_name' => 2,
             'amount' => $jumlah,
             'saldo' => $jumlah,
         ]);
 
-        // Jurnal
+        // ==========================
+        // Jurnal double-entry (SPP)
+        // Debit  : Piutang SPP (asset)
+        // Kredit : Pendapatan Belum Diterima - SPP (liability)
+        // ==========================
         Ledger::create([
             'transaksi_id' => $transaksi->id,
-            'akun_keuangan_id' => config('akun.piutang_spp'),
+            'akun_keuangan_id' => config('akun.piutang_spp'), // Piutang SPP
             'debit' => $jumlah,
             'credit' => 0,
         ]);
 
         Ledger::create([
             'transaksi_id' => $transaksi->id,
-            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima'),
+            // ⬇️ GUNAKAN akun kewajiban baru
+            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima_spp'), // Pendapatan Belum Diterima – SPP
             'debit' => 0,
             'credit' => $jumlah,
         ]);
 
         // Piutang
-        $existingPiutang = Piutang::where([
-            ['student_id', '=', $student->id],
-        ])->first();
+        $existingPiutang = Piutang::where('student_id', $student->id)->first();
 
         if ($existingPiutang) {
             $existingPiutang->update([
@@ -122,10 +234,8 @@ class StudentFinanceService
             ]);
         }
 
-        // Pendapatan Belum Diterima
-        $existingPBD = PendapatanBelumDiterima::where([
-            ['student_id', '=', $student->id],
-        ])->first();
+        // Pendapatan Belum Diterima (rekap by siswa)
+        $existingPBD = PendapatanBelumDiterima::where('student_id', $student->id)->first();
 
         if ($existingPBD) {
             $existingPBD->update([
@@ -177,11 +287,10 @@ class StudentFinanceService
                 $transaksi->delete();
             });
 
-            // (Opsional) Hapus piutang dan pendapatan belum diterima jika punya relasi
+            // Hapus tagihan SPP (kalau ada relasi)
             $student->tagihanSpps()->each(function ($tagihan) {
                 $tagihan->delete();
             });
-
 
             // Hapus murid
             $student->delete();

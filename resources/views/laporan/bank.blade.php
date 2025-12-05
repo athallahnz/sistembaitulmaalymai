@@ -366,7 +366,10 @@
                         data: 'kredit',
                         name: 'kredit'
                     },
-                ]
+                ],
+                search: {
+                    smart: true // Enable smart searching
+                }
             });
         });
 
