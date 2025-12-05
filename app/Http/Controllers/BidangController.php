@@ -22,43 +22,6 @@ class BidangController extends Controller
         $this->middleware('role:Bidang');  // Middleware khusus Bidang
     }
 
-    /**
-     * Ambil saldo terakhir dari KOLOM `saldo` untuk akun tertentu (<= cutoff).
-     * Tidak mengecualikan baris -LAWAN karena saldo akun bisa muncul di baris lawan.
-     * - Non-Bendahara: filter per-bidang + fallback histori lama (NULL)
-     * - Bendahara: global
-     *
-     * (Sekarang TIDAK dipakai untuk Kas/Bank, hanya helper umum kalau nanti dibutuhkan)
-     */
-    protected function getLastSaldoBySaldoColumn(
-        int $akunId,
-        string $userRole,
-        $bidangValue,
-        ?string $tanggalCutoff = null
-    ): float {
-        if (!$akunId) {
-            return 0.0;
-        }
-
-        $q = Transaksi::where('akun_keuangan_id', $akunId);
-
-        if ($tanggalCutoff) {
-            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
-            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
-        }
-
-        if ($userRole !== 'Bendahara') {
-            $q->where(function ($w) use ($bidangValue) {
-                $w->where('bidang_name', $bidangValue)
-                    ->orWhereNull('bidang_name');
-            });
-        }
-
-        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
-            ->orderBy('id', 'desc')
-            ->value('saldo') ?? 0.0);
-    }
-
     private function sumTransaksiByParent(int $parentId, $bidangName = null): float
     {
         $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
@@ -127,12 +90,14 @@ class BidangController extends Controller
             ->where('kode_transaksi', 'not like', '%-LAWAN')
             ->count();
 
-        $jumlahPiutang = Piutang::where('bidang_name', $bidangId)
+        $piutangLedger = LaporanKeuanganService::getSaldoByGroup(config('akun.group_piutang'), $bidangId);
+
+        $piutangMurid = Piutang::where('bidang_name', $bidangId)
             ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
-        $jumlahPendapatanBelumDiterima = PendapatanBelumDiterima::where('bidang_name', $bidangId)
-            ->sum('jumlah');
+
+        $saldoPiutangPerantara = LaporanKeuanganService::getSaldoPerAkun(1034, $bidangId);
 
         $jumlahPiutangPerantara = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
             ->where('kode_transaksi', 'not like', '%-LAWAN')
@@ -142,14 +107,8 @@ class BidangController extends Controller
 
         $totalKeuanganBidang = $saldoKas + $saldoBank + $jumlahPiutangPerantara;
 
-        // Asset langsung (contoh ID: 104, 105)
-        $jumlahTanahBangunan = Transaksi::where('akun_keuangan_id', 104)
-            ->where('bidang_name', $bidangId)
-            ->sum('amount');
-
-        $jumlahInventaris = Transaksi::where('akun_keuangan_id', 105)
-            ->where('bidang_name', $bidangId)
-            ->sum('amount');
+        $jumlahTanahBangunan = LaporanKeuanganService::getSaldoByGroup(104, $bidangId);
+        $jumlahInventaris = LaporanKeuanganService::getSaldoByGroup(105, $bidangId);
 
         $jumlahHutang = Hutang::where('bidang_name', $bidangId)
             ->where('status', 'belum_lunas')
@@ -162,14 +121,20 @@ class BidangController extends Controller
         // Pendapatan & Biaya (berdasar parent_akun_id – COA baru)
         $bidangName = $bidangId;
 
+        // Pendapatan Belum Diterima – PMB
+        $pendapatanBelumDiterimaPMB = LaporanKeuanganService::getSaldoByGroup(50012, $bidangId);
+
+        // Pendapatan Belum Diterima – SPP
+        $pendapatanBelumDiterimaSPP = LaporanKeuanganService::getSaldoByGroup(50011, $bidangId);
+
         // 🔹 Pendapatan per kategori (201–207)
-        $jumlahPendapatanPMB = $this->sumTransaksiByParent(201, $bidangName);
-        $jumlahPendapatanSPP = $this->sumTransaksiByParent(202, $bidangName);
-        $jumlahPendapatanLainPendidikan = $this->sumTransaksiByParent(203, $bidangName);
-        $jumlahPendapatanInfaqTidakTerikat = $this->sumTransaksiByParent(204, $bidangName);
-        $jumlahPendapatanInfaqTerikat = $this->sumTransaksiByParent(205, $bidangName);
-        $jumlahPendapatanUsaha = $this->sumTransaksiByParent(206, $bidangName);
-        $jumlahPendapatanBendaharaUmum = $this->sumTransaksiByParent(207, $bidangName);
+        $jumlahPendapatanPMB = LaporanKeuanganService::getSaldoByGroup(201, $bidangName);
+        $jumlahPendapatanSPP = LaporanKeuanganService::getSaldoByGroup(202, $bidangName);
+        $jumlahPendapatanLainPendidikan = LaporanKeuanganService::getSaldoByGroup(203, $bidangName);
+        $jumlahPendapatanInfaqTidakTerikat = LaporanKeuanganService::getSaldoByGroup(204, $bidangName);
+        $jumlahPendapatanInfaqTerikat = LaporanKeuanganService::getSaldoByGroup(205, $bidangName);
+        $jumlahPendapatanUsaha = LaporanKeuanganService::getSaldoByGroup(206, $bidangName);
+        $jumlahPendapatanBendaharaUmum = LaporanKeuanganService::getSaldoByGroup(207, $bidangName);
 
         // 🔹 Donasi (dipakai di kartu lama) = Infaq Tidak Terikat + Terikat
         $jumlahDonasi = $jumlahPendapatanInfaqTidakTerikat + $jumlahPendapatanInfaqTerikat;
@@ -179,17 +144,17 @@ class BidangController extends Controller
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        $jumlahBebanGaji = $this->sumTransaksiByParent(302, $bidangName);
-        $jumlahBiayaOperasional = $this->sumTransaksiByParent(303, $bidangName);
-        $jumlahBiayaKegiatan = $this->sumTransaksiByParent(304, $bidangName);
-        $jumlahBiayaKonsumsi = $this->sumTransaksiByParent(305, $bidangName);
-        $jumlahBiayaPemeliharaan = $this->sumTransaksiByParent(306, $bidangName);
-        $jumlahPengeluaranTerikat = $this->sumTransaksiByParent(307, $bidangName);
-        $jumlahBiayaLainLain = $this->sumTransaksiByParent(308, $bidangName);
-        $jumlahPengeluaranBendahara = $this->sumTransaksiByParent(309, $bidangName);
+        $jumlahBebanGaji = LaporanKeuanganService::getSaldoByGroup(302, $bidangName);
+        $jumlahBiayaOperasional = LaporanKeuanganService::getSaldoByGroup(303, $bidangName);
+        $jumlahBiayaKegiatan = LaporanKeuanganService::getSaldoByGroup(304, $bidangName);
+        $jumlahBiayaKonsumsi = LaporanKeuanganService::getSaldoByGroup(305, $bidangName);
+        $jumlahBiayaPemeliharaan = LaporanKeuanganService::getSaldoByGroup(306, $bidangName);
+        $jumlahPengeluaranTerikat = LaporanKeuanganService::getSaldoByGroup(307, $bidangName);
+        $jumlahBiayaLainLain = LaporanKeuanganService::getSaldoByGroup(308, $bidangName);
+        $jumlahPengeluaranBendahara = LaporanKeuanganService::getSaldoByGroup(309, $bidangName);
 
         // 🔹 Biaya dibayar di muka (310)
-        $jumlahBiayadibayardimuka = $this->sumTransaksiByParent(310, $bidangName);
+        $jumlahBiayadibayardimuka = LaporanKeuanganService::getSaldoByGroup(310, $bidangName);
 
         // ==================================
         // 🔹 Struktur akun (opsional buat view)
@@ -210,11 +175,16 @@ class BidangController extends Controller
             'jumlahTransaksi',
             'saldoKas',
             'saldoBank',
-            'jumlahPiutang',
+            'piutangLedger',
+            'piutangMurid',
             'jumlahPiutangPerantara',
-            'jumlahPendapatanBelumDiterima',
+            'saldoPiutangPerantara',
             'jumlahTanahBangunan',
             'jumlahInventaris',
+
+            // Liabilitas
+            'pendapatanBelumDiterimaPMB',
+            'pendapatanBelumDiterimaSPP',
             'jumlahHutang',
             'hutangJatuhTempo',
 
@@ -253,72 +223,26 @@ class BidangController extends Controller
         $bidangId = $user->bidang_name ?? null;
         $role = $user->role ?? 'Bidang';
 
-        $transaksiData = collect();
         $parentAkun = null;
         $labelAkun = null;
 
-        // =====================================================
-        // 🔹 MODE KHUSUS: Piutang Perantara (mutasi antar bidang)
-        // =====================================================
+        // 🔹 MODE KHUSUS: Piutang Perantara
         if ($parentAkunId === 'piutang-perantara') {
-
-            // Map akun Kas & Bank per Bidang (sesuai snippet kamu)
-            $akunKasId = $role === 'Bendahara'
-                ? 1011
-                : ([1 => 1012, 2 => 1013, 3 => 1014, 4 => 1015][$bidangId] ?? null);
-
-            $akunBankId = $role === 'Bendahara'
-                ? 1021
-                : ([1 => 1022, 2 => 1023, 3 => 1024, 4 => 1025][$bidangId] ?? null);
-
-            $query = Transaksi::query()
-                ->where('kode_transaksi', 'like', 'TRF-%')
-                ->where('kode_transaksi', 'not like', '%-LAWAN');
-
-            // Filter per bidang (bidang hanya lihat miliknya)
-            if ($bidangId) {
-                $query->where('bidang_name', $bidangId);
-            }
-
-            // Exclude mutasi ke kas/bank internal bidang ini sendiri
-            if ($akunKasId && $akunBankId) {
-                $query->whereNotIn('parent_akun_id', [$akunKasId, $akunBankId]);
-            }
-
-            if ($type) {
-                $query->where('type', $type);
-            }
-
-            $transaksiData = $query->with(['akunKeuangan', 'parentAkunKeuangan'])->get();
-
-            $parentAkun = null;
             $labelAkun = 'Piutang Perantara';
-
+            $parentAkun = null;
         } else {
-            // =====================================================
-            // 🔹 MODE NORMAL: Detail per kelompok akun (kode lama)
-            // =====================================================
-            $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
-                ->pluck('id')
-                ->toArray();
-
-            $transaksiData = Transaksi::when(!empty($subAkunIds), fn($q) => $q->whereIn('parent_akun_id', $subAkunIds))
-                ->when($type, fn($q) => $q->where('type', $type))
-                ->when($bidangId, fn($q) => $q->where('bidang_name', $bidangId))
-                ->with(['akunKeuangan', 'parentAkunKeuangan'])
-                ->get();
-
+            // Mode normal: parentAkunId = group / parent akun (201, 202, 101, dst.)
             $parentAkun = AkunKeuangan::find($parentAkunId);
             $labelAkun = $parentAkun ? $parentAkun->nama_akun : null;
         }
 
         return view('bidang.detail', [
-            'transaksiData' => $transaksiData,
             'parentAkunId' => $parentAkunId,
             'type' => $type,
             'parentAkun' => $parentAkun,
             'bidangId' => $bidangId,
             'labelAkun' => $labelAkun,
+            'role' => $role,
         ]);
     }
 
@@ -330,62 +254,106 @@ class BidangController extends Controller
         $parentAkunId = $request->input('parent_akun_id');
         $type = $request->input('type');
 
-        // Base query
-        $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']);
-
-        // Bidang hanya lihat miliknya sendiri
-        if ($role === 'Bidang') {
-            $query->where('bidang_name', $bidangName);
-        }
-
         // ==========================
-        // 🔹 MODE KHUSUS: Piutang Perantara
+        // 🔹 MODE KHUSUS: Piutang Perantara (masih pakai Transaksi)
         // ==========================
         if ($parentAkunId === 'piutang-perantara') {
-            // Map akun kas & bank per bidang (pakai mapping yang sudah kamu punya)
-            $akunKasId = $role === 'Bendahara'
-                ? 1011
-                : ([1 => 1012, 2 => 1013, 3 => 1014, 4 => 1015][$bidangName] ?? null);
-
-            $akunBankId = $role === 'Bendahara'
-                ? 1021
-                : ([1 => 1022, 2 => 1023, 3 => 1024, 4 => 1025][$bidangName] ?? null);
-
-            // Hanya mutasi transfer
-            $query->where('kode_transaksi', 'like', 'TRF-%')
+            $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])
+                ->where('kode_transaksi', 'like', 'TRF-%')
                 ->where('kode_transaksi', 'not like', '%-LAWAN');
 
-            // Exclude mutasi ke kas/bank internal bidang ini sendiri
-            if ($akunKasId && $akunBankId) {
-                $query->whereNotIn('parent_akun_id', [$akunKasId, $akunBankId]);
+            if ($role === 'Bidang' && $bidangName) {
+                $query->where('bidang_name', $bidangName);
             }
-        } else {
-            // ==========================
-            // 🔹 MODE NORMAL: Detail per kelompok akun
-            // ==========================
-            if ($parentAkunId) {
-                // Ambil semua anak dari parent_akun_id ini
-                $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
-                    ->pluck('id')
-                    ->toArray();
 
-                $query->whereIn('parent_akun_id', $subAkunIds);
+            if ($type) {
+                $query->where('type', $type);
+            }
+
+            return DataTables::of($query)
+                ->addColumn('tanggal', function ($row) {
+                    return $row->tanggal_transaksi;
+                })
+                ->addColumn('kode_transaksi', function ($row) {
+                    return $row->kode_transaksi;
+                })
+                ->addColumn('type', function ($row) {
+                    return $row->type;
+                })
+                ->addColumn('akun_keuangan', function ($row) {
+                    return $row->akunKeuangan->nama_akun ?? 'N/A';
+                })
+                ->addColumn('deskripsi', function ($row) {
+                    return $row->deskripsi;
+                })
+                // untuk mode ini, kalau mau, kamu bisa pakai amount saja dan set debit/kredit = amount
+                ->addColumn('debit', function ($row) {
+                    return $row->type === 'penerimaan' ? $row->amount : 0;
+                })
+                ->addColumn('credit', function ($row) {
+                    return $row->type === 'pengeluaran' ? $row->amount : 0;
+                })
+                ->make(true);
+        }
+
+        // ==========================
+        // 🔹 MODE NORMAL: Detail per kelompok akun (pakai Ledger)
+        // ==========================
+
+        // 1) Ambil semua akun anak dari group (201, 202, 103, dst)
+        $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
+            ->pluck('id')
+            ->toArray();
+
+        // 2) Kalau TIDAK ada anak → anggap ini akun tunggal (leaf), pakai ID-nya sendiri
+        if (empty($subAkunIds)) {
+            $akun = AkunKeuangan::find($parentAkunId);
+            if ($akun) {
+                $subAkunIds = [$akun->id];
+            } else {
+                // Kalau akun-nya pun nggak ada, kembalikan tabel kosong
+                return DataTables::of(collect([]))->make(true);
             }
         }
 
-        // Filter type kalau dikirim (penerimaan / pengeluaran)
-        if ($type) {
-            $query->where('type', $type);
+        $query = Ledger::with(['akunKeuangan', 'transaksi'])
+            ->whereIn('akun_keuangan_id', $subAkunIds);
+
+        // Filter bidang (untuk role Bidang)
+        if ($role === 'Bidang' && $bidangName) {
+            $query->whereHas('transaksi', function ($q) use ($bidangName) {
+                $q->where('bidang_name', $bidangName);
+            });
         }
 
-        $transaksiData = $query->get();
+        // Filter type kalau dikirim (penerimaan/pengeluaran/pengakuan_pendapatan/dsb)
+        if (!empty($type)) {
+            $query->whereHas('transaksi', function ($q) use ($type) {
+                $q->where('type', $type);
+            });
+        }
 
-        return DataTables::of($transaksiData)
-            ->addColumn('akun_keuangan', function ($row) {
-                return $row->akunKeuangan ? $row->akunKeuangan->nama_akun : 'N/A';
+        return DataTables::of($query)
+            ->addColumn('tanggal', function ($row) {
+                return optional($row->transaksi)->tanggal_transaksi;
             })
-            ->addColumn('parent_akun_keuangan', function ($row) {
-                return $row->parentAkunKeuangan ? $row->parentAkunKeuangan->nama_akun : 'N/A';
+            ->addColumn('kode_transaksi', function ($row) {
+                return optional($row->transaksi)->kode_transaksi;
+            })
+            ->addColumn('type', function ($row) {
+                return optional($row->transaksi)->type;
+            })
+            ->addColumn('akun_keuangan', function ($row) {
+                return $row->akunKeuangan->nama_akun ?? 'N/A';
+            })
+            ->addColumn('deskripsi', function ($row) {
+                return optional($row->transaksi)->deskripsi;
+            })
+            ->addColumn('debit', function ($row) {
+                return $row->debit ?? 0;
+            })
+            ->addColumn('credit', function ($row) {
+                return $row->credit ?? 0;
             })
             ->make(true);
     }

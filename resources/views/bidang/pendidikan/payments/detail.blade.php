@@ -9,8 +9,24 @@
                 <li class="breadcrumb-item active" aria-current="page">Detail</li>
             </ol>
         </nav>
-        <h1 class="mb-4">Detail Pembayaran PMB - <strong>{{ $student->name }} / {{ $student->eduClass->name }} -
-                {{ $student->eduClass->tahun_ajaran }}</strong></h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-2">Detail Pembayaran PMB</h1>
+                <p class="text-muted mb-0">
+                    <strong>{{ $student->name }}</strong> /
+                    {{ $student->eduClass->name }} -
+                    {{ $student->eduClass->tahun_ajaran }}
+                </p>
+            </div>
+            <form id="form-recognize-pmb-{{ $student->id }}" action="{{ route('payment.recognize_pmb', $student->id) }}"
+                method="POST">
+                @csrf
+                <button type="button" class="btn btn-success"
+                    onclick="confirmRecognizePMB('{{ $student->name }}', {{ $student->id }})">
+                    <i class="bi bi-check-circle"></i> Recognize Pendapatan PMB
+                </button>
+            </form>
+        </div>
 
         {{-- Ringkasan Pembayaran --}}
         <div class="row mb-2">
@@ -86,3 +102,28 @@
         <a href="{{ route('payment.dashboard') }}" class="btn btn-secondary">Kembali ke Dashboard</a>
     </div>
 @endsection
+@push('scripts')
+    <script>
+        function confirmRecognizePMB(studentName, studentId) {
+            Swal.fire({
+                title: 'Konfirmasi Pengakuan Pendapatan',
+                html: `Proses pengakuan pendapatan PMB untuk <b>${studentName}</b>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, proses',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#198754',
+                cancelButtonColor: '#6c757d',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('form-recognize-pmb-' + studentId);
+                    if (!form) {
+                        console.error('Form recognize PMB tidak ditemukan untuk student id:', studentId);
+                        return;
+                    }
+                    form.submit();
+                }
+            });
+        }
+    </script>
+@endpush

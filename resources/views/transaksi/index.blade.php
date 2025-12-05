@@ -37,7 +37,14 @@
     </style>
 
     <div class="container">
-        <div class="mb-4">
+        <h1 class="mb-4">
+            @if (auth()->user()->hasRole('Bidang'))
+                Data Buku Harian <strong>Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}</strong>
+            @elseif(auth()->user()->hasRole('Bendahara'))
+                Seluruh Data Transaksi Buku Harian <strong>Bidang</strong>
+            @endif
+        </h1>
+        <div>
             <!-- Button untuk membuka modal Opening Balance -->
             <button type="button" class="btn btn-warning mb-3 me-2 shadow" id="btn-opening-balance" data-bs-toggle="modal"
                 data-bs-target="#transactionModal">
@@ -57,13 +64,6 @@
             </a>
         </div>
 
-        <h1>
-            @if (auth()->user()->hasRole('Bidang'))
-                Data Buku Harian <strong>Bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}</strong>
-            @elseif(auth()->user()->hasRole('Bendahara'))
-                Seluruh Data Transaksi Buku Harian <strong>Bidang</strong>
-            @endif
-        </h1>
 
         <!-- Modal -->
         <div class="modal fade" id="transactionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
@@ -610,15 +610,18 @@
                 ajax: "{{ route('transaksi.data') }}",
                 columns: [{
                         data: 'tanggal_transaksi',
-                        name: 'tanggal_transaksi'
+                        name: 'tanggal_transaksi',
+                        searchable: true
                     },
                     {
                         data: 'kode_transaksi',
-                        name: 'kode_transaksi'
+                        name: 'kode_transaksi',
+                        searchable: true
                     },
                     {
                         data: 'type',
                         name: 'type',
+                        searchable: true,
                         render: function(data, type, row) {
                             if (data === 'penerimaan') {
                                 return '<span class="badge bg-success">Penerimaan</span>';
@@ -626,6 +629,12 @@
                                 return '<span class="badge bg-danger">Pengeluaran</span>';
                             } else if (data === 'pendapatan belum diterima') {
                                 return '<span class="badge bg-warning">Belum Diterima</span>';
+                            } else if (data === 'pengakuan_pendapatan') {
+                                return '<span class="badge bg-info">Pengakuan Pendapatan</span>';
+                            } else if (data === 'mutasi') {
+                                return '<span class="badge bg-primary">Mutasi</span>';
+                            } else if (data === 'penyesuaian') {
+                                return '<span class="badge bg-secondary">Penyesuaian</span>';
                             } else {
                                 return '<span class="badge bg-secondary">Unknown</span>';
                             }
@@ -633,14 +642,16 @@
                     },
                     {
                         data: 'akun_keuangan_id',
-                        name: 'akun_keuangan_id',
+                        name: 'akun_keuangan.nama_akun',
+                        searchable: true,
                         render: function(data, type, row) {
                             return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
                         }
                     },
                     {
                         data: 'parent_akun_id',
-                        name: 'parent_akun_id',
+                        name: 'parent_akun_keuangan.nama_akun',
+                        searchable: true,
                         render: function(data, type, row) {
                             return row.parent_akun_keuangan ? row.parent_akun_keuangan.nama_akun :
                                 'N/A';
@@ -648,22 +659,26 @@
                     },
                     {
                         data: 'deskripsi',
-                        name: 'deskripsi'
+                        name: 'deskripsi',
+                        searchable: true
                     },
                     {
                         data: 'amount',
                         name: 'amount',
+                        searchable: true,
                         render: function(data, type, row) {
                             return number_format(data);
                         }
                     },
                     {
-                        data: 'user_name', // NEW
-                        name: 'user.name'
+                        data: 'user_name',
+                        name: 'user.name',
+                        searchable: true
                     },
                     {
-                        data: 'updated_by_name', // NEW
-                        name: 'updatedBy.name'
+                        data: 'updated_by_name',
+                        name: 'updatedBy.name',
+                        searchable: true
                     },
                     {
                         data: 'actions',
@@ -688,15 +703,18 @@
                 ajax: "{{ route('transaksi.mutasi.data') }}", // ROUTE BARU
                 columns: [{
                         data: 'tanggal_transaksi',
-                        name: 'tanggal_transaksi'
+                        name: 'tanggal_transaksi',
+                        searchable: true
                     },
                     {
                         data: 'kode_transaksi',
-                        name: 'kode_transaksi'
+                        name: 'kode_transaksi',
+                        searchable: true
                     },
                     {
                         data: 'type',
                         name: 'type',
+                        searchable: true,
                         render: function(data, type, row) {
                             if (data === 'penerimaan') {
                                 return '<span class="badge bg-success">Penerimaan</span>';
@@ -704,6 +722,12 @@
                                 return '<span class="badge bg-danger">Pengeluaran</span>';
                             } else if (data === 'pendapatan belum diterima') {
                                 return '<span class="badge bg-warning">Belum Diterima</span>';
+                            } else if (data === 'pengakuan_pendapatan') {
+                                return '<span class="badge bg-info">Pengakuan Pendapatan</span>';
+                            } else if (data === 'mutasi') {
+                                return '<span class="badge bg-primary">Mutasi</span>';
+                            } else if (data === 'penyesuaian') {
+                                return '<span class="badge bg-secondary">Penyesuaian</span>';
                             } else {
                                 return '<span class="badge bg-secondary">Unknown</span>';
                             }
@@ -712,6 +736,7 @@
                     {
                         data: 'akun_keuangan_id',
                         name: 'akun_keuangan_id',
+                        searchable: true,
                         render: function(data, type, row) {
                             return row.akun_keuangan ? row.akun_keuangan.nama_akun : 'N/A';
                         }
@@ -719,6 +744,7 @@
                     {
                         data: 'parent_akun_id',
                         name: 'parent_akun_id',
+                        searchable: true,
                         render: function(data, type, row) {
                             return row.parent_akun_keuangan ? row.parent_akun_keuangan.nama_akun :
                                 'N/A';
@@ -726,22 +752,26 @@
                     },
                     {
                         data: 'deskripsi',
-                        name: 'deskripsi'
+                        name: 'deskripsi',
+                        searchable: true
                     },
                     {
                         data: 'amount',
                         name: 'amount',
+                        searchable: true,
                         render: function(data, type, row) {
                             return number_format(data);
                         }
                     },
                     {
                         data: 'user_name',
-                        name: 'user.name'
+                        name: 'user.name',
+                        searchable: true
                     },
                     {
                         data: 'updated_by_name',
-                        name: 'updatedBy.name'
+                        name: 'updatedBy.name',
+                        searchable: true
                     },
                     {
                         data: 'actions',

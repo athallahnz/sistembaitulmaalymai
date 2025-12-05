@@ -19,6 +19,12 @@ class Ledger extends Model
     {
         return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id'); // Relasi dengan tabel akun_keuangan
     }
+
+    public function akunKeuangan()
+    {
+        return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id'); // Relasi dengan tabel akun_keuangan
+    }
+
     public function akun()
     {
         return $this->belongsTo(AkunKeuangan::class, 'akun_keuangan_id');

@@ -9,7 +9,6 @@
 
         #tunai:not(:checked)+.btn-outline-success:hover {
             background-color: #198754;
-            /* Bootstrap success */
             color: #fff;
             border-color: #198754;
             box-shadow: 0 0 0.3rem rgba(25, 135, 84, 0.4);
@@ -17,7 +16,6 @@
 
         #transfer:not(:checked)+.btn-outline-warning:hover {
             background-color: #ffc107;
-            /* Bootstrap warning */
             color: #fff;
             border-color: #ffc107;
             box-shadow: 0 0 0.3rem rgba(255, 193, 7, 0.4);
@@ -46,14 +44,15 @@
             </ol>
         </nav>
         <h1 class="mb-4">Dashboard <strong>Pembayaran PMB Siswa</strong></h1>
-        <!-- Tombol Trigger Modal -->
+
+        {{-- Tombol Tambah Pembayaran --}}
         <div class="mb-3">
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalPembayaran">
                 + Tambah Pembayaran
             </button>
         </div>
 
-        <!-- Modal Form Pembayaran -->
+        {{-- Modal Pembayaran (tetap seperti punyamu) --}}
         <div class="modal fade" id="modalPembayaran" tabindex="-1" aria-labelledby="modalPembayaranLabel"
             aria-hidden="true">
             <div class="modal-dialog">
@@ -99,6 +98,7 @@
 
                     </div>
                     <div class="modal-footer">
+                        {{-- HATI-HATI: id="submitBtn" ini untuk modal saja --}}
                         <button type="submit" class="btn btn-primary" id="submitBtn">Bayar</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     </div>
@@ -106,44 +106,76 @@
             </div>
         </div>
 
-        <!-- Grafik Tren Pembayaran -->
+        {{-- 🔎 FILTER SEPERTI SPP (Tahun / Bulan / Kelas) --}}
+        <form id="filterForm" class="row g-3 mb-4 mt-3">
+            <div class="col-md-3">
+                <label for="tahun" class="form-label">Tahun</label>
+                <input type="number" name="tahun" id="tahun" class="form-control"
+                    value="{{ $tahun ?? now()->year }}">
+            </div>
+            <div class="col-md-3">
+                <label for="bulan" class="form-label">Bulan</label>
+                <select name="bulan" id="bulan" class="form-select">
+                    <option value="">Semua Bulan</option>
+                    @for ($i = 1; $i <= 12; $i++)
+                        <option value="{{ $i }}" {{ (int) ($bulan ?? '') === $i ? 'selected' : '' }}>
+                            {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
+                        </option>
+                    @endfor
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="kelas" class="form-label">Kelas</label>
+                <select name="kelas" id="kelas" class="form-select">
+                    <option value="">Semua Kelas</option>
+                    @foreach ($kelasList as $kelas)
+                        <option value="{{ $kelas->id }}"
+                            {{ (int) ($kelasId ?? 0) === (int) $kelas->id ? 'selected' : '' }}>
+                            {{ $kelas->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+                {{-- pakai id berbeda dengan tombol Bayar di modal --}}
+                <button class="btn btn-primary w-100" type="submit" id="filterSubmitBtn">Tampilkan</button>
+                <div id="loadingSpinner" class="text-center mt-2 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {{-- Grafik Tren Pembayaran PMB --}}
         <div class="shadow p-3 mb-3">
             <canvas id="paymentChart" height="100"></canvas>
         </div>
 
+        {{-- Tabel (pakai DataTables server-side) --}}
         <div class="shadow p-3 mb-3 table-responsive rounded">
             <table class="table table-bordered yajra-datatable">
                 <thead>
                     <tr>
                         <th>Nama Murid</th>
+                        <th>Kelas</th>
                         <th>Total Dibayar</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse ($data as $index => $student)
-                        <tr>
-                            <td>{{ $student->name }}</td>
-                            <td>Rp {{ number_format($student->total_bayar, 0, ',', '.') }}</td>
-                            <td>
-                                <a href="{{ route('payment.show', $student->id) }}" class="btn btn-sm btn-info">Lihat
-                                    Detail</a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="text-center">Belum ada data pembayaran</td>
-                        </tr>
-                    @endforelse
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 @endsection
+
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
     <script>
+        // ====== Fokus RFID saat modal buka ======
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalPembayaran');
             const rfidInput = document.getElementById('rfid_uid_input');
@@ -161,6 +193,7 @@
         const submitBtn = document.querySelector('#submitBtn');
         const jumlahInput = document.querySelector('#formattedJumlah');
 
+        // ====== Fetch siswa by RFID ======
         rfidInput?.addEventListener('input', function() {
             const uid = this.value.trim();
 
@@ -172,13 +205,13 @@
 
             studentCard.classList.remove('d-none');
             studentCardBody.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
-                    <span class="visually-hidden">Loading...</span>
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="text-muted">Sedang mencari data siswa...</span>
                 </div>
-                <span class="text-muted">Sedang mencari data siswa...</span>
-            </div>
-        `;
+            `;
 
             clearTimeout(window.fetchTimeout);
             window.fetchTimeout = setTimeout(() => {
@@ -188,29 +221,29 @@
                         if (data && data.name) {
                             const isLunas = Number(data.sisa) <= 0;
                             studentCardBody.innerHTML = `
-                <div class="alert ${isLunas ? 'alert-success' : 'alert-warning'}">
-                    ${isLunas ? '✅ Semua tagihan sudah lunas.' : '⚠️ Masih ada tanggungan yang belum dibayar.'}
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Nama</label>
-                    <input type="text" class="form-control" value="${data.name}" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Kelas</label>
-                    <input type="text" class="form-control" value="${data.edu_class} (${data.tahun_ajaran})" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Total Biaya</label>
-                    <input type="text" class="form-control" value="${Number(data.total_biaya).toLocaleString()}" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Sisa Tanggungan</label>
-                    <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
-                </div>
-                <input type="hidden" name="student_id" value="${data.id}">
-            `;
+                                <div class="alert ${isLunas ? 'alert-success' : 'alert-warning'}">
+                                    ${isLunas ? '✅ Semua tagihan sudah lunas.' : '⚠️ Masih ada tanggungan yang belum dibayar.'}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nama</label>
+                                    <input type="text" class="form-control" value="${data.name}" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Kelas</label>
+                                    <input type="text" class="form-control" value="${data.edu_class} (${data.tahun_ajaran})" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Total Biaya</label>
+                                    <input type="text" class="form-control" value="${Number(data.total_biaya).toLocaleString()}" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sisa Tanggungan</label>
+                                    <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
+                                </div>
+                                <input type="hidden" name="student_id" value="${data.id}">
+                            `;
 
-                            // Nonaktifkan jika lunas
+                            // Nonaktifkan input jika lunas
                             submitBtn.disabled = isLunas;
                             document.getElementById('jumlah').disabled = isLunas;
                             document.getElementById('formattedJumlah').disabled = isLunas;
@@ -224,8 +257,7 @@
                                 if (rfidInput.value.trim() === uid) {
                                     studentCardBody.innerHTML =
                                         `<p class="text-danger">❌ Siswa tidak ditemukan!</p>`;
-                                    document.querySelector('button[type="submit"]').disabled =
-                                        true;
+                                    submitBtn.disabled = true;
                                     document.getElementById('jumlah').disabled = true;
                                     document.getElementById('formattedJumlah').disabled = true;
                                     document.getElementById('jumlah').value = '';
@@ -241,14 +273,15 @@
             }, 300);
         });
 
+        // ====== CHART PMB (dibuat sekali, lalu di-update via Ajax) ======
         const ctx = document.getElementById('paymentChart').getContext('2d');
-        const chart = new Chart(ctx, {
+        const paymentChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: {!! json_encode($labels) !!},
+                labels: {!! json_encode($labels ?? []) !!},
                 datasets: [{
-                    label: 'Total Pembayaran per Bulan',
-                    data: {!! json_encode($values) !!},
+                    label: 'Total Pembayaran PMB per Bulan',
+                    data: {!! json_encode($values ?? []) !!},
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     tension: 0.3,
@@ -284,14 +317,50 @@
             }
         });
 
+        // 🔥 Ambil data chart pakai nilai form (Tahun & Kelas)
+        function fetchChartData() {
+            const tahun = $('#tahun').val() || new Date().getFullYear();
+            const bulan = $('#bulan').val() || null; // kalau mau dipakai di backend
+            const kelas = $('#kelas').val() || null;
+
+            axios.get("{{ route('payments.chart-bulanan') }}", {
+                    params: {
+                        tahun: tahun,
+                        bulan: bulan,
+                        kelas: kelas
+                    }
+                })
+                .then(response => {
+                    const data = response.data;
+                    paymentChart.data.labels = data.labels;
+                    paymentChart.data.datasets[0].data = data.values;
+                    paymentChart.update();
+                })
+                .catch(error => {
+                    console.error('Error fetching chart data:', error);
+                });
+        }
+
+        // ====== DATATABLES + FILTER ======
         $(document).ready(function() {
-            $('.yajra-datatable').DataTable({
+            const table = $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('payments.data') }}",
+                ajax: {
+                    url: "{{ route('payments.data') }}",
+                    data: function(d) {
+                        d.tahun = $('#tahun').val();
+                        d.bulan = $('#bulan').val();
+                        d.kelas = $('#kelas').val();
+                    }
+                },
                 columns: [{
                         data: 'name',
                         name: 'students.name'
+                    },
+                    {
+                        data: 'kelas',
+                        name: 'kelas'
                     },
                     {
                         data: 'total_bayar',
@@ -308,19 +377,34 @@
                         orderable: false,
                         searchable: false
                     }
-                ],
-                error: function(xhr) {
-                    console.log(xhr.responseText);
-                }
+                ]
             });
+
+            // Saat filter disubmit → reload tabel & chart
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+
+                $('#loadingSpinner').removeClass('d-none');
+                $('#filterSubmitBtn').prop('disabled', true);
+
+                table.ajax.reload(() => {
+                    $('#loadingSpinner').addClass('d-none');
+                    $('#filterSubmitBtn').prop('disabled', false);
+                });
+
+                fetchChartData();
+            });
+
+            // Panggil pertama kali pakai nilai default
+            fetchChartData();
         });
 
         function formatInput(input) {
             let rawValue = input.value.replace(/\D/g, ""); // Hanya angka
             let formatted = new Intl.NumberFormat("id-ID").format(rawValue);
 
-            input.value = formatted; // Tampilkan angka dengan separator
-            document.getElementById("jumlah").value = rawValue; // Simpan angka asli tanpa separator
+            input.value = formatted; // tampilan
+            document.getElementById("jumlah").value = rawValue; // nilai asli
         }
 
         function number_format(number, decimals = 0, dec_point = '.', thousands_sep = '.') {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use App\Exports\LaporanExport;
 use App\Models\AkunKeuangan;
@@ -85,21 +86,33 @@ class LaporanKeuanganController extends Controller
         // Ledger yang menyentuh kas/bank di periode tsb
         $cashLedgers = Ledger::with([
             'transaksi',
-            'transaksi.akun',
-            'transaksi.parentAkun',
+            'transaksi.akunKeuangan',
+            'transaksi.parentAkunKeuangan',
             'akun',
         ])
             ->whereIn('akun_keuangan_id', $kasBankIds)
             ->whereHas('transaksi', function ($q) use ($startDate, $endDate, $role, $bidangId) {
-                $q->whereDate('tanggal_transaksi', '>=', $startDate)
-                    ->whereDate('tanggal_transaksi', '<=', $endDate);
+                $q->whereBetween('tanggal_transaksi', [$startDate, $endDate]);
 
-                if ($role === 'Bidang' && $bidangId) {
+                if (!($role === 'Bendahara')) {
                     $q->where('bidang_name', $bidangId);
                 }
             })
             ->get()
             ->groupBy('transaksi_id');
+
+        Log::info('DEBUG ARUS KAS', [
+            'user_id' => auth()->id(),
+            'role' => $role,
+            'bidangId' => $bidangId,
+            'start' => $startDate->toDateString(),
+            'end' => $endDate->toDateString(),
+            'kasBankIds' => $kasBankIds,
+        ]);
+
+        Log::info('DEBUG ARUS KAS COUNT CASHLEDGERS', [
+            'count' => $cashLedgers->flatten()->count()
+        ]);
 
         // Struktur per kategori PSAK 2
         $arus = [
@@ -124,8 +137,8 @@ class LaporanKeuanganController extends Controller
             }
 
             // Tentukan akun lawan (non-kas)
-            $akunUtama = $transaksi->akun;      // akun_keuangan_id
-            $akunLawan = $transaksi->parentAkun; // parent_akun_id
+            $akunUtama = $transaksi->akunKeuangan;      // akun_keuangan_id
+            $akunLawan = $transaksi->parentAkunKeuangan; // parent_akun_id
 
             $candidate = collect([$akunUtama, $akunLawan])
                 ->filter(function ($a) use ($kasBankIds) {
@@ -546,6 +559,22 @@ class LaporanKeuanganController extends Controller
             ->groupBy('akun_keuangan_id')
             ->get()
             ->keyBy('akun_keuangan_id');
+
+        // Debugging Info
+        // dd([
+        //     'role' => $role,
+        //     'bidangId' => $bidangId,
+        //     'akunPendapatan_ids' => $akunPendapatan->pluck('id', 'kode_akun'),
+        //     'akunBeban_ids' => $akunBeban->pluck('id', 'kode_akun'),
+        //     'saldoPerAkun_keys' => $saldoPerAkun->keys(), // daftar akun yang punya saldo
+        //     'saldoPerAkun_sample' => $saldoPerAkun->take(10)->map(function ($r) {
+        //         return [
+        //             'akun_id' => $r->akun_keuangan_id,
+        //             'total_debit' => $r->total_debit,
+        //             'total_credit' => $r->total_credit,
+        //         ];
+        //     }),
+        // ]);
 
         // ===== Pendapatan (kelompok berdasarkan pembatasan) =====
         $pendapatan = [

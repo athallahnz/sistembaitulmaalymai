@@ -227,16 +227,16 @@
                                 <span class="align-middle">Posisi Keuangan</span>
                             </a>
                         </li>
-                        <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
-                            <a class="sidebar-link" href="{{ route('laporan.aktivitas') }}">
-                                <i class="align-middle ms-3" data-feather="file-text"></i>
-                                <span class="align-middle">Aktivitas</span>
-                            </a>
-                        </li>
                         <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
                             <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
                                 <i class="align-middle ms-3" data-feather="trending-up"></i>
                                 <span class="align-middle">Arus kas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.aktivitas') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Aktivitas</span>
                             </a>
                         </li>
                         {{-- <li

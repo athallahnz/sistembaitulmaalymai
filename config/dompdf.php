@@ -12,7 +12,7 @@ return [
     |
     */
     'show_warnings' => false,   // Throw an Exception on warnings from dompdf
-
+    'image_backend' => 'gd', // Image processing backend: "gd" or "imagick"
     'public_path' => null,  // Override the public path if needed
 
     /*

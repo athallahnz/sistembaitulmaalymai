@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Services\LaporanService;
 use App\Services\LaporanKeuanganService;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Log;
 
 class BendaharaController extends Controller
 {
@@ -25,41 +26,6 @@ class BendaharaController extends Controller
     // ===============================================
     // HELPER FUNCTIONS
     // ===============================================
-
-    /**
-     * Masih bisa dipakai kalau butuh baca kolom `saldo` langsung
-     * untuk akun lain selain Kas/Bank.
-     */
-    protected function getLastSaldoBySaldoColumn(
-        int $akunId,
-        string $userRole,
-        $bidangValue,
-        ?string $tanggalCutoff = null
-    ): float {
-        if (!$akunId) {
-            return 0.0;
-        }
-
-        $q = Transaksi::where('akun_keuangan_id', $akunId);
-
-        if ($tanggalCutoff) {
-            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
-            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
-        }
-
-        if ($userRole !== 'Bendahara') {
-            $q->where(function ($w) use ($bidangValue) {
-                $w->where('bidang_name', $bidangValue)
-                    ->orWhereNull('bidang_name');
-            });
-        }
-
-        $lastSaldo = $q->orderBy('tanggal_transaksi', 'desc')
-            ->orderBy('id', 'desc')
-            ->value('saldo');
-
-        return (float) ($lastSaldo ?? 0.0);
-    }
 
     protected function getSubAkunIds($parentId)
     {
@@ -214,6 +180,9 @@ class BendaharaController extends Controller
             ->where('status', 'belum_lunas')
             ->sum('jumlah');
 
+        // Di controller khusus Bendahara, bidangName bisa null (konsolidasi)
+        $saldoHutangPerantara = LaporanKeuanganService::getSaldoPerAkun(50016, null);
+
         $jumlahHutangPerantara = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
             ->where('kode_transaksi', 'not like', '%-LAWAN')
             ->whereIn('parent_akun_id', [1011, 1021])
@@ -288,7 +257,11 @@ class BendaharaController extends Controller
         $jumlahBiayadibayardimuka = $this->sumTransaksiByParent(310, $bidangName);
 
         // === TOTAL (AKUMULASI YAYASAN: seluruh bidang + bendahara) ===
-        $totalPiutang = Piutang::sum('jumlah');
+        // Piutang konsolidasi (semua bidang) dari Ledger PSAK
+        $piutangLedger = LaporanKeuanganService::getSaldoByGroup(
+            config('akun.group_piutang', 103), // root Piutang
+            null                               // null = semua bidang (konsolidasi)
+        );
         $totalPendapatanBelumDiterima = PendapatanBelumDiterima::sum('jumlah');
         $totalTanahBangunan = Transaksi::where('akun_keuangan_id', 104)->sum('amount');
         $totalInventaris = Transaksi::where('akun_keuangan_id', 105)->sum('amount');
@@ -326,6 +299,7 @@ class BendaharaController extends Controller
             'jumlahTransaksi',
             'jumlahPiutang',
             'jumlahHutangPerantara',
+            'saldoHutangPerantara',
             'jumlahPendapatanBelumDiterima',
             'jumlahTanahBangunan',
             'jumlahInventaris',
@@ -342,7 +316,7 @@ class BendaharaController extends Controller
             'jumlahBiayaSeragam',
             'jumlahBiayaPeningkatanSDM',
             'jumlahBiayadibayardimuka',
-            'totalPiutang',
+            'piutangLedger',
             'totalPendapatanBelumDiterima',
             'totalTanahBangunan',
             'totalInventaris',
@@ -427,101 +401,70 @@ class BendaharaController extends Controller
         return $totalKeuangan;
     }
 
-    public function showDetailBendahara(Request $request)
+    public function detailData(Request $request)
     {
-        $parentAkunId = $request->input('parent_akun_id'); // dari URL
+        $parentAkunId = $request->input('parent_akun_id'); // bisa 'hutang-perantara' atau int
         $type = $request->input('type');
 
-        $transaksiData = collect();
-        $parentAkun = null;
-        $jumlahBiayaOperasional = 0;
-
-        // =====================================
+        // ==============================
         // 🔹 MODE KHUSUS: Hutang Perantara
-        // =====================================
+        // ==============================
         if ($parentAkunId === 'hutang-perantara') {
 
-            $transaksiData = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
-                ->where('kode_transaksi', 'like', '%-LAWAN')
-                ->whereIn('parent_akun_id', [1011, 1021]) // Kas & Bank Bendahara
-                ->when($type, fn($q) => $q->where('type', $type))
-                ->with(['akunKeuangan', 'parentAkunKeuangan'])
-                ->get();
+            $akunHutangPerantaraId = config('akun.hutang_perantara_bidang', 50016);
 
-            $jumlahBiayaOperasional = $transaksiData->sum('amount');
-            // parentAkun sengaja dibiarkan null, judul bisa di-handle di view
+            $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])
+                ->where('parent_akun_id', $akunHutangPerantaraId)
+                ->when($type, fn($q) => $q->where('type', $type))
+                ->orderBy('tanggal_transaksi', 'asc');
 
         } else {
-            // =====================================
-            // 🔹 MODE NORMAL: Detail per kelompok akun (kode lama)
-            // =====================================
+            // ==============================
+            // 🔹 MODE NORMAL: kelompok akun
+            // ==============================
             $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
                 ->pluck('id')
                 ->toArray();
 
-            $transaksiData = Transaksi::whereIn('parent_akun_id', $subAkunIds)
+            $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan'])
+                ->whereIn('parent_akun_id', $subAkunIds)
                 ->when($type, fn($q) => $q->where('type', $type))
-                ->with(['akunKeuangan', 'parentAkunKeuangan'])
-                ->get();
-
-            $jumlahBiayaOperasional = $transaksiData->sum('amount');
-            $parentAkun = AkunKeuangan::find($parentAkunId);
-        }
-
-        return view('bendahara.detail', compact(
-            'transaksiData',
-            'jumlahBiayaOperasional',
-            'parentAkunId',
-            'parentAkun',
-            'type'
-        ));
-    }
-
-    public function getDetailDataBendahara(Request $request)
-    {
-        $parentAkunId = $request->input('parent_akun_id');
-        $type = $request->input('type');
-
-        $query = Transaksi::with(['akunKeuangan', 'parentAkunKeuangan']);
-
-        // =====================================
-        // 🔹 MODE KHUSUS: Hutang Perantara
-        // =====================================
-        if ($parentAkunId === 'hutang-perantara') {
-
-            $query->where('kode_transaksi', 'like', 'TRF-%')
-                ->where('kode_transaksi', 'like', '%-LAWAN')
-                ->whereIn('parent_akun_id', [1011, 1021]); // Kas & Bank Bendahara
-
-            if ($type) {
-                $query->where('type', $type);
-            }
-
-        } else {
-            // =====================================
-            // 🔹 MODE NORMAL: pakai parent_akun_id (sub-akun)
-            // =====================================
-            if ($type) {
-                $query->where('type', $type);
-            }
-
-            if ($parentAkunId) {
-                $subAkunIds = AkunKeuangan::where('parent_id', $parentAkunId)
-                    ->pluck('id')
-                    ->toArray();
-
-                $query->whereIn('parent_akun_id', $subAkunIds);
-            }
+                ->orderBy('tanggal_transaksi', 'asc');
         }
 
         return DataTables::of($query)
+            ->editColumn('tanggal_transaksi', function ($row) {
+                return Carbon::parse($row->tanggal_transaksi)->format('d-m-Y');
+            })
             ->addColumn('akun_keuangan', function ($row) {
-                return $row->akunKeuangan?->nama_akun ?? 'N/A';
+                return optional($row->akunKeuangan)->nama_akun ?? '-';
             })
             ->addColumn('parent_akun_keuangan', function ($row) {
-                return $row->parentAkunKeuangan?->nama_akun ?? 'N/A';
+                return optional($row->parentAkunKeuangan)->nama_akun ?? '-';
             })
+            // biarkan amount tetap numerik, biar bisa di-format di JS
             ->make(true);
+    }
+
+    public function showDetailBendahara(Request $request)
+    {
+        $parentAkunId = $request->input('parent_akun_id'); // bisa 'hutang-perantara' atau ID int
+        $type = $request->input('type');
+
+        $parentAkun = null;
+
+        if ($parentAkunId === 'hutang-perantara') {
+            // Biar di judul bisa tetap pakai $parentAkun->nama_akun
+            $parentAkun = (object) ['nama_akun' => 'Hutang Perantara – Bidang'];
+        } elseif (is_numeric($parentAkunId)) {
+            $parentAkun = AkunKeuangan::find($parentAkunId);
+        }
+
+        return view('bendahara.detail', [
+            'parentAkunId' => $parentAkunId,
+            'parentAkun' => $parentAkun,
+            'type' => $type,
+        ]);
     }
 
 }

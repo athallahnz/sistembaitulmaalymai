@@ -1,7 +1,7 @@
 <div class="modal fade" id="modalCreatePengajuan" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-primary ">
+            <div class="modal-header" style="background-color: #8B4513; color: white; border-color: #8B4513;">
                 <h3 class="modal-title text-white"><i class="bi bi-file-earmark-plus"></i> Form Pengajuan Dana</h3>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                     aria-label="Close"></button>
@@ -14,7 +14,7 @@
                     {{-- 1. Informasi Dasar --}}
                     <div class="card shadow-sm border-0 mb-3">
                         <div class="card-body">
-                            <h1 class="card-title text-primary mb-3 fw-bold">Informasi Dasar</h1>
+                            <h1 class="card-title text-secondary mb-3 fw-bold">Informasi Dasar</h1>
                             <div class="row g-3">
                                 <div class="col-md-12">
                                     <label class="form-label">Judul Pengajuan <span class="text-danger">*</span></label>
@@ -33,8 +33,8 @@
                     <div class="card shadow-sm border-0">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h3 class="card-title text-primary mb-0 fw-bold">Rincian Item Anggaran</h3>
-                                <button type="button" class="btn btn-success btn-sm shadow-sm" id="btn-add-row">
+                                <h3 class="card-title text-secondary mb-0 fw-bold">Rincian Item Anggaran</h3>
+                                <button type="button" class="btn btn-sm shadow-sm" style="background-color: #8B4513; color: white; border-color: #8B4513;" id="btn-add-row">
                                     <i class="bi bi-plus-lg"></i> Tambah Baris
                                 </button>
                             </div>
@@ -109,7 +109,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary px-4">
+                    <button type="submit" class="btn px-4" style="background-color: #8B4513; color: white; border-color: #8B4513;">
                         <i class="bi bi-send"></i> Simpan & Ajukan
                     </button>
                 </div>

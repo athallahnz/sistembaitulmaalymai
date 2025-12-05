@@ -62,12 +62,26 @@ class LaporanKeuanganService
      */
     public static function getSaldoByGroup(int $groupId, $bidangName = null): float
     {
-        $akunList = self::getAkunByGroup($groupId);
+        // 1) Cari sub-akun berdasarkan parent_id
+        $akunList = self::getAkunByGroup($groupId); // biasanya: AkunKeuangan::where('parent_id', $groupId)->get()
+
+        // 2) Kalau tidak ada anak, maka pakai akun dengan id = $groupId (akun tunggal)
+        if ($akunList->isEmpty()) {
+            $akun = AkunKeuangan::find($groupId);
+
+            if (!$akun) {
+                return 0; // kalau benar-benar tidak ada, ya 0
+            }
+
+            $akunList = collect([$akun]);
+        }
+
         $saldoTotal = 0;
 
         foreach ($akunList as $akun) {
             $query = Ledger::where('akun_keuangan_id', $akun->id)
                 ->whereHas('transaksi', function ($q) {
+                    // exclude kode transaksi lawan
                     $q->where('kode_transaksi', 'not like', '%-LAWAN');
                 });
 
@@ -89,6 +103,32 @@ class LaporanKeuanganService
         }
 
         return $saldoTotal;
+    }
+
+    public static function getSaldoPerAkun(int $akunId, ?int $bidangName = null): float
+    {
+        $akun = AkunKeuangan::find($akunId);
+        if (!$akun) {
+            return 0.0;
+        }
+
+        $query = Ledger::where('akun_keuangan_id', $akunId)
+            ->whereHas('transaksi', function ($q) {
+                $q->where('kode_transaksi', 'not like', '%-LAWAN'); // hindari double entry lawan
+            });
+
+        if (!is_null($bidangName)) {
+            $query->whereHas('transaksi', function ($q) use ($bidangName) {
+                $q->where('bidang_name', $bidangName);
+            });
+        }
+
+        $debit = (float) $query->sum('debit');
+        $credit = (float) $query->sum('credit');
+
+        return $akun->saldo_normal === 'debit'
+            ? ($debit - $credit)
+            : ($credit - $debit);
     }
 
     protected function getSaldoLedgerSampaiTanggal(

@@ -45,8 +45,36 @@
             </ol>
         </nav>
         <h1 class="mb-4">Dashboard <strong>Pembayaran SPP Siswa</strong></h1>
+
         <!-- Tombol Trigger Modal -->
-        <div class="mb-3">
+        <div class="mb-3 d-flex gap-2 align-items-end">
+            <form action="{{ route('tagihan-spp.recognize.bulk') }}" method="POST" class="mb-0">
+                @csrf
+                <div class="d-flex gap-2 align-items-end">
+                    <div>
+                        <label for="bulk_bulan" class="form-label">Bulan</label>
+                        <select name="bulan" id="bulk_bulan" class="form-select" required>
+                            @for ($i = 1; $i <= 12; $i++)
+                                <option value="{{ $i }}" @selected($i == now()->month)>
+                                    {{ \Carbon\Carbon::createFromDate(null, $i, 1)->translatedFormat('F') }}
+                                </option>
+                            @endfor
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="bulk_tahun" class="form-label">Tahun</label>
+                        <input type="number" name="tahun" id="bulk_tahun" class="form-control"
+                            value="{{ now()->year }}" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Proses pengakuan pendapatan SPP BULK untuk bulan dan tahun ini?')">
+                        Proses Pengakuan SPP Bulanan
+                    </button>
+                </div>
+            </form>
+
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalPembayaran">
                 + Tambah Pembayaran
             </button>
@@ -116,14 +144,14 @@
         <form id="filterForm" class="row g-3 mb-4">
             <div class="col-md-3">
                 <label for="tahun" class="form-label">Tahun</label>
-                <input type="number" name="tahun" id="tahun" class="form-control" value="{{ date('Y') }}">
+                <input type="number" name="tahun" id="tahun" class="form-control" value="{{ $tahun }}">
             </div>
             <div class="col-md-3">
                 <label for="bulan" class="form-label">Bulan</label>
                 <select name="bulan" id="bulan" class="form-select">
                     <option value="">Semua Bulan</option>
                     @for ($i = 1; $i <= 12; $i++)
-                        <option value="{{ $i }}">
+                        <option value="{{ $i }}" {{ (int) $bulan === $i ? 'selected' : '' }}>
                             {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
                         </option>
                     @endfor
@@ -134,7 +162,9 @@
                 <select name="kelas" id="kelas" class="form-select">
                     <option value="">Semua Kelas</option>
                     @foreach ($kelasList as $kelas)
-                        <option value="{{ $kelas->id }}">{{ $kelas->name }}</option>
+                        <option value="{{ $kelas->id }}" {{ (int) $kelasId === (int) $kelas->id ? 'selected' : '' }}>
+                            {{ $kelas->name }}
+                        </option>
                     @endforeach
                 </select>
             </div>
@@ -181,7 +211,6 @@
             }
         });
 
-
         document.addEventListener('DOMContentLoaded', () => {
             const rfidInput = document.getElementById('rfid_uid_input');
             const studentCard = document.getElementById('student-card');
@@ -191,15 +220,16 @@
             const studentIdInput = document.getElementById('student_id');
             const studentModal = document.getElementById('modalPembayaran');
 
-            studentModal.addEventListener('hidden.bs.modal', () => {
-                // Kosongkan semua field
-                rfidInput.value = '';
-                studentCardBody.innerHTML = '';
-                studentIdInput.value = '';
-                jumlahInput.value = '';
-                jumlahInput.disabled = true;
-                submitBtn.disabled = true;
-            });
+            if (studentModal) {
+                studentModal.addEventListener('hidden.bs.modal', () => {
+                    rfidInput.value = '';
+                    studentCardBody.innerHTML = '';
+                    studentIdInput.value = '';
+                    jumlahInput.value = '';
+                    jumlahInput.disabled = true;
+                    submitBtn.disabled = true;
+                });
+            }
 
             if (!rfidInput || !submitBtn || !studentCard || !jumlahInput || !studentIdInput) return;
 
@@ -224,13 +254,13 @@
 
                 studentCard.classList.remove('d-none');
                 studentCardBody.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
-                <span class="visually-hidden">Loading...</span>
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="text-muted">Mencari data tagihan siswa...</span>
                 </div>
-                <span class="text-muted">Mencari data tagihan siswa...</span>
-            </div>
-        `;
+            `;
 
                 clearTimeout(window.fetchTimeout);
                 window.fetchTimeout = setTimeout(() => {
@@ -240,80 +270,51 @@
                             return res.json();
                         })
                         .then(data => {
-                            console.log("Status:", data.status);
-                            console.log("Full JSON:", JSON.stringify(data, null, 2));
                             if (data && data.name) {
-                                if (data.tagihan_count === 0) {
-                                    // ✅ Belum ada tagihan sama sekali
+                                if (data.tagihan_count === 0 || data.total === 0) {
                                     studentCardBody.innerHTML = `
-                    <div class="alert alert-danger">Saat ini belum ada tangihan!</div>
-                    <div class="mb-3">
-                        <label class="form-label">Nama</label>
-                        <input type="text" class="form-control" value="${data.name}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Kelas</label>
-                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Tagihan</label>
-                        <input type="text" class="form-control" value="0" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Sisa Tagihan</label>
-                        <input type="text" class="form-control" value="0" readonly>
-                    </div>
-                `;
-                                    submitBtn.disabled = true;
-                                    jumlahInput.disabled = true;
-                                    studentIdInput.value = '';
-                                    jumlahInput.value = '';
-                                } else if (data.total === 0) {
-                                    // ✅ Semua tagihan sudah lunas
-                                    studentCardBody.innerHTML = `
-                    <div class="alert alert-danger">Saat ini belum ada tangihan!</div>
-                    <div class="mb-3">
-                        <label class="form-label">Nama</label>
-                        <input type="text" class="form-control" value="${data.name}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Kelas</label>
-                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Tagihan</label>
-                        <input type="text" class="form-control" value="0" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Sisa Tagihan</label>
-                        <input type="text" class="form-control" value="0" readonly>
-                    </div>
-                `;
+                                    <div class="alert alert-danger">Saat ini belum ada tangihan!</div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nama</label>
+                                        <input type="text" class="form-control" value="${data.name}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Kelas</label>
+                                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Total Tagihan</label>
+                                        <input type="text" class="form-control" value="0" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Sisa Tagihan</label>
+                                        <input type="text" class="form-control" value="0" readonly>
+                                    </div>
+                                `;
                                     submitBtn.disabled = true;
                                     jumlahInput.disabled = true;
                                     studentIdInput.value = '';
                                     jumlahInput.value = '';
                                 } else {
-                                    // ⚠️ Masih ada tagihan belum lunas
                                     studentCardBody.innerHTML = `
-                    <div class="alert alert-warning">⚠️ Tagihan belum lunas, silahkan melakukan pelunasan. 😊🙏🏻</div>
-                    <div class="mb-3">
-                        <label class="form-label">Nama</label>
-                        <input type="text" class="form-control" value="${data.name}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Kelas</label>
-                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Tagihan</label>
-                        <input type="text" class="form-control" value="${Number(data.total).toLocaleString()}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Sisa Tagihan</label>
-                        <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
-                    </div>
-                `;
+                                    <div class="alert alert-warning">⚠️ Tagihan belum lunas, silahkan melakukan pelunasan. 😊🙏🏻</div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nama</label>
+                                        <input type="text" class="form-control" value="${data.name}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Kelas</label>
+                                        <input type="text" class="form-control" value="${data.edu_class ?? '-'}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Total Tagihan</label>
+                                        <input type="text" class="form-control" value="${Number(data.total).toLocaleString()}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Sisa Tagihan</label>
+                                        <input type="text" class="form-control" value="${Number(data.sisa).toLocaleString()}" readonly>
+                                    </div>
+                                `;
                                     studentIdInput.value = data.id;
                                     submitBtn.disabled = false;
                                     jumlahInput.disabled = false;
@@ -338,6 +339,7 @@
             });
         });
 
+        // ================= CHART =================
         const sppCtx = document.getElementById('sppChart').getContext('2d');
         const sppChart = new Chart(sppCtx, {
             type: 'bar',
@@ -385,12 +387,15 @@
             }
         });
 
-        // Ambil data chart dari backend
-        function fetchChartData(tahun, bulan, kelas = null) {
-            axios.get('/chart-bulanan', {
+        // 🔥 Ambil data chart pakai nilai form
+        function fetchChartData() {
+            const tahun = $('#tahun').val() || new Date().getFullYear();
+            const kelas = $('#kelas').val() || null;
+
+            axios.get("{{ route('tagihan-spp.chart-bulanan') }}", {
                     params: {
-                        tahun: tahun, // contoh tahun
-                        kelas: kelas // contoh kelas
+                        tahun: tahun,
+                        kelas: kelas
                     }
                 })
                 .then(response => {
@@ -399,16 +404,13 @@
                     sppChart.data.datasets[0].data = data.tagihan;
                     sppChart.data.datasets[1].data = data.pembayaran;
                     sppChart.update();
-                    console.log(response.data);
                 })
                 .catch(error => {
                     console.error('Error fetching chart data:', error);
                 });
         }
 
-        // Contoh panggil dengan tahun ini dan tanpa filter kelas
-        fetchChartData(new Date().getFullYear());
-
+        // ================ DATATABLES + FILTER ================
         $(document).ready(function() {
             const table = $('.yajra-datatable').DataTable({
                 processing: true,
@@ -442,7 +444,7 @@
                     {
                         data: 'status',
                         name: 'status',
-                        render: function(data, type, row) {
+                        render: function(data) {
                             if (data === 'lunas')
                                 return '<span class="badge bg-success">Lunas</span>';
                             if (data === 'belum_lunas')
@@ -453,7 +455,7 @@
                     {
                         data: 'aksi',
                         name: 'aksi',
-                        render: function(data, type, row) {
+                        render: function(data) {
                             return `<a href="/tagihan-spp/${data}" class="btn btn-sm btn-info">Lihat Detail</a>`;
                         },
                         orderable: false,
@@ -462,33 +464,39 @@
                 ]
             });
 
-            // 🔁 Jalankan ulang DataTables saat tombol filter diklik
+            // Saat form filter di-submit → reload tabel & chart
             $('#filterForm').on('submit', function(e) {
                 e.preventDefault();
                 table.ajax.reload();
+                fetchChartData();
             });
-        });
 
-        function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-            var n = !isFinite(+number) ? 0 : +number,
-                prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
-                dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
-                s = '',
-                toFixedFix = function(n, prec) {
-                    var k = Math.pow(10, prec);
-                    return '' + Math.round(n * k) / k;
-                };
-            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-            if (s[0].length > 3) {
-                s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+            // Panggil pertama kali pakai nilai default form
+            fetchChartData();
+
+
+            function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
+                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+                var n = !isFinite(+number) ? 0 : +number,
+                    prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+                    sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+                    dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+                    s = '',
+                    toFixedFix = function(n, prec) {
+                        var k = Math.pow(10, prec);
+                        return '' + Math.round(n * k) / k;
+                    };
+                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+                if (s[0].length > 3) {
+                    s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+                }
+                if ((s[1] || '').length < prec) {
+                    s[1] = s[1] || '';
+                    s[1] += new Array(prec - s[1].length + 1).join('0');
+                }
+                return
+                s.join(dec);
             }
-            if ((s[1] || '').length < prec) {
-                s[1] = s[1] || '';
-                s[1] += new Array(prec - s[1].length + 1).join('0');
-            }
-            return s.join(dec);
-        }
+        });
     </script>
 @endpush

@@ -13,16 +13,42 @@
                 <li class="breadcrumb-item active" aria-current="page"><a>Detail</a></li>
             </ol>
         </nav>
-        <h1 class="mb-4">Detail Pembayaran SPP - <strong>{{ $student->name }} / {{ $student->eduClass->name }} -
-                {{ $student->eduClass->tahun_ajaran }}</strong></h1>
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1 class="mb-3">Detail Pembayaran SPP</h1>
+                <p class="text-muted">
+                    <strong>{{ $student->name }}</strong> /
+                    {{ $student->eduClass->name }} -
+                    {{ $student->eduClass->tahun_ajaran }}
+                </p>
+            </div>
+        </div>
 
-        <div class="mb-4">
-            <h1 class="mb-3">Progress Pembayaran SPP ({{ $jumlahLunas }}/12 bulan)</h1>
-            <div class="progress">
-                <div class="progress-bar bg-success" role="progressbar" style="width: {{ $persentaseLunas }}%;"
-                    aria-valuenow="{{ $persentaseLunas }}" aria-valuemin="0" aria-valuemax="100">{{ $persentaseLunas }}%
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Progress Pembayaran SPP</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>{{ $jumlahLunas }}/12 bulan</span>
+                    <span class="badge bg-info">{{ $persentaseLunas }}%</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ $persentaseLunas }}%;"
+                        aria-valuenow="{{ $persentaseLunas }}" aria-valuemin="0" aria-valuemax="100">
+                    </div>
                 </div>
             </div>
+        </div>
+
+        <div class="mb-4">
+            <form action="{{ route('tagihan-spp.recognize.student', $student->id) }}" method="POST" class="d-inline">
+                @csrf
+                <input type="hidden" name="bulan" value="{{ now()->month }}">
+                <input type="hidden" name="tahun" value="{{ now()->year }}">
+                <button type="submit" class="btn btn-primary mb-3"
+                    onclick="return confirm('Proses pengakuan pendapatan SPP bulan ini untuk {{ $student->name }}?')">
+                    <i class="bi bi-check-circle"></i> Recognize SPP Bulan Ini
+                </button>
+            </form>
         </div>
 
         <h1 class="mb-4">Riwayat Pembayaran</h1>

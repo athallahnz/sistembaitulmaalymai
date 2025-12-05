@@ -21,21 +21,20 @@
                         <th>Tanggal</th>
                         <th>Kode Transaksi</th>
                         <th>Jenis Transaksi</th>
-                        <th>Akun Sumber</th>
-                        <th>Akun Tujuan</th>    
+                        <th>Akun</th>
                         <th>Deskripsi</th>
-                        <th>Jumlah</th>
+                        <th>Debit</th>
+                        <th>Kredit</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
-            var table = $('.yajra-datatable').DataTable({
+            $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
@@ -46,8 +45,8 @@
                     }
                 },
                 columns: [{
-                        data: 'tanggal_transaksi',
-                        name: 'tanggal_transaksi'
+                        data: 'tanggal',
+                        name: 'tanggal'
                     },
                     {
                         data: 'kode_transaksi',
@@ -62,20 +61,27 @@
                         name: 'akun_keuangan'
                     },
                     {
-                        data: 'parent_akun_keuangan',
-                        name: 'parent_akun_keuangan'
-                    },
-                    {
                         data: 'deskripsi',
                         name: 'deskripsi'
                     },
+
+                    // Debit
                     {
-                        data: 'amount',
-                        name: 'amount',
+                        data: 'debit',
+                        name: 'debit',
                         render: function(data, type, row) {
-                            return number_format(data); // Format debit
+                            return number_format(data ?? 0);
                         }
-                    }
+                    },
+
+                    // Kredit
+                    {
+                        data: 'credit',
+                        name: 'credit',
+                        render: function(data, type, row) {
+                            return number_format(data ?? 0);
+                        }
+                    },
                 ]
             });
         });
