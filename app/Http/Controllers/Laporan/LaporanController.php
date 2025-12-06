@@ -18,39 +18,6 @@ use Yajra\DataTables\Facades\DataTables;
 
 class LaporanController extends Controller
 {
-    /**
-     * Hitung saldo akhir akun (Kas/Bank) via agregasi,
-     * MENGABAIKAN baris '-LAWAN' dan mendukung per-bidang/Bendahara.
-     */
-
-    protected function getLastSaldoBySaldoColumn(
-        int $akunId,
-        string $userRole,
-        $bidangValue,
-        ?string $tanggalCutoff = null
-    ): float {
-        if (!$akunId)
-            return 0.0;
-
-        $q = Transaksi::where('akun_keuangan_id', $akunId);
-
-        if ($tanggalCutoff) {
-            $cutoff = \Carbon\Carbon::parse($tanggalCutoff)->toDateString();
-            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
-        }
-
-        if ($userRole !== 'Bendahara') {
-            $q->where(function ($w) use ($bidangValue) {
-                $w->where('bidang_name', $bidangValue)
-                    ->orWhereNull('bidang_name');
-            });
-        }
-
-        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
-            ->orderBy('id', 'desc')
-            ->value('saldo') ?? 0.0);
-    }
-
     public function index()
     {
         $user = auth()->user();
@@ -74,7 +41,6 @@ class LaporanController extends Controller
         // ==========================
         $akunKeuangan = AkunKeuangan::all();
 
-        // --- data lain: akunTanpaParent, akunDenganParent, kodeTransaksi, dsb ---
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
             ->whereIn('tipe_akun', ['revenue', 'expense'])
             ->get();
@@ -91,20 +57,20 @@ class LaporanController extends Controller
         if ($role === 'Bidang') {
             switch ($bidang_id) {
                 case 1:
-                    $prefix = 'SJD';
-                    break; // Pendidikan
+                    $prefix = 'SJD'; // Pendidikan
+                    break;
                 case 2:
-                    $prefix = 'PND';
-                    break; // Kemasjidan
+                    $prefix = 'PND'; // Kemasjidan
+                    break;
                 case 3:
-                    $prefix = 'SOS';
-                    break; // Sosial
+                    $prefix = 'SOS'; // Sosial
+                    break;
                 case 4:
-                    $prefix = 'UHA';
-                    break; // Usaha
+                    $prefix = 'UHA'; // Usaha
+                    break;
                 case 5:
-                    $prefix = 'BGN';
-                    break; // Pembangunan
+                    $prefix = 'BGN'; // Pembangunan
+                    break;
             }
         } elseif ($role === 'Bendahara') {
             $prefix = 'BDH';
@@ -113,44 +79,57 @@ class LaporanController extends Controller
         $kodeTransaksi = $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
 
         // ==========================
-        // SALDO & TRANSAKSI BANK SESUAI PSAK 45
-        // tapi dibatasi per role (Bidang vs Bendahara)
+        // SALDO & TRANSAKSI BANK SESUAI PSAK 45 (via LEDGER)
         // ==========================
-        $bankGroupId = 102; // parent Bank di CoA
+
+        $lapService = new LaporanKeuanganService();
 
         if ($role === 'Bidang') {
-            // 🔹 Bidang hanya lihat Bank untuk bidangnya sendiri
-            $bidangNameForService = $bidang_name;
+            // 🔹 Map akun Bank per bidang (sesuaikan dengan CoA-mu)
+            $akunBankPerBidang = [
+                1 => 1022, // Bank Pendidikan
+                2 => 1023, // Bank Kemasjidan
+                3 => 1024, // Bank Sosial
+                4 => 1025, // Bank Usaha
+                // 5 => ...  // kalau ada bidang lain
+            ];
 
-            // Transaksi Bank per-bidang
-            $dataBankTransaksi = LaporanKeuanganService::getTransaksiByGroup(
-                $bankGroupId,
-                $bidangNameForService
-            );
+            $akunBankId = $akunBankPerBidang[$bidang_name] ?? null;
 
-            // Saldo Bank per-bidang
-            $saldoBankRaw = LaporanKeuanganService::getSaldoByGroup(
-                $bankGroupId,
-                $bidangNameForService
-            );
-            $saldoBank = (float) ($saldoBankRaw ?? 0);
-        } else {
-            // 🔹 Bendahara hanya lihat Bank Bendahara (misal 1021) & bidang_name NULL
-            $akunBankBendaharaId = 1021;
+            if ($akunBankId) {
+                $akunBank = AkunKeuangan::find($akunBankId);
 
-            $akunBankBendahara = AkunKeuangan::find($akunBankBendaharaId);
+                // Saldo Bank per-bidang via ledger sampai hari ini
+                $saldoBank = $akunBank
+                    ? $lapService->getSaldoAkunSampai($akunBank, Carbon::now())
+                    : 0.0;
 
-            if ($akunBankBendahara) {
-                // Saldo Bank Bendahara pakai ledger sampai hari ini
-                $saldoBank = (new LaporanKeuanganService())->getSaldoAkunSampai(
-                    $akunBankBendahara,
-                    Carbon::now()
-                );
+                // Transaksi Bank per-bidang (ledger, NOT %-LAWAN, filter bidang_name)
+                $dataBankTransaksi = Ledger::with(['transaksi', 'akun_keuangan'])
+                    ->where('akun_keuangan_id', $akunBankId)
+                    ->whereHas('transaksi', function ($q) use ($bidang_name) {
+                        $q->where('bidang_name', $bidang_name)
+                            ->where('kode_transaksi', 'not like', '%-LAWAN');
+                    })
+                    ->orderBy('created_at', 'asc')
+                    ->get();
             } else {
-                $saldoBank = 0;
+                // fallback kalau mapping gak ketemu
+                $saldoBank = 0.0;
+                $dataBankTransaksi = collect([]);
             }
 
-            // Transaksi khusus Bank Bendahara
+        } else {
+            // 🔹 Bendahara: lihat Bank Bendahara umum (akun 1021, bidang_name = NULL)
+            $akunBankBendaharaId = 1021;
+            $akunBankBendahara = AkunKeuangan::find($akunBankBendaharaId);
+
+            // Saldo Bank Bendahara via ledger sampai hari ini
+            $saldoBank = $akunBankBendahara
+                ? $lapService->getSaldoAkunSampai($akunBankBendahara, Carbon::now())
+                : 0.0;
+
+            // Transaksi khusus Bank Bendahara (ledger, bidang_name NULL, NOT %-LAWAN)
             $dataBankTransaksi = Ledger::with(['transaksi', 'akun_keuangan'])
                 ->where('akun_keuangan_id', $akunBankBendaharaId)
                 ->whereHas('transaksi', function ($q) {

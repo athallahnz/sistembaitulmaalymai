@@ -93,4 +93,56 @@ class AkunKeuangan extends Model
     {
         return $this->hasMany(Ledger::class, 'akun_keuangan_id');
     }
+
+    /**
+     * Helper: aggregate saldo per akun (mirip buildAktivitasData()).
+     * Menghasilkan collection keyed by akun_keuangan_id:
+     * [akun_id => (object){ akun_keuangan_id, total_debit, total_credit }]
+     *
+     * $excludeLawan:
+     *   - null  : semua transaksi
+     *   - true  : HANYA yang bukan %-LAWAN
+     *   - false : HANYA yang %-LAWAN
+     */
+    public static function buildSaldoPerAkun(
+        ?Carbon $startDate = null,
+        ?Carbon $endDate = null,
+        ?int $bidangId = null,
+        ?bool $excludeLawan = null
+    ): \Illuminate\Support\Collection {
+        $startDate = $startDate ?? now()->copy()->startOfYear();
+        $endDate = $endDate ?? now()->copy()->endOfDay();
+
+        $query = Ledger::select(
+            'akun_keuangan_id',
+            DB::raw('SUM(debit)  as total_debit'),
+            DB::raw('SUM(credit) as total_credit')
+        )
+            ->whereHas('transaksi', function ($q) use ($startDate, $endDate, $bidangId, $excludeLawan) {
+                $q->whereDate('tanggal_transaksi', '>=', $startDate)
+                    ->whereDate('tanggal_transaksi', '<=', $endDate);
+
+                if (!is_null($bidangId)) {
+                    $q->where('bidang_name', $bidangId);
+                }
+
+                if ($excludeLawan === true) {
+                    $q->where('kode_transaksi', 'not like', '%-LAWAN');
+                } elseif ($excludeLawan === false) {
+                    $q->where('kode_transaksi', 'like', '%-LAWAN');
+                }
+            });
+
+        return $query->groupBy('akun_keuangan_id')
+            ->get()
+            ->keyBy('akun_keuangan_id');
+    }
+
+    /**
+     * Ambil semua akun dalam suatu grup (berdasarkan parent_id).
+     */
+    public static function getAkunByGroup(int $groupId)
+    {
+        return AkunKeuangan::where('parent_id', $groupId)->get();
+    }
 }
