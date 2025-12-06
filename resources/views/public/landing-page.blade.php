@@ -248,13 +248,11 @@
 
                                             <td>
                                                 @if ($trx->type === 'penerimaan')
-                                                    <span
-                                                        class="badge bg-success text-white border border-success">
+                                                    <span class="badge bg-success text-white border border-success">
                                                         Penerimaan
                                                     </span>
                                                 @elseif($trx->type === 'pengeluaran')
-                                                    <span
-                                                        class="badge bg-danger text-white border border-danger">
+                                                    <span class="badge bg-danger text-white border border-danger">
                                                         Pengeluaran
                                                     </span>
                                                 @else
@@ -372,7 +370,7 @@
 
     {{-- ================= FORM INFAQ ================= --}}
     <div id="infaq" class="container-sm mt-2" data-aos="fade-in" data-aos-duration="1000" data-aos-delay="100">
-        <form action="#" method="POST" enctype="multipart/form-data">
+        <form action="#" method="POST" enctype="multipart/form-data" onsubmit="return false;">
             @csrf
             <div class="row justify-content-center">
                 <div class="p-5 bg-light rounded-3 border col-xl-6">
@@ -432,15 +430,13 @@
                             <label for="infaq" class="form-label">Tentukan tujuan Infaqmu</label>
                             <select name="infaq" id="infaq"
                                 class="form-select @error('infaq') is-invalid @enderror">
-                                {{-- @foreach ($infaqs as $Infaq)
-                                    <option value="{{ $Infaq->id }}"
-                                        {{ old('infaq') == $Infaq->id ? 'selected' : '' }}>
-                                        {{ $Infaq->code . ' - ' . $Infaq->name }}</option>
-                                @endforeach --}}
+                                <option value="" disabled selected>-- Pilih Tujuan Infaq --</option>
+                                <option value="pendidikan">Pendidikan & Beasiswa</option>
+                                <option value="sosial">Sosial & Kemanusiaan</option>
+                                <option value="kemasjidan">Kemasjidan (Operasional Masjid)</option>
+                                <option value="pembangunan">Pembangunan & Renovasi</option>
+                                <option value="lainnya">Lainnya</option>
                             </select>
-                            @error('infaq')
-                                <div class="text-danger"><small>{{ $message }}</small></div>
-                            @enderror
                         </div>
 
                         <!-- File Upload -->
@@ -455,7 +451,9 @@
 
                         <!-- Submit Button -->
                         <div class="d-grid gap-2 mt-3">
-                            <button type="submit" class="btn bg-brown text-white">Submit</button>
+                            <button type="submit" class="btn bg-brown text-white" disabled>
+                                Submit
+                            </button>
                         </div>
                     </div>
                 </div>

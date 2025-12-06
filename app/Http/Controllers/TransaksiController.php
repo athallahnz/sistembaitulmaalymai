@@ -436,7 +436,7 @@ class TransaksiController extends Controller
                     'type' => $typeLawan,
                     'akun_keuangan_id' => $parent_akun_id,
                     'parent_akun_id' => $akun_keuangan_id,
-                    'deskripsi' => '(Lawan) ' . $validated['deskripsi'],
+                    'deskripsi' => $validated['deskripsi'],
                     'amount' => $amount,
                     'saldo' => (float) $newSaldoLawan,
                     'user_id' => $userId,
@@ -735,7 +735,7 @@ class TransaksiController extends Controller
             if ($trxLawan) {
                 $trxLawan->update([
                     'tanggal_transaksi' => $validatedData['tanggal_transaksi'],
-                    'deskripsi' => '(Lawan) ' . $validatedData['deskripsi'],
+                    'deskripsi' => $validatedData['deskripsi'],
                     'amount' => $validatedData['amount'],
                     'updated_by' => $userId,
                     // type & akun_keuangan_id tetap sesuai struktur awal

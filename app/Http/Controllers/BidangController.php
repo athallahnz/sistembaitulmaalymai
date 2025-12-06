@@ -22,23 +22,6 @@ class BidangController extends Controller
         $this->middleware('role:Bidang');  // Middleware khusus Bidang
     }
 
-    private function sumTransaksiByParent(int $parentId, $bidangName = null): float
-    {
-        $subAkunIds = AkunKeuangan::where('parent_id', $parentId)->pluck('id')->toArray();
-
-        if (empty($subAkunIds)) {
-            return 0.0;
-        }
-
-        $query = Transaksi::whereIn('parent_akun_id', $subAkunIds);
-
-        if (!is_null($bidangName)) {
-            $query->where('bidang_name', $bidangName);
-        }
-
-        return (float) $query->sum('amount');
-    }
-
     public function index()
     {
         $user = auth()->user();
@@ -127,14 +110,15 @@ class BidangController extends Controller
         // Pendapatan Belum Diterima – SPP
         $pendapatanBelumDiterimaSPP = LaporanKeuanganService::getSaldoByGroup(50011, $bidangId);
 
+
         // 🔹 Pendapatan per kategori (201–207)
         $jumlahPendapatanPMB = LaporanKeuanganService::getSaldoByGroup(201, $bidangName);
         $jumlahPendapatanSPP = LaporanKeuanganService::getSaldoByGroup(202, $bidangName);
-        $jumlahPendapatanLainPendidikan = LaporanKeuanganService::getSaldoByGroup(203, $bidangName);
-        $jumlahPendapatanInfaqTidakTerikat = LaporanKeuanganService::getSaldoByGroup(204, $bidangName);
-        $jumlahPendapatanInfaqTerikat = LaporanKeuanganService::getSaldoByGroup(205, $bidangName);
-        $jumlahPendapatanUsaha = LaporanKeuanganService::getSaldoByGroup(206, $bidangName);
-        $jumlahPendapatanBendaharaUmum = LaporanKeuanganService::getSaldoByGroup(207, $bidangName);
+        $jumlahPendapatanLainPendidikan = LaporanKeuanganService::getSaldoByGroupBidang(203, $bidangName);
+        $jumlahPendapatanInfaqTidakTerikat = LaporanKeuanganService::getSaldoByGroupBidang(204, $bidangName);
+        $jumlahPendapatanInfaqTerikat = LaporanKeuanganService::getSaldoByGroupBidang(205, $bidangName);
+        $jumlahPendapatanUsaha = LaporanKeuanganService::getSaldoByGroupBidang(206, $bidangName);
+        $jumlahPendapatanBendaharaUmum = LaporanKeuanganService::getSaldoByGroupBidang(207, $bidangName);
 
         // 🔹 Donasi (dipakai di kartu lama) = Infaq Tidak Terikat + Terikat
         $jumlahDonasi = $jumlahPendapatanInfaqTidakTerikat + $jumlahPendapatanInfaqTerikat;
@@ -144,14 +128,14 @@ class BidangController extends Controller
             ->where('bidang_name', $bidangName)
             ->sum('amount');
 
-        $jumlahBebanGaji = LaporanKeuanganService::getSaldoByGroup(302, $bidangName);
-        $jumlahBiayaOperasional = LaporanKeuanganService::getSaldoByGroup(303, $bidangName);
-        $jumlahBiayaKegiatan = LaporanKeuanganService::getSaldoByGroup(304, $bidangName);
-        $jumlahBiayaKonsumsi = LaporanKeuanganService::getSaldoByGroup(305, $bidangName);
-        $jumlahBiayaPemeliharaan = LaporanKeuanganService::getSaldoByGroup(306, $bidangName);
-        $jumlahPengeluaranTerikat = LaporanKeuanganService::getSaldoByGroup(307, $bidangName);
-        $jumlahBiayaLainLain = LaporanKeuanganService::getSaldoByGroup(308, $bidangName);
-        $jumlahPengeluaranBendahara = LaporanKeuanganService::getSaldoByGroup(309, $bidangName);
+        $jumlahBebanGaji = LaporanKeuanganService::getSaldoByGroupBidang(302, $bidangName);
+        $jumlahBiayaOperasional = LaporanKeuanganService::getSaldoByGroupBidang(303, $bidangName);
+        $jumlahBiayaKegiatan = LaporanKeuanganService::getSaldoByGroupBidang(304, $bidangName);
+        $jumlahBiayaKonsumsi = LaporanKeuanganService::getSaldoByGroupBidang(305, $bidangName);
+        $jumlahBiayaPemeliharaan = LaporanKeuanganService::getSaldoByGroupBidang(306, $bidangName);
+        $jumlahPengeluaranTerikat = LaporanKeuanganService::getSaldoByGroupBidang(307, $bidangName);
+        $jumlahBiayaLainLain = LaporanKeuanganService::getSaldoByGroupBidang(308, $bidangName);
+        $jumlahPengeluaranBendahara = LaporanKeuanganService::getSaldoByGroupBidang(309, $bidangName);
 
         // 🔹 Biaya dibayar di muka (310)
         $jumlahBiayadibayardimuka = LaporanKeuanganService::getSaldoByGroup(310, $bidangName);

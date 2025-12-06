@@ -28,22 +28,22 @@
 
                 <li class="nav-item mx-3">
                     <a class="nav-link {{ request()->is('infaqku*') ? 'active' : '' }}"
-                        href="{{ url('/infaqku') }}">Infaqku</a>
+                        href="#">Infaqku</a>
                 </li>
 
                 <li class="nav-item mx-3">
                     <a class="nav-link {{ request()->is('kajians*') ? 'active' : '' }}"
-                        href="{{ url('/kajians') }}">Kajian</a>
+                        href="#">Kajian</a>
                 </li>
 
                 <li class="nav-item mx-3">
                     <a class="nav-link {{ request()->is('kegiatan*') ? 'active' : '' }}"
-                        href="{{ url('/kegiatan') }}">Kegiatan</a>
+                        href="#">Kegiatan</a>
                 </li>
 
                 <li class="nav-item mx-3">
                     <a class="nav-link {{ request()->is('konsultasi') ? 'active' : '' }}"
-                        href="{{ url('/konsultasi') }}">Konsultasi</a>
+                        href="#">Konsultasi</a>
                 </li>
 
                 {{-- Dropdown Profil --}}
@@ -54,7 +54,7 @@
                     </a>
                     <ul class="dropdown-menu border-0 shadow" aria-labelledby="dropdownProfil">
                         <li>
-                            <a class="dropdown-item" href="{{ url('/profil/sejarah') }}">
+                            <a class="dropdown-item" href="#">
                                 <i class="bi bi-clock-history me-2"></i> Sejarah
                             </a>
                         </li>

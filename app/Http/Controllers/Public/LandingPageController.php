@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
+use App\Services\LaporanKeuanganService;
+use Illuminate\Support\Carbon;
 use App\Models\Slideshow;
 use App\Models\Kajian;
 use App\Models\SidebarSetting;
@@ -18,36 +19,14 @@ class LandingPageController extends Controller
     /**
      * Landing page
      */
-    protected function getLastSaldoBySaldoColumn(
-        int $akunId,
-        string $userRole,
-        $bidangValue,
-        ?string $tanggalCutoff = null
-    ): float {
-        if (!$akunId)
-            return 0.0;
-
-        $q = Transaksi::where('akun_keuangan_id', $akunId);
-
-        if ($tanggalCutoff) {
-            $cutoff = Carbon::parse($tanggalCutoff)->toDateString();
-            $q->whereDate('tanggal_transaksi', '<=', $cutoff);
-        }
-
-        if ($userRole !== 'Bendahara') {
-            $q->where(function ($w) use ($bidangValue) {
-                $w->where('bidang_name', $bidangValue)
-                    ->orWhereNull('bidang_name');
-            });
-        }
-
-        return (float) ($q->orderBy('tanggal_transaksi', 'desc')
-            ->orderBy('id', 'desc')
-            ->value('saldo') ?? 0.0);
-    }
 
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $bidangId = $user->bidang_name ?? null; // integer id bidang
+        $role = $user->role;                // Harusnya 'Bidang' (middleware)
+        $lapService = new LaporanKeuanganService();
+
         // 1️⃣ Ambil nama kota dari query string, default: Surabaya
         $kota = $request->input('city', 'Surabaya');
 
@@ -140,14 +119,33 @@ class LandingPageController extends Controller
                 'updated_at',
             ]);
 
-        /* ======================================================================
-        SALDO MENGGUNAKAN FUNGSIMU
-        ====================================================================== */
-        $saldoKasKemasjidan = $this->getLastSaldoBySaldoColumn($akunKas, 'Bidang', $bidang, null);
-        $saldoBankKemasjidan = $this->getLastSaldoBySaldoColumn($akunBank, 'Bidang', $bidang, null);
+        $akunBankId = 1022; // Bank Kemasjidan
+        $akunKasId = 1012; // Kas Kemasjidan
 
-        $totalSaldo = $saldoKasKemasjidan + $saldoBankKemasjidan;
+        // ==================================
+        // 🔹 Saldo Kas & Bank via LEDGER (PSAK 45)
+        // ==================================
+        // Ini akan otomatis "per bidang" karena:
+        //   - akun Kas/Bank tiap bidang beda id-nya
+        //   - Bidang hanya punya akses ke akun kas/bank miliknya sendiri
+        $akunKasModel = AkunKeuangan::find($akunKasId);
+        $akunBankModel = AkunKeuangan::find($akunBankId);
 
+        $jumlahPiutangPerantara = Transaksi::where('kode_transaksi', 'like', 'TRF-%')
+            ->where('kode_transaksi', 'not like', '%-LAWAN')
+            ->where('bidang_name', $bidangId)
+            ->whereNotIn('parent_akun_id', [$akunKasId, $akunBankId])
+            ->sum('amount');
+
+        $saldoKas = $akunKasModel
+            ? $lapService->getSaldoAkunSampai($akunKasModel, Carbon::now())
+            : 0.0;
+
+        $saldoBank = $akunBankModel
+            ? $lapService->getSaldoAkunSampai($akunBankModel, Carbon::now())
+            : 0.0;
+
+        $totalSaldo = $saldoKas + $saldoBank + $jumlahPiutangPerantara;
 
         // Last update: MAX(COALESCE(updated_at, created_at))
         $lastUpdate = (clone $baseFilter)

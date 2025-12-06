@@ -284,7 +284,7 @@
                     <div class="card">
                         <div class="icon bi bi-percent"></div>
                         <h6><strong>Nilai Penyusutan Aset</strong></h6>
-                        <div class="value negative">{{ number_format($jumlahPenyusutanAsset, 0, ',', '.') }}</div>
+                        <div class="value">{{ number_format($jumlahPenyusutanAsset, 0, ',', '.') }}</div>
                         <div class="description">untuk bidang {{ auth()->user()->bidang->name ?? 'Tidak Ada' }}!</div>
                     </div>
                 </div>
