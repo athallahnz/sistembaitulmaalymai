@@ -145,15 +145,15 @@ class LaporanKeuanganService
 
         foreach ($akunList as $akun) {
             $row = $saldoPerAkun->get($akun->id);
-            if (!$row) {
+            if (!$row)
                 continue;
-            }
 
             $saldoAkun = $akun->saldo_normal === 'debit'
                 ? ($row->total_debit - $row->total_credit)
                 : ($row->total_credit - $row->total_debit);
 
-            $saldoTotal += $saldoAkun;
+            // kalau mau selalu positif:
+            $saldoTotal += abs($saldoAkun);
         }
 
         return $saldoTotal;

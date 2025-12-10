@@ -95,7 +95,7 @@
         </div>
 
         <ul class="sidebar-nav">
-            <li class="sidebar-header">Manajemen Keuangan</li>
+            <li class="sidebar-header">Manajemen</li>
             @role('Admin')
                 <li class="sidebar-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                     <a class="sidebar-link" href="{{ route('admin.index') }}">
@@ -132,6 +132,57 @@
                         <span class="align-middle">Dashboard Ketua</span>
                     </a>
                 </li>
+                {{-- Dashboard Bendahara --}}
+                {{-- <li class="sidebar-item {{ request()->routeIs('bendahara.index') ? 'active' : '' }}">
+                    <a class="sidebar-link" href="{{ route('bendahara.index') }}">
+                        <i class="align-middle" data-feather="sliders"></i>
+                        <span class="align-middle">Dashboard Bendahara</span>
+                    </a>
+                </li> --}}
+                {{-- MENU BARU: APPROVAL DANA --}}
+                {{-- <li class="sidebar-header">Manajemen Anggaran & Approval Dana</li>
+                <li class="sidebar-item {{ request()->routeIs('pengajuan.*') ? 'active' : '' }}" id="menu-approval-dana">
+                    <a class="sidebar-link" href="{{ route('pengajuan.index') }}">
+                        <i class="align-middle" data-feather="check-square"></i>
+                        <span class="align-middle">Approval Dana</span>
+                        <span class="sidebar-badge badge bg-danger" id="approval-badge" style="display:none;">0</span>
+                    </a>
+                </li> --}}
+                <li class="sidebar-header">Pelaporan</li>
+                <li class="sidebar-item">
+                    <a href="#laporanKeuangan" data-bs-toggle="collapse" class="sidebar-link">
+                        <i class="align-middle" data-feather="clipboard"></i>
+                        <span class="align-middle">Keuangan Yayasan</span>
+                    </a>
+                    <ul id="laporanKeuangan"
+                        class="sidebar-dropdown list-unstyled collapse {{ request()->routeIs('laporan.arus-kas', 'laporan.posisi-keuangan', 'laporan.laba-rugi', 'laporan.neraca-saldo-bendahara', 'laporan.aktivitas') ? 'show' : '' }}">
+                        <li class="sidebar-item {{ request()->routeIs('laporan.posisi-keuangan') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.posisi-keuangan') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart"></i>
+                                <span class="align-middle">Posisi Keuangan</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.arus-kas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.arus-kas') }}">
+                                <i class="align-middle ms-3" data-feather="trending-up"></i>
+                                <span class="align-middle">Arus kas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item {{ request()->routeIs('laporan.aktivitas') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.aktivitas') }}">
+                                <i class="align-middle ms-3" data-feather="file-text"></i>
+                                <span class="align-middle">Aktivitas</span>
+                            </a>
+                        </li>
+                        {{-- <li
+                            class="sidebar-item {{ request()->routeIs('laporan.neraca-saldo-bendahara') ? 'active' : '' }}">
+                            <a class="sidebar-link" href="{{ route('laporan.neraca-saldo-bendahara') }}">
+                                <i class="align-middle ms-3" data-feather="bar-chart-2"></i>
+                                <span class="align-middle">Neraca Saldo</span>
+                            </a>
+                        </li> --}}
+                    </ul>
+                </li>
             @endrole
 
             @role('Manajer Keuangan')
@@ -142,6 +193,7 @@
                     </a>
                 </li>
                 {{-- MENU BARU: APPROVAL DANA --}}
+                <li class="sidebar-header">Manajemen Anggaran & Approval Dana</li>
                 <li class="sidebar-item {{ request()->routeIs('pengajuan.*') ? 'active' : '' }}" id="menu-approval-dana">
                     <a class="sidebar-link" href="{{ route('pengajuan.index') }}">
                         <i class="align-middle" data-feather="check-square"></i>

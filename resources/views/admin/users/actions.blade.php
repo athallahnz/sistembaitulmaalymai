@@ -41,12 +41,12 @@
             var userId = $(this).data("id");
             Swal.fire({
                 title: "Yakin ingin menonaktifkan pengguna?",
-                text: "Data yang dihapus akan masuk ke tempat sampah!",
+                text: "Data yang dinonaktifkan akan masuk ke tempat sampah, belum sebenarnya terhapus!",
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#d33",
                 cancelButtonColor: "#3085d6",
-                confirmButtonText: "Ya, hapus!",
+                confirmButtonText: "Ya, Nonaktifkan!",
                 cancelButtonText: "Batal"
             }).then((result) => {
                 if (result.isConfirmed) {

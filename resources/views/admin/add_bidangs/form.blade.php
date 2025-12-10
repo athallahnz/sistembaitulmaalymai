@@ -8,4 +8,4 @@
     <textarea name="description" class="form-control">{{ old('description', $bidang->description ?? '') }}</textarea>
 </div>
 <button type="submit" class="btn btn-primary">Simpan</button>
-<a href="{{ route('add_bidangs.index') }}" class="btn btn-secondary">Kembali</a>
+<a href="{{ route('admin.add_bidangs.index') }}" class="btn btn-secondary">Kembali</a>

@@ -63,6 +63,10 @@ class LoginController extends Controller
 
     public function login(Request $request)
     {
+        // Konfigurasi proteksi
+        $MAX_ATTEMPTS = 5;   // berapa kali percobaan gagal
+        $LOCKOUT_MINUTES = 10;  // berapa menit dikunci
+
         // ✅ Validasi khusus jika nomor kosong → SweetAlert
         if (!$request->filled('nomor')) {
             session()->flash('swal', [
@@ -95,15 +99,33 @@ class LoginController extends Controller
 
         $user = User::where('nomor', $request->nomor)->first();
 
-        if ($user && Hash::check($request->pin, $user->pin)) {
-            Auth::login($user, true);
+        // ==============================
+        // CEK AKUN TERKUNCI
+        // ==============================
+        if ($user && $user->locked_until && $user->locked_until->isFuture()) {
+            $diffMinutes = $user->locked_until->diffInMinutes(now());
+            session()->flash(
+                'error',
+                "Akun Anda dikunci sementara karena terlalu banyak percobaan login gagal. Coba lagi dalam {$diffMinutes} menit."
+            );
+            return redirect()->back();
+        }
 
-            // ⏱ Update status login
+        // ==============================
+        // PROSES LOGIN NORMAL
+        // ==============================
+        if ($user && Hash::check($request->pin, $user->pin)) {
+
+            // ✅ Login sukses → reset counter gagal & unlock
             $user->update([
+                'failed_login_attempts' => 0,
+                'locked_until' => null,
                 'last_login_at' => now(),
                 'last_activity_at' => now(),
                 'is_active' => true,
             ]);
+
+            Auth::login($user, true);
 
             session()->forget(['step', 'nomor']);
             session()->flash('login_success', 'Selamat datang, ' . $user->name . '.');
@@ -124,7 +146,44 @@ class LoginController extends Controller
             }
         }
 
-        session()->flash('error', $user ? 'PIN salah!' : 'Nomor tidak terdaftar!');
+        // ==============================
+        // LOGIN GAGAL → NAIKKAN COUNTER (BERTINGKAT)
+        // ==============================
+        if ($user) {
+            $attempts = (int) $user->failed_login_attempts + 1;
+            $user->failed_login_attempts = $attempts;
+
+            // Hitung kelebihan percobaan di atas batas
+            if ($attempts > $MAX_ATTEMPTS) {
+
+                // Percobaan ke-6 → 10 menit
+                // Percobaan ke-7 → 20 menit
+                // Percobaan ke-8 → 30 menit
+                $excessAttempts = $attempts - $MAX_ATTEMPTS;
+                $lockMinutes = $excessAttempts * 10;
+
+                $user->locked_until = now()->addMinutes($lockMinutes);
+                $user->save();
+
+                session()->flash(
+                    'error',
+                    "Akun Anda dikunci selama {$lockMinutes} menit karena terlalu banyak percobaan login gagal."
+                );
+
+                return redirect()->back();
+            }
+
+            // Masih di bawah batas
+            $user->save();
+
+            session()->flash(
+                'error',
+                "PIN salah! Percobaan ke-{$attempts} dari {$MAX_ATTEMPTS}."
+            );
+        } else {
+            session()->flash('error', 'Nomor tidak terdaftar!');
+        }
+
         return redirect()->back();
     }
 
@@ -139,5 +198,47 @@ class LoginController extends Controller
 
         // session()->flash('success', 'Anda telah logout.');
         return redirect()->route('login');
+    }
+
+    public function resetPinAjax(Request $request)
+    {
+        $request->validate([
+            'nomor' => 'required',
+        ]);
+
+        // Sesuaikan nama kolom nomor di tabel users: 'nomor', 'phone', 'no_hp', dll.
+        $user = User::where('nomor', $request->nomor)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor tidak ditemukan dalam sistem.',
+            ], 404);
+        }
+
+        // Generate PIN baru 6 digit
+        $newPin = rand(100000, 999999);
+
+        // ✅ Simpan PIN baru dalam bentuk Bcrypt (HASH)
+        $user->pin = Hash::make($newPin);   // atau bcrypt($newPin)
+        $user->save();
+
+        // Buat teks untuk WA (user bisa kirim ke dirinya sendiri / catatan)
+        $appName = config('app.name', 'Sistem Informasi Keuangan');
+        $waText = "Assalamu'alaikum.\n"
+            . "PIN login {$appName} Anda telah direset.\n\n"
+            . "Nomor: {$user->nomor}\n"
+            . "PIN Baru: {$newPin}\n\n"
+            . "Mohon jaga kerahasiaan PIN ini.";
+
+        // wa.me tanpa nomor → user pilih sendiri mau kirim ke siapa (termasuk ke catatan pribadi)
+        $waUrl = 'https://wa.me/?text=' . urlencode($waText);
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'PIN baru berhasil dibuat.',
+            'pin' => $newPin,
+            'wa_url' => $waUrl,
+        ]);
     }
 }
