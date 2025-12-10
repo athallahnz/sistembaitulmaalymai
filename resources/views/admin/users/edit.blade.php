@@ -31,28 +31,29 @@
             <div class="mb-3">
                 <label class="form-label">Role</label>
                 <select class="form-control" name="role" id="role">
-                    <option value="User" {{ $user->role == 'User' ? 'selected' : '' }}>User</option>
-                    <option value="Admin" {{ $user->role == 'Admin' ? 'selected' : '' }}>Admin</option>
-                    <option value="Ketua Yayasan" {{ $user->role == 'Ketua Yayasan' ? 'selected' : '' }}>Ketua Yayasan
+                    @php $roleValue = old('role', $user->role); @endphp
+                    <option value="User" {{ $roleValue == 'User' ? 'selected' : '' }}>User</option>
+                    <option value="Admin" {{ $roleValue == 'Admin' ? 'selected' : '' }}>Admin</option>
+                    <option value="Ketua Yayasan" {{ $roleValue == 'Ketua Yayasan' ? 'selected' : '' }}>Ketua Yayasan
                     </option>
-                    <option value="Bendahara" {{ $user->role == 'Bendahara' ? 'selected' : '' }}>Bendahara</option>
-                    <option value="Manajer Keuangan" {{ $user->role == 'Manajer Keuangan' ? 'selected' : '' }}>Manajer
+                    <option value="Bendahara" {{ $roleValue == 'Bendahara' ? 'selected' : '' }}>Bendahara</option>
+                    <option value="Manajer Keuangan" {{ $roleValue == 'Manajer Keuangan' ? 'selected' : '' }}>Manajer
                         Keuangan</option>
-                    <option value="Bidang" {{ $user->role == 'Bidang' ? 'selected' : '' }}>Bidang</option>
+                    <option value="Bidang" {{ $roleValue == 'Bidang' ? 'selected' : '' }}>Bidang</option>
                 </select>
             </div>
 
-            <div class="mb-3" id="bidang_name_div" style="display: {{ $user->role == 'Bidang' ? 'block' : 'none' }};">
+            <div class="mb-3" id="bidang_name_div"
+                style="display: {{ old('role', $user->role) == 'Bidang' ? 'block' : 'none' }};">
                 <label class="form-label">Bidang</label>
                 <select class="form-control" name="bidang_name">
-                    <option value="Kemasjidan" {{ $user->bidang_name == 'Kemasjidan' ? 'selected' : '' }}>Kemasjidan
-                    </option>
-                    <option value="Pendidikan" {{ $user->bidang_name == 'Pendidikan' ? 'selected' : '' }}>Pendidikan
-                    </option>
-                    <option value="Sosial" {{ $user->bidang_name == 'Sosial' ? 'selected' : '' }}>Sosial</option>
-                    <option value="Usaha" {{ $user->bidang_name == 'Usaha' ? 'selected' : '' }}>Usaha</option>
-                    <option value="Pembangunan" {{ $user->bidang_name == 'Pembangunan' ? 'selected' : '' }}>Pembangunan
-                    </option>
+                    <option value="">-- Pilih Bidang --</option>
+                    @foreach ($bidangs as $bidang)
+                        <option value="{{ $bidang->id }}"
+                            {{ (string) old('bidang_name', $user->bidang_name) === (string) $bidang->id ? 'selected' : '' }}>
+                            {{ $bidang->name }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
 
@@ -60,17 +61,26 @@
             <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">Kembali</a>
         </form>
     </div>
-    @push('scripts')
-        <script>
-            // Menambahkan event listener untuk mengubah tampilan bidang_name berdasarkan role
-            document.getElementById('role').addEventListener('change', function() {
-                var bidangDiv = document.getElementById('bidang_name_div');
-                if (this.value === 'Bidang') {
-                    bidangDiv.style.display = 'block';
-                } else {
-                    bidangDiv.style.display = 'none';
-                }
-            });
-        </script>
-    @endpush
 @endsection
+@push('scripts')
+    <script>
+        function toggleBidangField() {
+            var roleSelect = document.getElementById('role');
+            var bidangDiv = document.getElementById('bidang_name_div');
+
+            if (roleSelect.value === 'Bidang') {
+                bidangDiv.style.display = 'block';
+            } else {
+                bidangDiv.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial state
+            toggleBidangField();
+
+            // On change
+            document.getElementById('role').addEventListener('change', toggleBidangField);
+        });
+    </script>
+@endpush

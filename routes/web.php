@@ -127,18 +127,19 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
 
     Route::prefix('add_bidangs')->name('add_bidangs.')->group(function () {
         Route::get('/', [AddBidangController::class, 'index'])->name('index');
-        Route::get('/create', [AddBidangController::class, 'create'])->name('create');
         Route::post('/', [AddBidangController::class, 'store'])->name('store');
-        Route::get('/{bidang}/edit', [AddBidangController::class, 'edit'])->name('edit');
-        Route::put('/{bidang}', [AddBidangController::class, 'update'])->name('update');
-        Route::delete('/{bidang}', [AddBidangController::class, 'destroy'])->name('destroy');
         Route::get('/data', [AddBidangController::class, 'getData'])->name('data');
+
+        Route::get('/{id}/edit', [AddBidangController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AddBidangController::class, 'update'])->name('update');
+        Route::delete('/{id}', [AddBidangController::class, 'destroy'])->name('destroy');
     });
 });
 
 // Ketua routes
 Route::middleware(['role:Ketua Yayasan'])->group(function () {
     Route::get('/ketua/dashboard', [KetuaController::class, 'index'])->name('ketua.index');
+    Route::get('/bendahara/dashboard', [BendaharaController::class, 'index'])->name('bendahara.index');
 });
 
 // Manajer routes
@@ -147,9 +148,8 @@ Route::middleware(['role:Manajer Keuangan'])->group(function () {
 });
 
 // Bendahara routes
-Route::middleware(['role:Bendahara'])->group(function () {
+Route::middleware(['role:Ketua Yayasan|Bendahara'])->group(function () {
     Route::get('/bendahara/dashboard', [BendaharaController::class, 'index'])->name('bendahara.index');
-
     Route::get('/bendahara/laporan/neraca-saldo', [LaporanKeuanganController::class, 'neracaSaldoBendahara'])->name('laporan.neraca-saldo-bendahara');
     Route::get('/bendahara/detail', [BendaharaController::class, 'showDetailBendahara'])->name('bendahara.detail');
     Route::get('/bendahara/detail/data', [BendaharaController::class, 'detailData'])->name('bendahara.detail.data');
@@ -158,7 +158,7 @@ Route::middleware(['role:Bendahara'])->group(function () {
 });
 
 // Bidang routes
-Route::middleware(['role:Bendahara|Bidang'])->group(function () {
+Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->group(function () {
 
     Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
     // Route untuk dashboard Bidang
@@ -400,6 +400,11 @@ Route::get('/login/reset', function () {
     session()->forget(['step', 'nomor']);
     return redirect()->route('login');
 })->name('login.reset');
+
+Route::post('/login/reset-pin', [LoginController::class, 'resetPinAjax'])
+    ->name('login.reset_pin')
+    ->middleware('guest');
+
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::resource('piutangs', PiutangController::class);

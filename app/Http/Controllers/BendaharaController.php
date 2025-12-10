@@ -18,10 +18,10 @@ use Illuminate\Support\Facades\Log;
 
 class BendaharaController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('role:Bendahara');
-    }
+    // public function __construct()
+    // {
+    //     $this->middleware('role:Bendahara|Ketua Yayasan');
+    // }
 
     // ===============================================
     // HELPER FUNCTIONS

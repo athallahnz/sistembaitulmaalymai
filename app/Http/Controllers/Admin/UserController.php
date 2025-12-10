@@ -89,80 +89,83 @@ class UserController extends Controller
     {
         // Validasi data
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'nomor' => 'required|unique:users,nomor',
-            'pin' => 'required|string|min:6',  // Sesuaikan dengan panjang PIN yang Anda tentukan
-            'role' => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
-            'bidang_name' => 'nullable|exists:bidangs,id',  // Kolom bidang_name hanya diperlukan jika role adalah "Bidang"
+            'name'        => 'required|string|max:255',
+            'email'       => 'required|email|unique:users,email',
+            'nomor'       => 'required|unique:users,nomor',
+            'pin'         => 'required|string|min:6',
+            'role'        => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
+
+            // wajib diisi kalau role = Bidang, dan nilainya harus ada di tabel bidangs.id
+            'bidang_name' => 'nullable|required_if:role,Bidang|exists:bidangs,id',
         ]);
 
-        // Menentukan data yang akan disimpan
         $userData = [
-            'name' => $request->name,
+            'name'  => $request->name,
             'email' => $request->email,
             'nomor' => $request->nomor,
-            'pin' => bcrypt($request->pin),
-            'role' => $request->role,
+            'pin'   => bcrypt($request->pin),
+            'role'  => $request->role,
         ];
 
-        // Jika role adalah Bidang, tambahkan bidang_name ke dalam data
+        // Kalau role Bidang → simpan ID bidang, kalau bukan → null
         if ($request->role === 'Bidang') {
             $userData['bidang_name'] = $request->bidang_name;
+        } else {
+            $userData['bidang_name'] = null;
         }
 
         // Buat user baru
         $user = User::create($userData);
 
-        // Jika role adalah Bidang dan bidang_name disediakan, perbarui bidang_name
-        if ($request->role === 'Bidang' && $request->has('bidang_name')) {
-            $user->update(['bidang_name' => $request->bidang_name]);
-        }
-
-        // Assign role menggunakan spatie
+        // Assign role (Spatie)
         $user->assignRole($request->role);
-
-        // dd($request->all());
 
         return redirect()->route('admin.users.index')->with('success', 'User berhasil dibuat');
     }
 
     public function edit(User $user)
     {
-        return view('admin.users.edit', compact('user'));
+        $bidangs = Bidang::all();
+        return view('admin.users.edit', compact('user', 'bidangs'));
     }
+
 
     public function update(Request $request, User $user)
     {
         // Validasi data
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'nomor' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'pin' => ['nullable', 'string', 'min:4', 'max:6'],  // Pin optional, bisa dikosongkan
-            'role' => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
-            'bidang_name' => 'nullable|string',  // Pastikan bidang_name tetap dapat diterima saat update
-            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'name'        => 'required|string|max:255',
+            'email'       => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'nomor'       => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'pin'         => ['nullable', 'string', 'min:4', 'max:6'],
+            'role'        => 'required|in:Admin,User,Ketua Yayasan,Bendahara,Manajer Keuangan,Bidang',
+
+            // wajib kalau role = Bidang, dan harus ID yang ada di bidangs
+            'bidang_name' => 'nullable|required_if:role,Bidang|exists:bidangs,id',
+
+            'foto'        => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        // Update data user
         $userData = [
-            'name' => $request->name,
+            'name'  => $request->name,
             'email' => $request->email,
             'nomor' => $request->nomor,
-            'pin' => $request->pin ? Hash::make($request->pin) : $user->pin,  // Jika pin tidak diubah, tetap menggunakan pin lama
-            'role' => $request->role,
+            'pin'   => $request->pin ? Hash::make($request->pin) : $user->pin,
+            'role'  => $request->role,
         ];
 
-        // Jika role adalah "Bidang", update bidang_name
-        if ($request->role === 'Bidang' && $request->has('bidang_name')) {
+        // Role = Bidang → simpan ID, selain itu → null
+        if ($request->role === 'Bidang') {
             $userData['bidang_name'] = $request->bidang_name;
+        } else {
+            $userData['bidang_name'] = null;
         }
 
-        // Update user
+        // (Optional) kalau mau proses upload foto di sini juga, tambahkan blok seperti di updateProfile()
+
         $user->update($userData);
 
-        // Assign role menggunakan spatie jika diperlukan
+        // Spatie role
         $user->syncRoles($request->role);
 
         return redirect()->route('admin.users.index')->with('success', 'User berhasil diperbarui!');

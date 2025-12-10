@@ -31,6 +31,8 @@ class User extends Authenticatable
         'last_activity_at',
         'is_active',
         'foto',
+        'failed_login_attempts',
+        'locked_until',
     ];
     protected $dates = ['deleted_at'];
 
@@ -47,6 +49,7 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'last_activity_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'locked_until' => 'datetime',
     ];
     // public function bidang()
     // {

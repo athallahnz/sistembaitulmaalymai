@@ -224,6 +224,15 @@
                                                         class="btn btn-primary w-100 py-2 fs-6 mt-3">
                                                         <i class="bi bi-arrow-left-circle ms-1"></i> Kembali</a>
                                                 </div>
+                                                <div class="text-center mt-3">
+                                                    <a href="javascript:void(0)" onclick="confirmGoToWa()"
+                                                        class="text-decoration-none text-secondary fw-semibold">
+                                                        Lupa PIN? Hubungi Admin!
+                                                    </a>
+                                                </div>
+                                                {{-- <small class="text-muted">
+                                                    Reset PIN hanya diproses melalui WhatsApp resmi Yayasan.
+                                                </small> --}}
                                             </div>
                                         </form>
                                     @else
@@ -249,6 +258,13 @@
                                             <button type="submit" class="btn btn-primary w-100 py-2 fs-6">
                                                 Lanjut <i class="bi bi-arrow-right-circle ms-1"></i>
                                             </button>
+                                            {{-- <div class="text-center mt-3">
+                                                <button type="button"
+                                                    class="btn btn-link text-decoration-none text-secondary fw-semibold p-0"
+                                                    onclick="requestResetPin()">
+                                                    Reset PIN
+                                                </button>
+                                            </div> --}}
                                         </form>
                                     @endif
                                 </div>
@@ -389,6 +405,115 @@
                 submitBtn.disabled = pin.length !== 6;
             }
         });
+
+        function confirmGoToWa() {
+            const waUrl =
+                "https://wa.me/6285369369517?text=Assalamu%E2%80%99alaikum%2C%20Admin.%0A%0ASaya%20ingin%20meminta%20reset%20PIN%20untuk%20login%20Sistem%20Informasi%20Keuangan%20Baitul%20Maal.%0A%0ABerikut%20data%20saya%3A%0A%E2%80%A2%20Nama%20%20%20%20%20%20%3A%20%5BNama%20Lengkap%5D%0A%E2%80%A2%20Nomor%20HP%20%20%3A%20%5BNomor%20HP%20yang%20digunakan%20untuk%20login%5D%0A%E2%80%A2%20Jabatan%20%20%20%3A%20%5BMisal%3A%20Bendahara%20/%20Bidang%20Pendidikan%20/%20Admin%20/%20Jamaah%5D%0A%0AMohon%20dibantu%20untuk%20reset%20PIN%20saya.%0A%0ATerima%20kasih.%0AWassalamu%E2%80%99alaikum.";
+
+            Swal.fire({
+                icon: 'info',
+                title: 'Hubungi Admin',
+                html: `
+                <p>Anda akan diarahkan ke <strong>WhatsApp Admin Yayasan</strong>.</p>
+                <p>Pesan permintaan reset PIN akan terisi otomatis.</p>
+                <small>Pastikan Anda menghubungi nomor admin resmi.</small>
+            `,
+                showCancelButton: true,
+                confirmButtonText: 'Lanjutkan',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#25D366', // hijau WA
+                cancelButtonColor: '#6c757d', // abu-abu
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.open(waUrl, '_blank');
+                }
+            });
+        }
+
+        // ==============================
+        // RESET PIN VIA AJAX + WA LINK
+        // ==============================
+        window.requestResetPin = function() {
+            const nomorInput = document.getElementById('nomor');
+            if (!nomorInput) return;
+
+            const nomor = nomorInput.value.trim();
+
+            if (nomor === '') {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Nomor kosong!",
+                    text: "Masukkan nomor terlebih dahulu sebelum reset PIN.",
+                    confirmButtonColor: '#622200',
+                }).then(() => {
+                    nomorInput.focus();
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Reset PIN?',
+                text: "PIN lama akan diganti dan PIN baru akan ditampilkan di layar.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, reset PIN',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#622200',
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+
+                fetch("{{ route('login.reset_pin') }}", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                            "Accept": "application/json",
+                        },
+                        body: JSON.stringify({
+                            nomor: nomor
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'PIN Baru Dibuat',
+                                html: `
+                            <p>${data.message}</p>
+                            <p><strong>PIN Baru: ${data.pin}</strong></p>
+                            <small>Jaga kerahasiaan PIN Anda.</small>
+                        `,
+                                showCancelButton: true,
+                                confirmButtonText: 'Simpan via WhatsApp',
+                                cancelButtonText: 'Tutup',
+                                confirmButtonColor: '#25D366', // warna WA
+                                cancelButtonColor: '#622200',
+                            }).then((swalResult) => {
+                                if (swalResult.isConfirmed && data.wa_url) {
+                                    window.location.href = data.wa_url;
+                                }
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal!',
+                                text: data.message || 'Terjadi kesalahan saat reset PIN.',
+                                confirmButtonColor: '#d33',
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: 'Terjadi kesalahan pada server.',
+                            confirmButtonColor: '#d33',
+                        });
+                    });
+            });
+        }
     </script>
 </body>
 
