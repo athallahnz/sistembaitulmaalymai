@@ -34,7 +34,9 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h3 class="card-title text-secondary mb-0 fw-bold">Rincian Item Anggaran</h3>
-                                <button type="button" class="btn btn-sm shadow-sm" style="background-color: #8B4513; color: white; border-color: #8B4513;" id="btn-add-row">
+                                <button type="button" class="btn btn-sm shadow-sm"
+                                    style="background-color: #8B4513; color: white; border-color: #8B4513;"
+                                    id="btn-add-row">
                                     <i class="bi bi-plus-lg"></i> Tambah Baris
                                 </button>
                             </div>
@@ -70,12 +72,13 @@
                                                     class="form-control form-select-sm" required>
                                             </td>
                                             <td>
-                                                <input type="number" step="1" name="details[0][kuantitas]"
+                                                <input type="number" step="1" min="0"
+                                                    name="details[0][kuantitas]"
                                                     class="form-control form-select-sm text-center input-qty"
                                                     value="1" required>
                                             </td>
                                             <td>
-                                                <input type="number" name="details[0][harga_pokok]"
+                                                <input type="number" min="0" name="details[0][harga_pokok]"
                                                     class="form-control form-select-sm text-end input-harga"
                                                     placeholder="0" required>
                                             </td>
@@ -109,7 +112,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn px-4" style="background-color: #8B4513; color: white; border-color: #8B4513;">
+                    <button type="submit" class="btn px-4"
+                        style="background-color: #8B4513; color: white; border-color: #8B4513;">
                         <i class="bi bi-send"></i> Simpan & Ajukan
                     </button>
                 </div>

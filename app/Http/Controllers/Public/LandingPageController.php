@@ -22,9 +22,8 @@ class LandingPageController extends Controller
 
     public function index(Request $request)
     {
-        $user = auth()->user();
-        $bidangId = $user->bidang_name ?? null; // integer id bidang
-        $role = $user->role;                // Harusnya 'Bidang' (middleware)
+
+        $bidangId = 1; // Kemasjidan
         $lapService = new LaporanKeuanganService();
 
         // 1️⃣ Ambil nama kota dari query string, default: Surabaya

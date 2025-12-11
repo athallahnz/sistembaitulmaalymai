@@ -6,7 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="Responsive Admin & Dashboard Template based on Bootstrap 5">
-
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
     <title>@yield('title') | Sistem Baitul Maal Yayasan Masjid Al Iman Surabaya</title>
 
     <!-- Favicon -->
@@ -137,35 +138,3 @@
 </body>
 
 </html>
-<script>
-    $(document).ready(function() {
-        const approvalBadge = $('#approval-badge');
-
-        function fetchApprovalCount() {
-            $.ajax({
-                url: "{{ route('pengajuan.api.approval.count') }}",
-                method: 'GET',
-                success: function(response) {
-                    const count = response.count;
-
-                    if (count > 0) {
-                        approvalBadge.text(count);
-                        approvalBadge.show(); // Tampilkan badge
-                    } else {
-                        approvalBadge.hide(); // Sembunyikan jika nol
-                    }
-                },
-                error: function(xhr) {
-                    console.error("Gagal mengambil jumlah approval.", xhr.status);
-                    approvalBadge.hide();
-                }
-            });
-        }
-
-        // Panggil fungsi saat halaman dimuat
-        fetchApprovalCount();
-
-        // Opsional: Panggil fungsi secara berkala (misal, setiap 60 detik)
-        setInterval(fetchApprovalCount, 60000);
-    });
-</script>

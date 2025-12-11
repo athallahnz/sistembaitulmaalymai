@@ -38,78 +38,74 @@ class PengajuanDanaController extends Controller
                 ->addColumn('user_name', function ($row) {
                     return $row->pembuat->name ?? '-';
                 })
-                ->editColumn('status', function ($row) {
-                    $status = $row->status;
-
-                    // Tentukan warna berdasarkan status
-                    $badgeClass = match ($status) {
-                        'Menunggu Verifikasi' => 'bg-warning text-dark', // Kuning
-                        'Disetujui' => 'bg-primary',      // Biru
-                        'Dicairkan' => 'bg-success',      // Hijau
-                        'Ditolak' => 'bg-danger',       // Merah
-                        default => 'bg-secondary',    // Abu-abu (fallback)
-                    };
-
-                    return '<span class="badge ' . $badgeClass . ' px-3 py-2 rounded-pill">' . $status . '</span>';
-                })
                 ->addColumn('aksi', function ($row) {
                     $role = auth()->user()->role;
                     $userId = auth()->user()->id;
                     $url = route('pengajuan.show', $row->id);
                     $exportUrl = route('pengajuan.export.pdf', $row->id);
 
-                    // Inisialisasi tombol aksi utama
                     $btnClass = 'btn-primary text-white rounded';
                     $icon = 'bi-eye';
                     $label = 'Detail';
-                    $editBtn = ''; // Tombol Edit default kosong
+
+                    $editBtn = '';
+                    $deleteBtn = '';
                     $canEdit = ($userId === $row->user_id);
 
-                    // 1. Logika Tombol Edit / Revisi
-                    if ($canEdit) {
-                        // Izinkan edit jika status: Menunggu Verifikasi ATAU Ditolak
-                        if ($row->status === 'Menunggu Verifikasi' || $row->status === 'Ditolak') {
+                    // Tombol Edit / Revisi + Delete
+                    if ($canEdit && ($row->status === 'Menunggu Verifikasi' || $row->status === 'Ditolak')) {
+                        $btnLabel = ($row->status === 'Ditolak') ? 'Revisi' : 'Edit';
+                        $btnClassRevisi = ($row->status === 'Ditolak') ? 'btn-danger' : 'btn-warning';
 
-                            $btnLabel = ($row->status === 'Ditolak') ? 'Revisi' : 'Edit';
-                            $btnClassRevisi = ($row->status === 'Ditolak') ? 'btn-danger' : 'btn-warning'; // Warna merah/danger untuk Revisi
+                        $editBtn = '
+        <button type="button"
+            class="btn btn-sm ' . $btnClassRevisi . ' rounded shadow-sm btn-edit-pengajuan"
+            data-id="' . $row->id . '"
+            data-bs-toggle="modal"
+            data-bs-target="#modalCreatePengajuan">
+            <i class="bi bi-pencil-square"></i> ' . $btnLabel . '
+        </button>';
 
-                            // Tombol akan memanggil modal yang sama
-                            $editBtn = '<button type="button"
-                            class="btn btn-sm rounded ' . $btnClassRevisi . ' me-2 shadow-sm btn-edit-pengajuan"
-                            data-id="' . $row->id . '"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalCreatePengajuan">
-                            <i class="bi bi-pencil-square"></i> ' . $btnLabel . '
-                        </button>';
-                        }
+                        $deleteBtn = '
+        <button type="button"
+            class="btn btn-sm btn-danger rounded shadow-sm btn-delete-pengajuan"
+            data-id="' . $row->id . '"
+            data-url="' . route('pengajuan.destroy', $row->id) . '">
+            <i class="bi bi-trash"></i> Hapus
+        </button>';
                     }
 
-                    // 2. Logika Tombol Aksi Utama (Detail/Review/Cairkan)
-                    if ($role == 'Manajer Keuangan') {
-                        if ($row->status == 'Menunggu Verifikasi') {
-                            $btnClass = 'btn-warning text-dark rounded';
-                            $icon = 'bi-clipboard-check';
-                            $label = 'Review';
-                        }
-                    } elseif ($role == 'Bendahara') {
-                        if ($row->status == 'Disetujui') {
-                            $btnClass = 'btn-success rounded';
-                            $icon = 'bi-cash-stack';
-                            $label = 'Cairkan';
-                        }
+                    // Aksi utama (Detail / Review / Cairkan)
+                    if ($role == 'Manajer Keuangan' && $row->status == 'Menunggu Verifikasi') {
+                        $btnClass = 'btn-warning text-dark rounded';
+                        $icon = 'bi-clipboard-check';
+                        $label = 'Review';
+                    } elseif ($role == 'Bendahara' && $row->status == 'Disetujui') {
+                        $btnClass = 'btn-success rounded';
+                        $icon = 'bi-cash-stack';
+                        $label = 'Cairkan';
                     }
 
-                    // Tombol Aksi Utama (Detail/Review/Cairkan)
-                    $aksiBtn = '<a href="' . $url . '" class="btn btn-sm ' . $btnClass . ' me-2 shadow-sm">
-                <i class="bi ' . $icon . '"></i> ' . $label . '
-            </a>';
+                    $aksiBtn = '
+    <a href="' . $url . '"
+        class="btn btn-sm ' . $btnClass . ' rounded shadow-sm">
+        <i class="bi ' . $icon . '"></i> ' . $label . '
+    </a>';
 
-                    // Tombol Export PDF (Tambahkan jika diperlukan)
-                    $exportBtn = '<a href="' . $exportUrl . '" target="_blank" class="btn btn-sm btn-danger rounded shadow-sm">
-                    <i class="bi bi-file-earmark-pdf"></i> PDF
-                </a>';
+                    $exportBtn = '
+    <a href="' . $exportUrl . '"
+        target="_blank"
+        class="btn btn-sm btn-outline-danger rounded shadow-sm">
+        <i class="bi bi-file-earmark-pdf"></i> PDF
+    </a>';
 
-                    return $editBtn . $aksiBtn . $exportBtn;
+                    // Wrapper:
+                    // - flex-column di mobile
+                    // - berubah jadi flex-row ketika >= sm (desktop/tab)
+                    return '
+    <div class="d-flex flex-column flex-sm-row flex-sm-wrap gap-1" style="width:100%;">
+        ' . $editBtn . $deleteBtn . $aksiBtn . $exportBtn . '
+    </div>';
                 })
                 ->rawColumns(['aksi', 'status'])
                 ->make(true);
@@ -135,7 +131,7 @@ class PengajuanDanaController extends Controller
         // TAMBAHAN: Ambil data Akun untuk Dropdown di Modal
         $akunKeuangans = AkunKeuangan::where('tipe_akun', 'expense')
             ->whereNotNull('parent_id')
-            ->orderBy('kode_akun', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
         // Kirim variabel $summary ke view
@@ -539,4 +535,36 @@ class PengajuanDanaController extends Controller
             return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
+
+    public function destroy($id)
+    {
+        $pengajuan = PengajuanDana::findOrFail($id);
+
+        // Jika user adalah Bidang, pastikan hanya bisa hapus miliknya sendiri
+        if (auth()->user()->role === 'Bidang' && $pengajuan->user_id !== auth()->id()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki izin untuk menghapus pengajuan ini.'
+            ], 403);
+        }
+
+        // Batasi status yang bisa dihapus
+        if (!in_array($pengajuan->status, ['Menunggu Verifikasi', 'Ditolak'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Pengajuan tidak dapat dihapus karena sudah diproses.'
+            ], 422);
+        }
+
+        // Jika ada relasi detail dan menggunakan ON DELETE CASCADE / manual delete, sesuaikan di sini.
+        // $pengajuan->details()->delete(); // contoh jika perlu
+
+        $pengajuan->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Pengajuan berhasil dihapus.'
+        ]);
+    }
+
 }
