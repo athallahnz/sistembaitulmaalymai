@@ -373,6 +373,9 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
         Route::put('{id}', [PengajuanDanaController::class, 'update'])->name('update');
         Route::get('pengajuan-json/{id}', [PengajuanDanaController::class, 'getPengajuanJson'])->name('json');
         Route::get('{id}/export-pdf', [PengajuanDanaController::class, 'exportPdf'])->name('export.pdf');
+
+        // DELETE Data
+        Route::delete('/{id}', [PengajuanDanaController::class, 'destroy'])->name('destroy');
     });
 });
 

@@ -14,7 +14,8 @@
             <div class="d-flex gap-2">
                 {{-- Tombol Trigger Modal --}}
                 @if (auth()->user()->role == 'Bidang')
-                    <button type="button" class="btn shadow mt-3" style="background-color: #8B4513; color: white; border-color: #8B4513;" data-bs-toggle="modal"
+                    <button type="button" class="btn shadow mt-3"
+                        style="background-color: #8B4513; color: white; border-color: #8B4513;" data-bs-toggle="modal"
                         data-bs-target="#modalCreatePengajuan">
                         <i class="bi bi-plus-circle"></i> Buat Pengajuan Baru
                     </button>
@@ -118,7 +119,9 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 1. DataTables
+            // ==========================================
+            // 1. DATATABLES
+            // ==========================================
             $('#pengajuan-table').DataTable({
                 processing: true,
                 serverSide: true,
@@ -128,7 +131,7 @@
                         name: 'created_at'
                     },
                     {
-                        data: 'user_name', // Ganti dari user_name ke pembuat.name
+                        data: 'user_name',
                         name: 'pembuat.name',
                         defaultContent: '-'
                     },
@@ -156,73 +159,75 @@
             });
 
             // ==========================================
-            // 2. LOGIC MODAL (Dynamic Rows & CRUD)
+            // 2. VARIABEL GLOBAL FORM PENGAJUAN
             // ==========================================
-
             const tbody = document.getElementById('tbody-items');
             const grandTotalDisplay = document.getElementById('grand-total-display');
             const btnAddRow = document.getElementById('btn-add-row');
             const formPengajuan = document.getElementById('form-pengajuan');
             const modalEl = document.getElementById('modalCreatePengajuan');
-            const modalTitle = modalEl.querySelector('.modal-title'); // Tambahkan selector judul
+            const modalTitle = modalEl ? modalEl.querySelector('.modal-title') : null;
 
             let rowIdx = 1;
 
-            // Variabel Global yang berisi opsi SELECT Akun Keuangan (DIAMBIL DARI PHP)
-            // Ini agar bisa diakses di fungsi Tambah Baris dan di Modal Edit
+            // List Akun dari backend (Blade → JS)
             const listAkun = @json($akunKeuangans);
             let optionsAkun = '<option value="">-- Pilih Akun --</option>';
             listAkun.forEach(function(akun) {
                 optionsAkun += `<option value="${akun.id}">${akun.nama_akun}</option>`;
             });
 
-
-            // Helper Format Rupiah
+            // ==========================================
+            // 3. HELPER FORMAT & PERHITUNGAN TOTAL
+            // ==========================================
             const formatRupiah = (number) => {
                 return new Intl.NumberFormat('id-ID', {
                     style: 'currency',
                     currency: 'IDR',
                     minimumFractionDigits: 0
                 }).format(number);
-            }
+            };
 
-            // Fungsi Kalkulasi Total
             const calculateTotal = () => {
                 let grandTotal = 0;
+
                 if (tbody) {
                     tbody.querySelectorAll('.item-row').forEach(row => {
-                        // Pastikan input-harga dibaca sebagai float
                         const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
                         const harga = parseFloat(row.querySelector('.input-harga').value) || 0;
                         const subtotal = qty * harga;
 
-                        // Update tampilan subtotal per baris (dengan format, tapi nilai dihitung dari float)
                         const subtotalInput = row.querySelector('.input-subtotal');
                         if (subtotalInput) {
                             subtotalInput.value = subtotal.toLocaleString('id-ID');
                         }
+
                         grandTotal += subtotal;
                     });
                 }
+
                 if (grandTotalDisplay) {
                     grandTotalDisplay.innerText = formatRupiah(grandTotal);
                 }
             };
 
-            // Event Listener Input Qty/Harga (Delegation)
+            // ==========================================
+            // 4. EVENT DI TABEL ITEM (QTY/HARGA & HAPUS BARIS)
+            // ==========================================
             if (tbody) {
+                // Hitung ulang jika qty/harga berubah
                 tbody.addEventListener('input', function(e) {
-                    if (e.target.classList.contains('input-qty') || e.target.classList.contains(
-                            'input-harga')) {
+                    if (e.target.classList.contains('input-qty') ||
+                        e.target.classList.contains('input-harga')) {
                         calculateTotal();
                     }
                 });
 
-                // Event Listener Hapus Baris
+                // Hapus baris item
                 tbody.addEventListener('click', function(e) {
                     if (e.target.closest('.btn-remove')) {
                         const row = e.target.closest('tr');
-                        // ... (Logic SweetAlert Hapus tetap sama) ...
+
                         if (tbody.querySelectorAll('.item-row').length > 1) {
                             Swal.fire({
                                 title: 'Hapus baris ini?',
@@ -250,32 +255,51 @@
                 });
             }
 
-            // Event Listener Tambah Baris
+            // ==========================================
+            // 5. TAMBAH BARIS ITEM BARU
+            // ==========================================
             if (btnAddRow) {
                 btnAddRow.addEventListener('click', function() {
                     const html = `
-                        <tr class="item-row">
-                            <td>
-                                <select name="details[${rowIdx}][akun_keuangan_id]" class="form-select form-select-sm" required>
-                                    ${optionsAkun}
-                                </select>
-                            </td>
-                            <td>
-                                <input type="text" name="details[${rowIdx}][keterangan_item]" class="form-control form-select-sm" required>
-                            </td>
-                            <td>
-                                <input type="number" step="1" name="details[${rowIdx}][kuantitas]" class="form-control form-select-sm text-center input-qty" value="1" required>
-                            </td>
-                            <td>
-                                <input type="number" name="details[${rowIdx}][harga_pokok]" class="form-control form-select-sm text-end input-harga" placeholder="0" required>
-                            </td>
-                            <td>
-                                <input type="text" class="form-control form-select-sm text-end input-subtotal bg-light fw-bold" value="0" readonly>
-                            </td>
-                            <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm border-0 btn-remove"><i class="bi bi-trash"></i></button>
-                            </td>
-                        </tr>`;
+                    <tr class="item-row">
+                        <td>
+                            <select name="details[${rowIdx}][akun_keuangan_id]"
+                                    class="form-select form-select-sm" required>
+                                ${optionsAkun}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="details[${rowIdx}][keterangan_item]"
+                                   class="form-control form-select-sm" required>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   step="1"
+                                   min="0"
+                                   name="details[${rowIdx}][kuantitas]"
+                                   class="form-control form-select-sm text-center input-qty"
+                                   value="1" required>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   min="0"
+                                   name="details[${rowIdx}][harga_pokok]"
+                                   class="form-control form-select-sm text-end input-harga"
+                                   placeholder="0" required>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   class="form-control form-select-sm text-end input-subtotal bg-light fw-bold"
+                                   value="0" readonly>
+                        </td>
+                        <td class="text-center">
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm border-0 btn-remove">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
 
                     tbody.insertAdjacentHTML('beforeend', html);
                     rowIdx++;
@@ -283,132 +307,301 @@
             }
 
             // ==========================================
-            // LOGIKA HANDLE MODAL CREATE & EDIT
+            // 6. BLOKIR ANGKA NEGATIF PADA QTY & HARGA
             // ==========================================
-
-            // Event listener saat Modal dibuka
-            modalEl.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget; // Tombol yang men-trigger modal
-                const pengajuanId = button ? button.getAttribute('data-id') : null;
-
-                // Clear any previous method override input
-                formPengajuan.querySelector('input[name="_method"]')?.remove();
-
-                // --- MODE EDIT ---
-                if (pengajuanId) {
-                    modalTitle.innerHTML = `<i class="bi bi-pencil-square"></i> Edit Pengajuan Dana`;
-
-                    // 1. Atur Form Action ke route UPDATE
-                    const updateUrl = `/pengajuan/${pengajuanId}`; // Asumsi path: /pengajuan/{id}
-                    formPengajuan.setAttribute('action', updateUrl);
-
-                    // 2. Tambahkan input METHOD PUT
-                    const methodInput = document.createElement('input');
-                    methodInput.setAttribute('type', 'hidden');
-                    methodInput.setAttribute('name', '_method');
-                    methodInput.setAttribute('value', 'PUT');
-                    formPengajuan.appendChild(methodInput);
-
-                    // 3. Ambil data via AJAX
-                    // Gunakan ID 0 sebagai placeholder di Blade, dan ganti di JavaScript
-                    const baseAjaxUrl = "{{ route('pengajuan.json', ['id' => 0]) }}";
-                    const ajaxUrl = baseAjaxUrl.replace('/0', '/' +
-                        pengajuanId); // Ganti /0 dengan ID yang sebenarnya
-
-                    $.ajax({
-                        // Gunakan URL yang sudah di-generate dan diperbaiki
-                        url: ajaxUrl,
-                        method: 'GET',
-                        success: function(data) {
-                            // PASTIKAN: Update Form Action juga menggunakan logika yang sama
-                            const baseUpdateUrl =
-                                "{{ route('pengajuan.update', ['id' => 0]) }}";
-                            const updateUrl = baseUpdateUrl.replace('/0', '/' + pengajuanId);
-                            formPengajuan.setAttribute('action', updateUrl);
-
-                            // Isi data header
-                            formPengajuan.querySelector('input[name="judul"]').value = data
-                                .judul;
-                            formPengajuan.querySelector('textarea[name="deskripsi"]').value =
-                                data.deskripsi || '';
-
-                            // Isi detail items
-                            const tbody = document.getElementById('tbody-items');
-                            tbody.innerHTML = ''; // Kosongkan baris default
-
-                            data.details.forEach((item, index) => {
-                                // Ganti dengan logic item-by-item
-                                const html = `
-                                    <tr class="item-row">
-                                        <td><select name="details[${index}][akun_keuangan_id]" class="form-select form-select-sm" required>${optionsAkun}</select></td>
-                                        <td><input type="text" name="details[${index}][keterangan_item]" class="form-control form-select-sm" required value="${item.keterangan_item}"></td>
-                                        <td><input type="number" step="1" name="details[${index}][kuantitas]" class="form-control form-select-sm text-center input-qty" value="${item.kuantitas}" required></td>
-                                        <td><input type="number" step="1000" name="details[${index}][harga_pokok]" class="form-control form-select-sm text-end input-harga" placeholder="0" required value="${item.harga_pokok}"></td>
-                                        <td><input type="text" class="form-control form-select-sm text-end input-subtotal bg-light fw-bold" value="${item.jumlah_dana}" readonly></td>
-                                        <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm border-0 btn-remove"><i class="bi bi-trash"></i></button></td>
-                                    </tr>`;
-                                tbody.insertAdjacentHTML('beforeend', html);
-
-                                // Set nilai SELECT (membutuhkan DOM manipulation setelah insert HTML)
-                                tbody.querySelector(
-                                    `select[name="details[${index}][akun_keuangan_id]"]`
-                                ).value = item.akun_keuangan_id;
-                            });
-
-                            rowIdx = data.details.length; // Update index untuk baris baru
-                            calculateTotal();
-                        },
-                        error: function(xhr) {
-                            // Tampilkan status error
-                            console.error("AJAX Error Status:", xhr.status);
-                            console.error("AJAX Error Response:", xhr.responseText);
-
-                            // Tampilkan status error di SweetAlert
-                            Swal.fire('Error', 'Gagal memuat data pengajuan. Status: ' + xhr
-                                .status, 'error');
-
-                            // KOREKSI INI: Sembunyikan modal menggunakan instance Bootstrap
-                            // Pastikan library Bootstrap JavaScript ter-load!
-                            const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                            if (modalInstance) {
-                                modalInstance.hide();
-                            }
-                        }
-                    });
-
-                } else {
-                    // --- MODE CREATE ---
-                    modalTitle.innerHTML = `<i class="bi bi-file-earmark-plus"></i> Form Pengajuan Dana`;
-                    formPengajuan.setAttribute('action', '{{ route('pengajuan.store') }}');
-
-                    // Logic reset form dipindahkan ke 'hidden.bs.modal'
+            // Blokir ketikan tanda minus
+            $(document).on('keydown', '.input-qty, .input-harga', function(e) {
+                if (e.key === '-' || e.keyCode === 189) {
+                    e.preventDefault();
                 }
             });
 
-            // Event listener saat Modal DITUTUP (Reset Form)
-            modalEl.addEventListener('hidden.bs.modal', function() {
-                if (formPengajuan) formPengajuan.reset();
-
-                // Hapus semua baris dinamis
-                const rows = tbody.querySelectorAll('.item-row');
-                for (let i = 0; i < rows.length; i++) {
-                    rows[i].remove();
+            // Jika somehow nilainya sudah negatif (paste dll) → paksa jadi 0
+            $(document).on('input', '.input-qty, .input-harga', function() {
+                let val = parseFloat($(this).val());
+                if (isNaN(val) || val < 0) {
+                    $(this).val(0);
                 }
+            });
 
-                // Tambahkan kembali baris default CREATE (index 0)
-                const defaultHtml = `
+            // ==========================================
+            // 7. LOGIKA MODAL CREATE & EDIT
+            // ==========================================
+            if (modalEl) {
+                modalEl.addEventListener('show.bs.modal', function(event) {
+                    const button = event.relatedTarget;
+                    const pengajuanId = button ? button.getAttribute('data-id') : null;
+
+                    // Bersihkan input _method sebelumnya (jika ada)
+                    formPengajuan.querySelector('input[name="_method"]')?.remove();
+
+                    // MODE EDIT
+                    if (pengajuanId) {
+                        if (modalTitle) {
+                            modalTitle.innerHTML =
+                            `<i class="bi bi-pencil-square"></i> Edit Pengajuan Dana`;
+                        }
+
+                        // Action update (pakai route helper dengan placeholder 0)
+                        const baseUpdateUrl = "{{ route('pengajuan.update', ['id' => 0]) }}";
+                        const updateUrl = baseUpdateUrl.replace('/0', '/' + pengajuanId);
+                        formPengajuan.setAttribute('action', updateUrl);
+
+                        // Tambah _method PUT
+                        const methodInput = document.createElement('input');
+                        methodInput.type = 'hidden';
+                        methodInput.name = '_method';
+                        methodInput.value = 'PUT';
+                        formPengajuan.appendChild(methodInput);
+
+                        // Ambil data JSON pengajuan
+                        const baseAjaxUrl = "{{ route('pengajuan.json', ['id' => 0]) }}";
+                        const ajaxUrl = baseAjaxUrl.replace('/0', '/' + pengajuanId);
+
+                        $.ajax({
+                            url: ajaxUrl,
+                            method: 'GET',
+                            success: function(data) {
+                                // Header
+                                formPengajuan.querySelector('input[name="judul"]').value = data
+                                    .judul;
+                                formPengajuan.querySelector('textarea[name="deskripsi"]')
+                                    .value = data.deskripsi || '';
+
+                                // Detail items
+                                tbody.innerHTML = '';
+                                data.details.forEach((item, index) => {
+                                    const html = `
+                                    <tr class="item-row">
+                                        <td>
+                                            <select name="details[${index}][akun_keuangan_id]"
+                                                    class="form-select form-select-sm" required>
+                                                ${optionsAkun}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text"
+                                                    name="details[${index}][keterangan_item]"
+                                                    class="form-control form-select-sm"
+                                                    required
+                                                    value="${item.keterangan_item}">
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                    step="1"
+                                                    min="0"
+                                                    name="details[${index}][kuantitas]"
+                                                    class="form-control form-select-sm text-center input-qty"
+                                                    value="${item.kuantitas}"
+                                                    required>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                    min="0"
+                                                    step="1000"
+                                                    name="details[${index}][harga_pokok]"
+                                                    class="form-control form-select-sm text-end input-harga"
+                                                    placeholder="0"
+                                                    value="${item.harga_pokok}"
+                                                    required>
+                                        </td>
+                                        <td>
+                                            <input type="text"
+                                                    class="form-control form-select-sm text-end input-subtotal bg-light fw-bold"
+                                                    value="${item.jumlah_dana}"
+                                                    readonly>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button"
+                                                    class="btn btn-outline-danger btn-sm border-0 btn-remove">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>`;
+
+                                    tbody.insertAdjacentHTML('beforeend', html);
+
+                                    // Set selected CoA
+                                    tbody
+                                        .querySelector(
+                                            `select[name="details[${index}][akun_keuangan_id]"]`
+                                            )
+                                        .value = item.akun_keuangan_id;
+                                });
+
+                                rowIdx = data.details.length;
+                                calculateTotal();
+                            },
+                            error: function(xhr) {
+                                console.error("AJAX Error Status:", xhr.status);
+                                console.error("AJAX Error Response:", xhr.responseText);
+
+                                Swal.fire(
+                                    'Error',
+                                    'Gagal memuat data pengajuan. Status: ' + xhr.status,
+                                    'error'
+                                );
+
+                                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                                if (modalInstance) {
+                                    modalInstance.hide();
+                                }
+                            }
+                        });
+
+                    } else {
+                        // MODE CREATE
+                        if (modalTitle) {
+                            modalTitle.innerHTML =
+                                `<i class="bi bi-file-earmark-plus"></i> Form Pengajuan Dana`;
+                        }
+                        formPengajuan.setAttribute('action', '{{ route('pengajuan.store') }}');
+                        // Reset form dan baris akan di-handle di event hidden.bs.modal
+                    }
+                });
+
+                // Saat modal ditutup → reset form & baris item
+                modalEl.addEventListener('hidden.bs.modal', function() {
+                    if (formPengajuan) {
+                        formPengajuan.reset();
+                    }
+
+                    // Hapus semua baris item
+                    tbody.innerHTML = '';
+
+                    // Tambah kembali baris default
+                    const defaultHtml = `
                     <tr class="item-row">
-                        <td><select name="details[0][akun_keuangan_id]" class="form-select form-select-sm" required>${optionsAkun}</select></td>
-                        <td><input type="text" name="details[0][keterangan_item]" class="form-control form-select-sm" required></td>
-                        <td><input type="number" step="1" name="details[0][kuantitas]" class="form-control form-select-sm text-center input-qty" value="1" required></td>
-                        <td><input type="number" step="1000" name="details[0][harga_pokok]" class="form-control form-select-sm text-end input-harga" placeholder="0" required></td>
-                        <td><input type="text" class="form-control form-select-sm text-end input-subtotal bg-light fw-bold" value="0" readonly></td>
-                        <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm border-0 btn-remove"><i class="bi bi-trash"></i></button></td>
+                        <td>
+                            <select name="details[0][akun_keuangan_id]"
+                                    class="form-select form-select-sm" required>
+                                ${optionsAkun}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="details[0][keterangan_item]"
+                                   class="form-control form-select-sm" required>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   step="1"
+                                   min="0"
+                                   name="details[0][kuantitas]"
+                                   class="form-control form-select-sm text-center input-qty"
+                                   value="1" required>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   min="0"
+                                   step="1000"
+                                   name="details[0][harga_pokok]"
+                                   class="form-control form-select-sm text-end input-harga"
+                                   placeholder="0" required>
+                        </td>
+                        <td>
+                            <input type="text"
+                                    class="form-control form-select-sm text-end input-subtotal bg-light fw-bold"
+                                    value="0" readonly>
+                        </td>
+                        <td class="text-center">
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm border-0 btn-remove">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
                     </tr>`;
-                tbody.insertAdjacentHTML('beforeend', defaultHtml);
+                    tbody.insertAdjacentHTML('beforeend', defaultHtml);
 
-                if (grandTotalDisplay) grandTotalDisplay.innerText = formatRupiah(0);
-                rowIdx = 1; // Reset counter
+                    if (grandTotalDisplay) {
+                        grandTotalDisplay.innerText = formatRupiah(0);
+                    }
+                    rowIdx = 1;
+                });
+            }
+
+            // ==========================================
+            // 8. BADGE JUMLAH APPROVAL (HEADER)
+            // ==========================================
+            const approvalBadge = $('#approval-badge');
+
+            function fetchApprovalCount() {
+                $.ajax({
+                    url: "{{ route('pengajuan.api.approval.count') }}",
+                    method: 'GET',
+                    success: function(response) {
+                        const count = response.count || 0;
+                        if (count > 0) {
+                            approvalBadge.text(count).show();
+                        } else {
+                            approvalBadge.hide();
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error("Gagal mengambil jumlah approval.", xhr.status);
+                        approvalBadge.hide();
+                    }
+                });
+            }
+
+            fetchApprovalCount();
+            setInterval(fetchApprovalCount, 60000);
+
+            // ==========================================
+            // 9. SWEETALERT DELETE PENGAJUAN (ROW UTAMA)
+            // ==========================================
+            $(document).on('click', '.btn-delete-pengajuan', function(e) {
+                e.preventDefault();
+
+                const button = $(this);
+                const url = button.data('url');
+
+                Swal.fire({
+                    title: 'Yakin ingin menghapus?',
+                    text: "Data pengajuan yang dihapus tidak dapat dikembalikan.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: url,
+                            type: 'DELETE',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                Swal.fire({
+                                    title: 'Berhasil',
+                                    text: response.message ||
+                                        'Pengajuan berhasil dihapus.',
+                                    icon: 'success',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+
+                                if ($.fn.DataTable.isDataTable('#pengajuan-table')) {
+                                    $('#pengajuan-table').DataTable().ajax.reload(null,
+                                        false);
+                                }
+                            },
+                            error: function(xhr) {
+                                let msg = 'Terjadi kesalahan saat menghapus data.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    msg = xhr.responseJSON.message;
+                                }
+
+                                Swal.fire({
+                                    title: 'Gagal',
+                                    text: msg,
+                                    icon: 'error'
+                                });
+                            }
+                        });
+                    }
+                });
             });
         });
     </script>
