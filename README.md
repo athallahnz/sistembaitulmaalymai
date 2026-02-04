@@ -77,7 +77,7 @@ Aplikasi ini dirancang khusus untuk **lembaga keagamaan & yayasan sosial**, deng
 |--------|----------|
 | Backend | Laravel 10 |
 | Frontend | Blade + Bootstrap 5.3 |
-| Database | MySQL / MariaDB |
+| Database | MySQL |
 | Auth | Laravel Authentication |
 | UI | Responsive & Mobile Friendly |
 
