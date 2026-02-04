@@ -3,42 +3,69 @@
 namespace App\Http\Controllers\Kemasjidan;
 
 use App\Http\Controllers\Controller;
-use App\Traits\HasTransaksiKasBank;
 use App\Models\Warga;
-use App\Models\InfaqSosial;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Http;
+use App\Models\InfaqKemasjidan;
+use App\Traits\HasTransaksiKasBank;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Yajra\DataTables\Facades\DataTables;
-use PDF;
 
 class KemasjidanController extends Controller
 {
     use HasTransaksiKasBank;
 
+    // === CONFIG COA (sesuaikan bila perlu) ===
+    private int $COA_PENDAPATAN_INFAQ_KEMASJIDAN = 2042;
+
     public function __construct()
     {
-        // Proteksi khusus halaman Kemasjidan (kecuali kalau kamu mau mengecualikan endpoint tertentu)
         $this->middleware(['auth']);
-        $this->middleware(function ($request, $next): mixed {
-            // Jika user tidak punya relasi bidang, atau bukan Kemasjidan → tolak
+        $this->middleware(function ($request, $next) {
             $user = auth()->user();
             if (!$user?->bidang || $user->bidang->name !== 'Kemasjidan') {
                 abort(403, 'Akses khusus Bidang Kemasjidan');
             }
             return $next($request);
-        })->except([]); // jika ada route yang ingin dikecualikan, sebutkan di array
+        });
     }
 
-    /**
-     * Dashboard Kemasjidan (pakai modal untuk create infaq)
-     */
+    // =========================
+    // Helpers Bulan
+    // =========================
+    private function bulanMap(): array
+    {
+        return [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+    }
+
+    private function bulanNama(int $bulan): string
+    {
+        return $this->bulanMap()[$bulan] ?? (string) $bulan;
+    }
+
+    // =========================
+    // INDEX (Dashboard)
+    // =========================
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q'));
+        $tahun = (int) ($request->get('tahun', now()->year));
 
         $wargas = Warga::query()
             ->kepalaKeluarga()
@@ -50,44 +77,43 @@ class KemasjidanController extends Controller
                         ->orWhere('alamat', 'like', "%{$q}%");
                 });
             })
-            ->with('infaq')
-            ->withCount('anggotaKeluarga')
             ->orderBy('nama')
             ->paginate(15)
             ->withQueryString();
 
-        // 🔍 hitung semua KK yang punya infaq.total > 0
-        $jumlahSudahBayar = Warga::kepalaKeluarga()
-            ->whereHas('infaq', function ($q) {
-                $q->where('total', '>', 0);
-            })
-            ->count();
+        // ringkas
+        $jumlahWarga = Warga::kepalaKeluarga()->count();
 
-        $totalInfaq = InfaqSosial::from('infaq_sosials as i')
-            ->join('wargas as w', 'i.warga_id', '=', 'w.id')
-            ->whereNull('w.warga_id')
-            ->sum('i.total');
+        $totalInfaqTahun = (float) InfaqKemasjidan::query()
+            ->where('tahun', $tahun)
+            ->sum('nominal');
+
+        $jumlahSudahBayar = (int) InfaqKemasjidan::query()
+            ->where('tahun', $tahun)
+            ->whereNotNull('warga_id')
+            ->distinct('warga_id')
+            ->count('warga_id');
 
         $ringkas = [
-            'jumlah_warga' => Warga::kepalaKeluarga()->count(),
-            'total_infaq' => $totalInfaq,
-            'jumlah_bayar' => $jumlahSudahBayar, // bisa pakai ini
+            'jumlah_warga' => $jumlahWarga,
+            'total_infaq' => $totalInfaqTahun,
+            'jumlah_bayar' => $jumlahSudahBayar,
+            'tahun' => $tahun,
         ];
 
-        return view('bidang.kemasjidan.infaq.index', compact('wargas', 'ringkas', 'q', 'jumlahSudahBayar'));
+        return view('bidang.kemasjidan.infaq.index', compact('wargas', 'ringkas', 'q', 'tahun', 'jumlahSudahBayar'));
     }
 
+    // =========================
+    // DATATABLE (opsional)
+    // =========================
     public function datatable(Request $request)
     {
-        // Filter dari form "Cari"
         $q = trim((string) $request->get('q'));
-
-        // 🔍 Filter dari search bawaan DataTables (kotak kanan atas)
+        $tahun = (int) ($request->get('tahun', now()->year));
         $globalSearch = trim((string) $request->input('search.value', ''));
 
         $query = Warga::kepalaKeluarga()
-            ->with('infaq')
-            // filter dasar dari form
             ->when($q !== '', function ($qr) use ($q) {
                 $qr->where(function ($sub) use ($q) {
                     $sub->where('nama', 'like', "%{$q}%")
@@ -96,7 +122,6 @@ class KemasjidanController extends Controller
                         ->orWhere('alamat', 'like', "%{$q}%");
                 });
             })
-            // filter tambahan dari DataTables global search
             ->when($globalSearch !== '', function ($qr) use ($globalSearch) {
                 $qr->where(function ($sub) use ($globalSearch) {
                     $sub->where('nama', 'like', "%{$globalSearch}%")
@@ -111,330 +136,416 @@ class KemasjidanController extends Controller
             ->addColumn('nama', fn($w) => $w->nama ?? '-')
             ->addColumn('hp', fn($w) => $w->hp ?? '-')
 
-            ->addColumn('status_infaq', function ($w) {
-                $totalInfaq = optional($w->infaq)->total ?? 0;
-                $paid = $totalInfaq > 0;
+            ->addColumn('status_infaq', function ($w) use ($tahun) {
+                $total = (float) InfaqKemasjidan::where('warga_id', $w->id)
+                    ->where('tahun', $tahun)
+                    ->sum('nominal');
 
+                $paid = $total > 0;
                 $class = $paid ? 'text-bg-success text-white' : 'text-bg-secondary';
                 $text = $paid ? 'Sudah Pernah Bayar' : 'Belum Pernah Bayar';
 
                 return '<span class="badge ' . $class . '">' . $text . '</span>';
             })
 
-            ->addColumn('total_infaq', function ($w) {
-                $totalInfaq = optional($w->infaq)->total ?? 0;
-                return 'Rp ' . number_format($totalInfaq, 0, ',', '.');
+            ->addColumn('total_infaq', function ($w) use ($tahun) {
+                $total = (float) InfaqKemasjidan::where('warga_id', $w->id)
+                    ->where('tahun', $tahun)
+                    ->sum('nominal');
+                return 'Rp ' . number_format($total, 0, ',', '.');
             })
 
-            ->addColumn('aksi', function ($w) {
-                $url = route('kemasjidan.infaq.detail', $w->id);
-
-                return '<a href="' . $url . '" class="btn btn-info btn-sm">
-                        Detail
-                    </a>';
+            ->addColumn('aksi', function ($w) use ($tahun) {
+                $url = route('kemasjidan.infaq.detail', [$w->id, 'tahun' => $tahun]);
+                return '<a href="' . $url . '" class="btn btn-info btn-sm">Detail</a>';
             })
-
             ->rawColumns(['status_infaq', 'aksi'])
             ->make(true);
     }
 
-    /**
-     * Halaman create terpisah (kalau kamu mau selain modal)
-     * Tidak wajib dipakai jika semua input lewat modal di index.
-     */
-    public function create()
-    {
-        return view('bidang.kemasjidan.infaq.create');
-    }
-    /**
-     * Simpan infaq (otomatis create/udpate Warga berdasarkan HP)
-     */
-
-    /**
-     * Catat penerimaan kas/bank untuk Infaq Kemasjidan (double-entry).
-     * - Debit  : Kas Kemasjidan / Bank Kemasjidan (by metode_bayar)
-     * - Kredit : Pendapatan Infaq Kemasjidan
-     *
-     * $bulanKolom = nama kolom di InfaqSosial, mis. 'januari', 'februari', ...
-     */
-    protected function catatPenerimaanInfaq(
-        Warga $warga,
-        string $bulanKolom,
-        float $nominal,
-        ?string $metodeBayar
-    ): void {
-        if ($nominal <= 0) {
-            return;
-        }
-
-        $user = auth()->user();
-        if (!$user) {
-            Log::warning('catatPenerimaanInfaq dipanggil tanpa user login, transaksi kas di-skip.');
-            return;
-        }
-
-        $role = $user->role;
-        $bidangId = is_numeric($user->bidang_name ?? null) ? (int) $user->bidang_name : null;
-
-        // 1) Pilih akun sisi DEBIT berdasarkan metode_bayar
-        $akunDebitId = $this->resolveAkunPenerimaanByMetode($role, $bidangId, $metodeBayar);
-
-        // 2) Akun pendapatan infaq kemasjidan (KREDIT)
-        $akunPendapatanInfaqId = 2028;
-
-        if (!$akunDebitId || !$akunPendapatanInfaqId) {
-            Log::warning('Akun debit (kas/bank) atau pendapatan infaq belum dikonfigurasi, jurnal kas di-skip.', [
-                'akun_debit' => $akunDebitId,
-                'akun_pendapatan' => $akunPendapatanInfaqId,
-                'metode_bayar' => $metodeBayar,
-            ]);
-            return;
-        }
-
-        // Label bulan
-        $mapBulan = [
-            'januari' => 'Januari',
-            'februari' => 'Februari',
-            'maret' => 'Maret',
-            'april' => 'April',
-            'mei' => 'Mei',
-            'juni' => 'Juni',
-            'juli' => 'Juli',
-            'agustus' => 'Agustus',
-            'september' => 'September',
-            'oktober' => 'Oktober',
-            'november' => 'November',
-            'desember' => 'Desember',
-        ];
-        $namaBulan = $mapBulan[strtolower($bulanKolom)] ?? ucfirst($bulanKolom);
-
-        $kodePrefix = $this->makeKodePrefix($role, $bidangId);
-        $kode = $kodePrefix . '-INF-' . now()->format('YmdHis') . '-' . $warga->id;
-
-        $tanggal = now()->toDateString();
-
-        $labelMetode = $metodeBayar ? (' [' . ucfirst($metodeBayar) . ']') : '';
-
-        $req = new Request([
-            'kode_transaksi' => $kode,
-            'tanggal_transaksi' => $tanggal,
-            'type' => 'penerimaan',
-            'deskripsi' => "Infaq Kemasjidan bulan {$namaBulan} - {$warga->nama} ({$warga->hp}){$labelMetode}",
-            'amount' => $nominal,
-            'bidang_name' => $role === 'Bendahara' ? null : $bidangId,
-        ]);
-
-        $this->storeTransaction($req, $akunDebitId, $akunPendapatanInfaqId);
-    }
-
+    // =========================
+    // STORE (input 1 bulan)
+    // =========================
     public function store(Request $request)
     {
         $request->validate([
-            // data warga
-            'hp' => ['required', 'string', 'max:255'],
-            'nama' => ['nullable', 'string', 'max:255'],
-            'rt' => ['nullable', 'string', 'max:255'],
-            'alamat' => ['nullable', 'string', 'max:255'],
-            'no' => ['nullable', 'string', 'max:255'],
-
-            // opsi PIN
-            'auto_pin' => ['nullable', 'boolean'],
-            'pin' => ['nullable', 'string', 'min:4', 'max:16'],
-
-            // pembayaran
-            'bulan' => ['required', Rule::in(InfaqSosial::monthColumns())],
+            'warga_id' => ['required', 'integer', 'exists:wargas,id'],
+            'tahun' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'bulan' => ['required', 'integer', 'min:1', 'max:12'],
+            'tanggal' => ['nullable', 'date'],
             'nominal' => ['required', 'numeric', 'gt:0'],
-            'metode_bayar' => ['nullable', 'string', 'max:50'],  // ⬅️ baru
+            'metode_bayar' => ['nullable', 'string', 'max:50'],
+            'sumber' => ['nullable', 'string', 'max:100'],
+            'keterangan' => ['nullable', 'string'],
+            // opsional override nama/no hp donatur (kalau Anda mau input manual)
+            'nama_donatur' => ['nullable', 'string', 'max:120'],
+            'no_hp' => ['nullable', 'string', 'max:50'],
         ]);
 
         return DB::transaction(function () use ($request) {
-            $hp = trim($request->hp);
+            $user = auth()->user();
+            $role = $user->role ?? 'Guest';
+            $bidangId = is_numeric($user->bidang_name ?? null) ? (int) $user->bidang_name : null;
 
-            $generatedPin = null;
-            $pinToSave = null;
+            $warga = Warga::findOrFail((int) $request->warga_id);
 
-            if ($request->boolean('auto_pin')) {
-                $generatedPin = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $pinToSave = $generatedPin;
-            } elseif ($request->filled('pin')) {
-                $pinToSave = $request->pin;
-            }
-
-            // 1) cari/buat warga by HP
-            $warga = Warga::where('hp', $hp)->first();
-            if (!$warga) {
-                $warga = Warga::create([
-                    'nama' => $request->nama ?? '-',
-                    'rt' => $request->rt ?? '-',
-                    'alamat' => $request->alamat,
-                    'no' => $request->no,
-                    'hp' => $hp,
-                    'pin' => $pinToSave,
-                ]);
-            } else {
-                $warga->update(array_filter([
-                    'nama' => $request->nama,
-                    'rt' => $request->rt,
-                    'alamat' => $request->alamat,
-                    'no' => $request->no,
-                    'pin' => $pinToSave,
-                ], fn($v) => $v !== null && $v !== ''));
-            }
-
-            $bulan = $request->bulan;
+            $tahun = (int) $request->tahun;
+            $bulan = (int) $request->bulan;
+            $tanggal = $request->filled('tanggal') ? $request->date('tanggal') : now();
             $nominal = (float) $request->nominal;
-            $metodeBayar = $request->metode_bayar;
+            $metode = $request->metode_bayar;
 
-            // 2) lock baris infaq
-            $infaq = InfaqSosial::where('warga_id', $warga->id)->lockForUpdate()->first();
-
-            if ($infaq) {
-                if ((float) $infaq->$bulan > 0) {
-                    return back()
-                        ->withInput()
-                        ->with('error', 'Transaksi gagal: Infaq bulan ' . ucfirst($bulan) . ' untuk ' . ($warga->nama ?? $warga->hp) . ' sudah LUNAS.');
-                }
-            } else {
-                $infaq = InfaqSosial::create(
-                    ['warga_id' => $warga->id] +
-                    array_fill_keys(InfaqSosial::monthColumns(), 0.00) +
-                    ['total' => 0.00]
-                );
-            }
-
-            // 3) set nilai bulan
-            $infaq->$bulan = $nominal;
-
-            // 4) hitung total
-            $total = 0.0;
-            foreach (InfaqSosial::monthColumns() as $m) {
-                $total += (float) $infaq->$m;
-            }
-            $infaq->total = $total;
-            $infaq->metode_bayar = $metodeBayar;
-            $infaq->save();
-
-            // === JURNAL KAS/BANK (double-entry) ===
-            $this->catatPenerimaanInfaq($warga, $bulan, $nominal, $metodeBayar);
-
-            // redirect + flash message
-            $redirect = redirect()
-                ->route('kemasjidan.infaq.index')
-                ->with('success', 'Infaq bulan ' . ucfirst($bulan) . ' untuk ' . ($warga->nama ?? $warga->hp) . ' tersimpan.'
-                    . ($request->boolean('auto_pin') ? ' PIN warga digenerate otomatis.' : ''));
-
-            if ($generatedPin) {
-                $redirect->with('generated_pin', $generatedPin);
-            }
-
-            return $redirect;
-        });
-    }
-
-    public function update(Request $request, $id)
-    {
-        $bulanList = InfaqSosial::monthColumns();
-
-        // boleh kosong (nullable) tapi jika diisi harus >= 0
-        $rules = [];
-        foreach ($bulanList as $b) {
-            $rules[$b] = ['nullable', 'numeric', 'min:0'];
-        }
-
-        // tambah validasi metode_bayar (boleh kosong)
-        $rules['metode_bayar'] = ['nullable', 'string', 'max:50'];
-
-        $validated = $request->validate($rules);
-
-        return DB::transaction(function () use ($validated, $id, $bulanList) {
-            $warga = Warga::findOrFail($id);
-
-            // kunci baris agar aman dari race-condition
-            $infaq = InfaqSosial::where('warga_id', $warga->id)
+            // Cegah double input bulan yang sama (opsional tapi saya aktifkan)
+            $exists = InfaqKemasjidan::where('warga_id', $warga->id)
+                ->where('tahun', $tahun)
+                ->where('bulan', $bulan)
                 ->lockForUpdate()
                 ->first();
 
-            if (!$infaq) {
-                // buat record baru (semua 0) jika belum ada
-                $infaq = InfaqSosial::create(
-                    ['warga_id' => $warga->id] +
-                    array_fill_keys($bulanList, 0.00) +
-                    ['total' => 0.00]
-                );
+            if ($exists) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Transaksi gagal: Infaq ' . $this->bulanNama($bulan) . " {$tahun} untuk {$warga->nama} sudah ada.");
             }
 
-            // ❗ blokir perubahan bulan yang sudah LUNAS (old > 0)
-            foreach ($bulanList as $b) {
-                if (isset($validated[$b]) && $validated[$b] !== null) {
-                    $old = (float) $infaq->$b;
-                    $new = (float) $validated[$b];
+            // Tentukan akun debit (kas/bank) by metode
+            $akunDebitId = $this->resolveAkunPenerimaanByMetode($role, $bidangId, $metode);
+            $akunKreditId = $this->COA_PENDAPATAN_INFAQ_KEMASJIDAN;
 
-                    // jika sudah lunas & nilai mau diubah → tolak
-                    if ($old > 0 && abs($new - $old) > 0.0001) {
-                        return back()
-                            ->withInput()
-                            ->with('error', 'Transaksi gagal: Bulan ' . ucfirst($b) . ' sudah LUNAS dan tidak bisa diubah.');
-                    }
-                }
+            if (!$akunDebitId || !$akunKreditId) {
+                return back()->withInput()->with('error', 'Akun DEBIT/KREDIT belum dikonfigurasi.');
             }
 
-            // simpan bulan-bulan yang BARU diisi (untuk jurnal)
-            $bulanBaru = []; // ['januari' => 50000, ...]
+            // kode transaksi konsisten + mudah ditrace
+            $kodePrefix = $this->makeKodePrefix($role, $bidangId);
+            $kodeTransaksi = $kodePrefix . '-INF-KMS-' . now()->format('YmdHis') . '-' . $warga->id . '-' . $tahun . str_pad((string) $bulan, 2, '0', STR_PAD_LEFT);
 
-            // set nilai untuk bulan yang BELUM lunas saja
-            foreach ($bulanList as $b) {
-                if (isset($validated[$b]) && $validated[$b] !== null) {
-                    $old = (float) $infaq->$b;
-                    $new = (float) $validated[$b];
+            $deskripsi = 'Infaq Kemasjidan ' . $this->bulanNama($bulan) . " {$tahun} - " . ($warga->nama ?? '-') . ' (' . ($warga->hp ?? '-') . ')'
+                . ($metode ? ' [' . ucfirst($metode) . ']' : '');
 
-                    if ($old <= 0 && $new > 0) {
-                        // isi pertama kali → catat nanti ke jurnal
-                        $infaq->$b = $new;
-                        $bulanBaru[$b] = $new;
-                    }
-                    // jika old > 0 → biarkan (no-op)
-                }
-            }
+            // 1) Simpan record infaq_kemasjidans
+            $trx = InfaqKemasjidan::create([
+                'warga_id' => $warga->id,
+                'tanggal' => $tanggal->toDateString(),
+                'tahun' => $tahun,
+                'bulan' => $bulan,
+                'nominal' => $nominal,
+                'metode_bayar' => $metode,
+                'sumber' => $request->sumber,
+                'nama_donatur' => $request->nama_donatur ?: ($warga->nama ?? null),
+                'no_hp' => $request->no_hp ?: ($warga->hp ?? null),
+                'keterangan' => $request->keterangan,
+                'akun_debit_id' => $akunDebitId,
+                'akun_kredit_id' => $akunKreditId,
+                'kode_transaksi' => $kodeTransaksi,
+                'created_by' => $user->id ?? null,
+            ]);
 
-            // hitung ulang total
-            $infaq->total = array_reduce($bulanList, fn($carry, $m) => $carry + (float) $infaq->$m, 0.0);
-            $infaq->save();
+            // 2) Auto Journal (double-entry) -> Transaksis + Ledgers (via trait)
+            try {
+                $req = new Request([
+                    'kode_transaksi' => $kodeTransaksi,
+                    'tanggal_transaksi' => $tanggal->toDateString(),
+                    'type' => 'penerimaan',
+                    'deskripsi' => $deskripsi,
+                    'amount' => $nominal,
+                    'bidang_name' => $role === 'Bendahara' ? null : $bidangId,
+                ]);
 
-            // ========= JURNAL DOUBLE ENTRY =========
-            $metodeBayar = $validated['metode_bayar'] ?? null;
-
-            foreach ($bulanBaru as $bulan => $nominal) {
-                // gunakan helper yang juga dipakai di store()
-                $this->catatPenerimaanInfaq($warga, $bulan, (float) $nominal, $metodeBayar);
+                // penting: panggil core agar tidak redirect ke transaksi.index
+                $this->processTransactionCore($req, (int) $akunDebitId, (int) $akunKreditId);
+            } catch (\Throwable $e) {
+                Log::warning('Jurnal infaq kemasjidan gagal, rollback.', ['err' => $e->getMessage()]);
+                throw $e; // biar DB::transaction rollback (infaq_kemasjidans ikut batal)
             }
 
             return redirect()
-                ->route('kemasjidan.infaq.detail', $warga->id)
-                ->with('success', 'Data infaq berhasil diperbarui.');
+                ->route('kemasjidan.infaq.detail', [$warga->id, 'tahun' => $tahun])
+                ->with('success', 'Infaq ' . $this->bulanNama($bulan) . " {$tahun} untuk {$warga->nama} tersimpan & jurnal tercatat.");
         });
     }
 
+    // =========================
+    // UPDATE (edit nominal/metode/keterangan) - aman: buat koreksi journal
+    // =========================
+    public function update(Request $request, $id)
+    {
+        // $id = id infaq_kemasjidans
+        $request->validate([
+            'tanggal' => ['nullable', 'date'],
+            'nominal' => ['required', 'numeric', 'gt:0'],
+            'metode_bayar' => ['nullable', 'string', 'max:50'],
+            'sumber' => ['nullable', 'string', 'max:100'],
+            'nama_donatur' => ['nullable', 'string', 'max:120'],
+            'no_hp' => ['nullable', 'string', 'max:50'],
+            'keterangan' => ['nullable', 'string'],
+        ]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $user = auth()->user();
+            $role = $user->role ?? 'Guest';
+            $bidangId = is_numeric($user->bidang_name ?? null) ? (int) $user->bidang_name : null;
+
+            /** @var InfaqKemasjidan $trx */
+            $trx = InfaqKemasjidan::lockForUpdate()->findOrFail($id);
+
+            $warga = Warga::find($trx->warga_id);
+
+            $oldNominal = (float) $trx->nominal;
+            $oldDebit = (int) ($trx->akun_debit_id ?? 0);
+            $oldKredit = (int) ($trx->akun_kredit_id ?? 0);
+            $oldKode = (string) ($trx->kode_transaksi ?? '');
+
+            $newTanggal = $request->filled('tanggal') ? $request->date('tanggal') : now();
+            $newNominal = (float) $request->nominal;
+            $newMetode = $request->metode_bayar;
+
+            // Recompute akun debit (kas/bank) jika metode berubah
+            $newDebit = $this->resolveAkunPenerimaanByMetode($role, $bidangId, $newMetode);
+            $newKredit = $this->COA_PENDAPATAN_INFAQ_KEMASJIDAN;
+
+            if (!$newDebit || !$newKredit) {
+                return back()->withInput()->with('error', 'Akun DEBIT/KREDIT belum dikonfigurasi.');
+            }
+
+            // Jika tidak ada perubahan signifikan, cukup update metadata
+            $needsCorrection = ($newNominal !== $oldNominal) || ($newDebit !== $oldDebit) || ($newKredit !== $oldKredit);
+
+            // Update record infaq_kemasjidans dulu
+            $trx->tanggal = $newTanggal ? $newTanggal->toDateString() : null;
+            $trx->nominal = (float) $newNominal;
+            $trx->metode_bayar = $newMetode;
+            $trx->sumber = $request->sumber;
+            $trx->nama_donatur = $request->nama_donatur ?? $trx->nama_donatur;
+            $trx->no_hp = $request->no_hp ?? $trx->no_hp;
+            $trx->keterangan = $request->keterangan;
+            $trx->akun_debit_id = $newDebit;
+            $trx->akun_kredit_id = $newKredit;
+            $trx->save();
+
+            // Jika butuh koreksi: JANGAN edit transaksi lama (audit trail).
+            // Buat 2 jurnal:
+            // (A) pembalik transaksi lama (kebalikan dari yang pernah diposting)
+            // (B) posting transaksi baru
+            if ($needsCorrection) {
+                try {
+                    $kodePrefix = $this->makeKodePrefix($role, $bidangId);
+                    $kodeKoreksi = $kodePrefix . '-INF-KMS-KOR-' . now()->format('YmdHis') . '-' . $trx->id;
+
+                    $namaBulan = $this->bulanNama((int) $trx->bulan);
+                    $tahun = (int) $trx->tahun;
+
+                    // A) REVERSAL: karena posting awal = penerimaan (debit kas/bank, kredit pendapatan),
+                    // reversal dibuat sebagai pengeluaran dengan amount yang sama pada akun debit lama.
+                    if ($oldNominal > 0 && $oldDebit && $oldKredit) {
+                        $reqReverse = new Request([
+                            'kode_transaksi' => $kodeKoreksi . '-REV',
+                            'tanggal_transaksi' => $newTanggal->toDateString(),
+                            'type' => 'pengeluaran',
+                            'deskripsi' => 'Koreksi (Reversal) Infaq Kemasjidan ' . $namaBulan . " {$tahun}"
+                                . ' - ref: ' . ($oldKode ?: $trx->id),
+                            'amount' => $oldNominal,
+                            'bidang_name' => $role === 'Bendahara' ? null : $bidangId,
+                        ]);
+                        $this->processTransactionCore($reqReverse, (int) $oldDebit, (int) $oldKredit);
+                    }
+
+                    // B) POST NEW
+                    $reqNew = new Request([
+                        'kode_transaksi' => $kodeKoreksi . '-NEW',
+                        'tanggal_transaksi' => $newTanggal->toDateString(),
+                        'type' => 'penerimaan',
+                        'deskripsi' => 'Koreksi (Posting Baru) Infaq Kemasjidan ' . $namaBulan . " {$tahun}"
+                            . ' - trxId: ' . $trx->id
+                            . ($newMetode ? ' [' . ucfirst($newMetode) . ']' : ''),
+                        'amount' => $newNominal,
+                        'bidang_name' => $role === 'Bendahara' ? null : $bidangId,
+                    ]);
+                    $this->processTransactionCore($reqNew, (int) $newDebit, (int) $newKredit);
+
+                    // simpan kode koreksi agar mudah dilacak
+                    $trx->kode_transaksi = $trx->kode_transaksi ?: $oldKode; // keep jika sudah ada
+                    $trx->keterangan = trim(($trx->keterangan ?? '') . ' | Koreksi journal: ' . $kodeKoreksi);
+                    $trx->save();
+                } catch (\Throwable $e) {
+                    Log::warning('Koreksi jurnal infaq gagal, rollback.', ['err' => $e->getMessage()]);
+                    throw $e;
+                }
+            }
+
+            return redirect()
+                ->route('kemasjidan.infaq.detail', [$trx->warga_id, 'tahun' => $trx->tahun])
+                ->with('success', 'Data infaq diperbarui.' . ($needsCorrection ? ' Koreksi jurnal dibuat (audit-safe).' : ''));
+        });
+    }
+
+    public function show(Request $request, $wargaId)
+    {
+        $tahun = (int) ($request->get('tahun', now()->year));
+        $warga = Warga::findOrFail($wargaId);
+
+        $bulanMap = $this->bulanMap();
+
+        $rows = InfaqKemasjidan::query()
+            ->where('warga_id', $warga->id)
+            ->where('tahun', $tahun)
+            ->get()
+            ->keyBy('bulan'); // 1..12
+
+        $bulanList = [];
+        $total = 0.0;
+
+        foreach (range(1, 12) as $b) {
+            $trx = $rows->get($b);
+            $nominal = (float) ($trx->nominal ?? 0);
+            $total += $nominal;
+
+            $bulanList[$b] = [
+                'nama' => $bulanMap[$b],
+                'trx' => $trx,
+                'nominal' => $nominal,
+                'lunas' => $nominal > 0,
+            ];
+        }
+
+        return view('bidang.kemasjidan.infaq.detail-infaq', [
+            'warga' => $warga,
+            'tahun' => $tahun,
+            'bulanList' => $bulanList,
+            'total' => $total,
+        ]);
+    }
+
+
+    // =========================
+    // RECEIPT: /kemasjidan/infaq/{warga}/{tahun}/{bulan}/receipt
+    // =========================
+    public function receipt($wargaId, $tahun, $bulan)
+    {
+        $tahun = (int) $tahun;
+        $bulan = (int) $bulan;
+        if ($bulan < 1 || $bulan > 12)
+            abort(404);
+
+        $warga = Warga::findOrFail($wargaId);
+
+        $trx = InfaqKemasjidan::query()
+            ->where('warga_id', $warga->id)
+            ->where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->first();
+
+        if (!$trx || (float) $trx->nominal <= 0) {
+            abort(404, 'Kwitansi belum tersedia untuk bulan ini.');
+        }
+
+        $bulanNama = $this->bulanNama($bulan);
+        $tanggal = $trx->tanggal ? \Carbon\Carbon::parse($trx->tanggal) : now();
+
+        $meta = $this->receiptFileMeta($warga, $tahun, $bulan, $trx);
+        $verifyUrl = route('kemasjidan.infaq.verify', [
+            'warga' => $warga->id,
+            'tahun' => $tahun,
+            'bulan' => $bulan,
+        ], true);
+
+        $qrSvg = QrCode::format('svg')->size(100)->margin(0)->generate($verifyUrl);
+        $qrSvg = preg_replace('/\s*(width|height)="[^"]*"/i', '', $qrSvg);
+
+        $payload = [
+            'warga' => $warga,
+            'trx' => $trx,
+            'tahun' => $tahun,
+            'bulan' => $bulan,
+            'bulanNama' => $bulanNama,
+            'nominal' => (float) $trx->nominal,
+            'tanggal' => $tanggal,
+            'kode' => $meta['kode'],
+            'verifyUrl' => $verifyUrl,
+            'qrSvg' => $qrSvg,
+            'watermark' => 'Sistem Informasi Infaq Bulanan Al Iman',
+            'alamatYayasan' => config('app.org_alamat', 'JL. Sutorejo Tengah X/2-4 Dukuh Sutorejo - Mulyorejo, Surabaya, Jawa Timur 60113'),
+            'teleponYayasan' => config('app.org_telp', '0853 6936 9517'),
+            'emailYayasan' => config('app.org_email', 'masjidalimansurabaya@gmail.com'),
+            'logoDataUri' => $this->logoToDataUri(public_path('img/photos/logo_yys.png')),
+            'ttdNama' => config('app.org_ttd_kemasjidan_nama', '____________________'),
+            'ttdJabatan' => config('app.org_ttd_kemasjidan_jabatan', 'Koordinator Bidang Kemasjidan'),
+        ];
+
+        // MODE PDF langsung download jika ?pdf=1
+        if (request()->boolean('pdf')) {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('bidang.kemasjidan.infaq.kwitansi', $payload)
+                ->setPaper('a6', 'portrait');
+
+            $pdf->setOption('isHtml5ParserEnabled', true);
+            $pdf->setOption('isRemoteEnabled', true);
+
+            $filename = 'Kwitansi-Infaq-Kemasjidan-' . $tahun . '-' . str_pad((string) $bulan, 2, '0', STR_PAD_LEFT) . '-' . \Illuminate\Support\Str::slug($warga->nama ?? 'warga') . '.pdf';
+            return $pdf->download($filename);
+        }
+
+        return view('bidang.kemasjidan.infaq.kwitansi', $payload);
+    }
+
+    // =========================
+    // VERIFY
+    // =========================
+    public function verifyReceipt($wargaId, $tahun, $bulan)
+    {
+        $tahun = (int) $tahun;
+        $bulan = (int) $bulan;
+        if ($bulan < 1 || $bulan > 12)
+            abort(404);
+
+        $warga = Warga::findOrFail($wargaId);
+
+        $trx = InfaqKemasjidan::query()
+            ->where('warga_id', $warga->id)
+            ->where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->first();
+
+        $valid = $trx && (float) $trx->nominal > 0;
+        $nominal = (float) ($trx->nominal ?? 0);
+
+        $bulanNama = $this->bulanNama($bulan);
+        $kode = $this->receiptFileMeta($warga, $tahun, $bulan, $trx)['kode'];
+
+        return view('bidang.kemasjidan.infaq.verify', [
+            'warga' => $warga,
+            'tahun' => $tahun,
+            'bulan' => $bulan,
+            'bulanNama' => $bulanNama,
+            'nominal' => $nominal,
+            'kode' => $kode,
+            'valid' => $valid,
+        ]);
+    }
+
+    // =========================
+    // CHECK PAID (AJAX)
+    // =========================
     public function checkPaid(Request $request)
     {
         $request->validate([
-            'hp' => ['required', 'string'],
-            'bulan' => ['required', Rule::in(InfaqSosial::monthColumns())],
+            'warga_id' => ['required', 'integer', 'exists:wargas,id'],
+            'tahun' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'bulan' => ['required', 'integer', 'min:1', 'max:12'],
         ]);
 
-        $warga = Warga::where('hp', $request->hp)->first();
-        if (!$warga) {
-            return response()->json(['found' => false, 'paid' => false]);
-        }
+        $paid = InfaqKemasjidan::query()
+            ->where('warga_id', (int) $request->warga_id)
+            ->where('tahun', (int) $request->tahun)
+            ->where('bulan', (int) $request->bulan)
+            ->where('nominal', '>', 0)
+            ->exists();
 
-        $infaq = InfaqSosial::where('warga_id', $warga->id)->first();
-        if (!$infaq) {
-            return response()->json(['found' => true, 'paid' => false]);
-        }
-
-        $paid = (float) $infaq->{$request->bulan} > 0;
         return response()->json(['found' => true, 'paid' => $paid]);
     }
 
+    // =========================
+    // LOOKUP WARGA by HP (AJAX)
+    // =========================
     /**
      * AJAX lookup warga by nomor HP (?hp=08xxxx)
      */
@@ -462,161 +573,28 @@ class KemasjidanController extends Controller
             ]
         ]);
     }
-
-    /**
-     * Detail per Warga
-     */
-    public function show($id)
+    // =========================
+    // UTIL: file meta & logo
+    // =========================
+    private function receiptFileMeta(Warga $warga, int $tahun, int $bulan, ?InfaqKemasjidan $trx): array
     {
-        $warga = Warga::with('infaq')->findOrFail($id);
-        $infaq = $warga->infaq;
+        $year = (string) $tahun;
+        $filename = "{$tahun}-{$warga->id}-" . str_pad((string) $bulan, 2, '0', STR_PAD_LEFT) . "-kwitansi.pdf";
+        $path = "receipts/infaq-kemasjidan/{$year}/{$filename}";
 
-        // siapkan ringkas status per bulan (Lunas/Belum)
-        $status = [];
-        if ($infaq) {
-            foreach (InfaqSosial::monthColumns() as $m) {
-                $status[$m] = ((float) $infaq->$m) > 0 ? 'Lunas' : 'Belum';
-            }
-        }
-
-        return view('bidang.kemasjidan.infaq.detail-infaq', compact('warga', 'infaq', 'status'));
-    }
-
-    public function receipt($wargaId, $bulan)
-    {
-        $bulan = strtolower($bulan);
-        if (!in_array($bulan, InfaqSosial::monthColumns(), true))
-            abort(404);
-
-        $warga = Warga::with('infaq')->findOrFail($wargaId);
-        $infaq = $warga->infaq;
-        $nominal = (float) ($infaq->$bulan ?? 0);
-        if ($nominal <= 0)
-            abort(404, 'Kwitansi belum tersedia untuk bulan ini.');
-
-        // meta & verify
-        $meta = $this->receiptFileMeta($warga, $bulan);
-        $verifyUrl = route('kemasjidan.infaq.verify', ['warga' => $warga->id, 'bulan' => $bulan, 'year' => $meta['year']], true);
-
-        // QR SVG → hapus width/height agar bisa dikecilkan lewat CSS
-        $qrSvg = QrCode::format('svg')->size(100)->margin(0)->generate($verifyUrl);
-        $qrSvg = preg_replace('/\s*(width|height)="[^"]*"/i', '', $qrSvg); // penting!
-
-        $payload = [
-            'warga' => $warga,
-            'bulan' => $bulan,
-            'nominal' => $nominal,
-            'tanggal' => now(),
-            'kode' => $meta['kode'],
-            'verifyUrl' => $verifyUrl,
-            'qrSvg' => $qrSvg,
-            'watermark' => 'Sistem Informasi Infaq Bulanan Al Iman',
-            'alamatYayasan' => config('app.org_alamat', 'JL. Sutorejo Tengah X/2-4 Dukuh Sutorejo - Mulyorejo, Surabaya, Jawa Timur 60113'),
-            'teleponYayasan' => config('app.org_telp', '0853 6936 9517'),
-            'emailYayasan' => config('app.org_email', 'masjidalimansurabaya@gmail.com'),
-            'logoDataUri' => $this->logoToDataUri(public_path('img/photos/logo_yys.png')),
-            'ttdNama' => config('app.org_ttd_sosial_nama', 'Bpk. Zainal Arifin'),
-            'ttdJabatan' => config('app.org_ttd_sosial_jabatan', 'Koordinator Bidang Sosial'),
-        ];
-
-        // === MODE PDF: langsung download (tanpa redirect) ===
-        if (request()->boolean('pdf')) {
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('bidang.kemasjidan.infaq.kwitansi', $payload)
-                ->setPaper('a4', 'portrait');
-
-            // opsi (jika perlu):
-            $pdf->setOption('isHtml5ParserEnabled', true);
-            $pdf->setOption('isRemoteEnabled', true);
-
-            $filename = 'Kwitansi-Infaq-' . strtoupper($bulan) . '-' . \Illuminate\Support\Str::slug($warga->nama ?? 'warga') . '.pdf';
-            return $pdf->download($filename); // ⬅️ ini yang bikin langsung download
-        }
-
-        // === MODE HTML (print-friendly) ===
-        return view('bidang.kemasjidan.infaq.kwitansi', $payload);
-    }
-
-    private function formatMsisdn62(string $hp): string
-    {
-        $num = preg_replace('/\D+/', '', $hp);
-        if (str_starts_with($num, '0'))
-            return '62' . substr($num, 1);
-        if (!str_starts_with($num, '62'))
-            return '62' . $num;
-        return $num;
-    }
-
-    private function generateReceiptPdf($warga, string $bulan, float $nominal): array
-    {
-        $bulan = strtolower($bulan);
-        $meta = $this->receiptFileMeta($warga, $bulan);
-
-        // 1) URL verifikasi (absolute)
-        $verifyUrl = route('kemasjidan.infaq.verify', [
-            'warga' => $warga->id,
-            'bulan' => $bulan,
-            'year' => $meta['year'],
-        ], true);
-
-        // 2) QR SVG
-        $qrSvg = QrCode::format('svg')->size(120)->margin(0)->generate($verifyUrl);
-
-        // 3) Reuse jika sudah ada
-        if (Storage::disk('public')->exists($meta['path'])) {
-            $url = url(Storage::disk('public')->url($meta['path']));
-            return ['path' => $meta['path'], 'url' => $url, 'kode' => $meta['kode'], 'verifyUrl' => $verifyUrl, 'qrSvg' => $qrSvg];
-        }
-
-        // 4) Render PDF baru
-        $pdf = PDF::loadView('bidang.kemasjidan.infaq.kwitansi', [
-            'warga' => $warga,
-            'bulan' => $bulan,
-            'nominal' => $nominal,
-            'tanggal' => now(),
-            'kode' => $meta['kode'],
-            'verifyUrl' => $verifyUrl,
-            'qrSvg' => $qrSvg,
-            'watermark' => 'Sistem Informasi Infaq Bulanan Al Iman',
-            'alamatYayasan' => config('app.org_alamat', 'Jl. Sutorejo Indah, Surabaya'),
-            'teleponYayasan' => config('app.org_telp', '031-xxxxxxx'),
-            'emailYayasan' => config('app.org_email', 'info@alimansurabaya.com'),
-            'logoDataUri' => $this->logoToDataUri(public_path('images/logo-yayasan.png')),
-        ])
-            ->setPaper('a5', 'portrait');
-
-        // Opsi dompdf (opsional): aktifkan SVG & remote
-        $pdf->setOption('isHtml5ParserEnabled', true);
-        $pdf->setOption('isRemoteEnabled', true);
-
-        Storage::disk('public')->put($meta['path'], $pdf->output());
-        $url = url(Storage::disk('public')->url($meta['path']));
-
-        return ['path' => $meta['path'], 'url' => $url, 'kode' => $meta['kode'], 'verifyUrl' => $verifyUrl, 'qrSvg' => $qrSvg];
-    }
-
-    /**
-     * Metadata file PDF (nama & path & kode)
-     */
-
-    private function receiptFileMeta($warga, string $bulan): array
-    {
-        $year = now()->format('Y');
-        $safeName = str($warga->nama ?? 'warga')->slug('-');
-        $filename = "{$year}-{$warga->id}-{$bulan}-kwitansi.pdf";
-        $path = "receipts/infaq/{$year}/{$filename}";
-        $kode = 'KW/' . $year . '/' . str_pad((string) ($warga->infaq->id ?? $warga->id), 5, '0', STR_PAD_LEFT);
+        // Kode kwitansi: KWKMS/YYYY/xxxxx (pakai id trx jika ada, fallback warga id)
+        $seq = $trx?->id ? (string) $trx->id : (string) $warga->id;
+        $kode = 'KWKMS/' . $year . '/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
 
         return compact('year', 'filename', 'path', 'kode');
     }
 
-    /**
-     * Convert logo file ke data-uri base64 (return null kalau tidak ada)
-     */
     private function logoToDataUri(?string $absPath): ?string
     {
         try {
             if (!$absPath || !file_exists($absPath))
                 return null;
+
             $mime = match (strtolower(pathinfo($absPath, PATHINFO_EXTENSION))) {
                 'svg' => 'image/svg+xml',
                 'jpg', 'jpeg' => 'image/jpeg',
@@ -624,62 +602,11 @@ class KemasjidanController extends Controller
                 'gif' => 'image/gif',
                 default => 'application/octet-stream',
             };
+
             $data = base64_encode(file_get_contents($absPath));
             return "data:{$mime};base64,{$data}";
         } catch (\Throwable $e) {
             return null;
         }
-    }
-
-    /**
-     * Kirim via WA (opsi #1 tanpa Cloud API): buat PDF + redirect ke wa.me
-     */
-    public function openWhatsappLink($wargaId, $bulan)
-    {
-        $bulan = strtolower($bulan);
-        if (!in_array($bulan, InfaqSosial::monthColumns(), true))
-            abort(404);
-
-        $warga = Warga::with('infaq')->findOrFail($wargaId);
-        $nominal = (float) ($warga->infaq->$bulan ?? 0);
-        if ($nominal <= 0)
-            abort(404, 'Kwitansi belum tersedia untuk bulan ini.');
-
-        $doc = $this->generateReceiptPdf($warga, $bulan, $nominal);
-        $to = $this->formatMsisdn62($warga->hp);
-
-        $msg = "Assalamualaikum, *{$warga->nama}*%0A"
-            . "Berikut kwitansi Infaq bulan *" . ucfirst($bulan) . "*:%0A"
-            . "Nominal: *Rp " . number_format($nominal, 0, ',', '.') . "*%0A"
-            . "Kode: {$doc['kode']}%0A"
-            . "Verifikasi: {$doc['verifyUrl']}%0A%0A"
-            . "Unduh kwitansi (PDF): {$doc['url']}%0A%0A"
-            . "Terima kasih.";
-
-        $waUrl = "https://wa.me/{$to}?text={$msg}";
-        return redirect()->away($waUrl);
-    }
-
-    /**
-     * Halaman verifikasi kwitansi (sederhana).
-     * Bisa ditingkatkan: cek hash, cek status DB, tanda tangan digital, dsb.
-     */
-    public function verifyReceipt($wargaId, $bulan, $year)
-    {
-        $bulan = strtolower($bulan);
-        if (!in_array($bulan, InfaqSosial::monthColumns(), true))
-            abort(404);
-
-        $warga = Warga::with('infaq')->findOrFail($wargaId);
-        $nominal = (float) ($warga->infaq->$bulan ?? 0);
-
-        return view('bidang.kemasjidan.infaq.verify', [
-            'warga' => $warga,
-            'bulan' => $bulan,
-            'year' => $year,
-            'nominal' => $nominal,
-            'kode' => 'KW/' . $year . '/' . str_pad((string) ($warga->infaq->id ?? $warga->id), 5, '0', STR_PAD_LEFT),
-            'valid' => $nominal > 0,
-        ]);
     }
 }

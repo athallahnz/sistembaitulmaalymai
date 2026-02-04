@@ -8,18 +8,32 @@
                 <a class="nav-icon dropdown-toggle" href="#" id="alertsDropdown" data-bs-toggle="dropdown">
                     <div class="position-relative">
                         <i class="align-middle" data-feather="bell"></i>
-                        <span class="indicator bg-danger text-white rounded-pill">
-                            {{ auth()->user()->unreadNotifications->count() }}
-                        </span>
+
+                        @php $unreadCount = auth()->user()?->unreadNotifications->count() ?? 0; @endphp
+                        @if ($unreadCount > 0)
+                            <span class="indicator bg-danger text-white rounded-pill">
+                                {{ $unreadCount }}
+                            </span>
+                        @endif
                     </div>
                 </a>
+
                 <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0" aria-labelledby="alertsDropdown">
                     <div class="dropdown-menu-header bg-primary text-white">
-                        {{ auth()->user()->unreadNotifications->count() }} Notifikasi Baru
+                        {{ $unreadCount }} Notifikasi Baru
                     </div>
+
                     <div class="list-group">
-                        @foreach (auth()->user()->unreadNotifications as $notification)
-                            <a href="#" class="list-group-item list-group-item-action">
+                        @forelse (auth()->user()->unreadNotifications as $notification)
+                            {{-- Form POST untuk mark 1 notifikasi --}}
+                            <form id="notif-read-{{ $notification->id }}"
+                                action="{{ route('notifications.readOne', $notification->id) }}" method="POST"
+                                class="d-none">
+                                @csrf
+                            </form>
+
+                            <a href="#" class="list-group-item list-group-item-action"
+                                onclick="event.preventDefault(); document.getElementById('notif-read-{{ $notification->id }}').submit();">
                                 <div class="row g-0 align-items-center">
                                     <div class="col-2">
                                         <i class="text-warning" data-feather="alert-circle"></i>
@@ -29,15 +43,29 @@
                                             {{ $notification->data['message'] ?? 'Pesan tidak tersedia' }}
                                         </div>
                                         <div class="text-muted small mt-1">
-                                            {{ $notification->created_at->diffForHumans() }}</div>
+                                            {{ $notification->created_at->diffForHumans() }}
+                                        </div>
                                     </div>
                                 </div>
                             </a>
-                        @endforeach
+                        @empty
+                            <div class="p-3 text-center text-muted small">
+                                Tidak ada notifikasi baru.
+                            </div>
+                        @endforelse
                     </div>
+
                     <div class="dropdown-menu-footer text-center">
-                        <a href="{{ route('notifications.markAsRead') }}" class="text-muted">Tandai semua sebagai
-                            dibaca</a>
+                        @if ($unreadCount > 0)
+                            <form action="{{ route('notifications.readAll') }}" method="POST" class="m-0">
+                                @csrf
+                                <button type="submit" class="btn btn-link text-muted p-0">
+                                    Tandai semua sebagai dibaca
+                                </button>
+                            </form>
+                        @else
+                            <span class="text-muted small">Semua notifikasi sudah dibaca</span>
+                        @endif
                     </div>
                 </div>
             </li>

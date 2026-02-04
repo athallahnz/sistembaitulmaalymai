@@ -53,6 +53,27 @@
                     </div>
                 @endif
 
+                @php
+                    $splitAsetNeto = function (array $rows) {
+                        $opening = collect($rows)->where('is_synthetic', false);
+                        $change = collect($rows)->where('is_synthetic', true);
+                        return [
+                            'openingRows' => $opening->values()->all(),
+                            'changeRows' => $change->values()->all(),
+                            'openingTotal' => $opening->sum('saldo'),
+                            'changeTotal' => $change->sum('saldo'),
+                            'endingTotal' => $opening->sum('saldo') + $change->sum('saldo'),
+                        ];
+                    };
+                @endphp
+
+                <div class="mb-2 text-muted">
+                    Periode perubahan aset neto:
+                    <strong>{{ optional($startDate)->format('d-m-Y') }}</strong>
+                    s.d.
+                    <strong>{{ optional($endDate)->format('d-m-Y') }}</strong>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-bordered align-middle">
                         <thead class="table-light">
@@ -164,61 +185,182 @@
                                 <td colspan="3">ASET NETO</td>
                             </tr>
 
-                            {{-- Aset Neto Tidak Terikat --}}
-                            @php $anTT = $kelompok['aset_neto_tidak_terikat'] ?? []; @endphp
-                            @if (!empty($anTT))
-                                <tr>
-                                    <td colspan="3" class="text-muted">Aset Neto Tidak Terikat</td>
-                                </tr>
-                                @foreach ($anTT as $row)
-                                    <tr>
-                                        <td>{{ $row['akun']->kode_akun }}</td>
-                                        <td>{{ $row['akun']->nama_akun }}</td>
-                                        <td class="text-end">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
-                                    </tr>
-                                @endforeach
-                            @endif
+                            <tr class="text-muted">
+                                <td colspan="3">
+                                    Rekonsiliasi Aset Neto (Saldo Awal + Perubahan = Saldo Akhir) |
+                                    Periode: {{ optional($startDate)->format('d-m-Y') }} s.d.
+                                    {{ optional($endDate)->format('d-m-Y') }}
+                                </td>
+                            </tr>
 
-                            {{-- Aset Neto Terikat Temporer --}}
-                            @php $anTemp = $kelompok['aset_neto_terikat_temporer'] ?? []; @endphp
-                            @if (!empty($anTemp))
-                                <tr>
-                                    <td colspan="3" class="text-muted pt-2">Aset Neto Terikat Temporer</td>
-                                </tr>
-                                @foreach ($anTemp as $row)
-                                    <tr>
-                                        <td>{{ $row['akun']->kode_akun }}</td>
-                                        <td>{{ $row['akun']->nama_akun }}</td>
-                                        <td class="text-end">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
-                                    </tr>
-                                @endforeach
-                            @endif
+                            @php
+                                $anTTData = $splitAsetNeto($kelompok['aset_neto_tidak_terikat'] ?? []);
+                                $anTempData = $splitAsetNeto($kelompok['aset_neto_terikat_temporer'] ?? []);
+                                $anPermData = $splitAsetNeto($kelompok['aset_neto_terikat_permanen'] ?? []);
 
-                            {{-- Aset Neto Terikat Permanen --}}
-                            @php $anPerm = $kelompok['aset_neto_terikat_permanen'] ?? []; @endphp
-                            @if (!empty($anPerm))
-                                <tr>
-                                    <td colspan="3" class="text-muted pt-2">Aset Neto Terikat Permanen</td>
-                                </tr>
-                                @foreach ($anPerm as $row)
+                                // ===== TOTAL GLOBAL ASET NETO =====
+                                $totalANOpening =
+                                    ($anTTData['openingTotal'] ?? 0) +
+                                    ($anTempData['openingTotal'] ?? 0) +
+                                    ($anPermData['openingTotal'] ?? 0);
+
+                                $totalANChange =
+                                    ($anTTData['changeTotal'] ?? 0) +
+                                    ($anTempData['changeTotal'] ?? 0) +
+                                    ($anPermData['changeTotal'] ?? 0);
+
+                                $totalANEnding =
+                                    ($anTTData['endingTotal'] ?? 0) +
+                                    ($anTempData['endingTotal'] ?? 0) +
+                                    ($anPermData['endingTotal'] ?? 0);
+                            @endphp
+
+                            {{-- ========= Aset Neto Tidak Terikat ========= --}}
+                            <tr>
+                                <td colspan="3" class="text-muted">Aset Neto Tidak Terikat</td>
+                            </tr>
+
+                            @if (!empty($anTTData['openingRows']))
+                                @foreach ($anTTData['openingRows'] as $row)
                                     <tr>
-                                        <td>{{ $row['akun']->kode_akun }}</td>
+                                        <td>{{ $row['akun']->kode_akun ?? '—' }}</td>
                                         <td>{{ $row['akun']->nama_akun }}</td>
                                         <td class="text-end">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
                                     </tr>
                                 @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada saldo awal (akun aset neto).
+                                    </td>
+                                </tr>
                             @endif
 
                             <tr class="table-light fw-bold">
-                                <td colspan="2" class="text-end">Total Aset Neto</td>
-                                <td class="text-end">{{ number_format($totalAsetNeto ?? 0, 0, ',', '.') }}</td>
+                                <td colspan="2" class="text-end">Saldo Awal Aset Neto Tidak Terikat</td>
+                                <td class="text-end">{{ number_format($anTTData['openingTotal'] ?? 0, 0, ',', '.') }}</td>
                             </tr>
 
-                            <tr class="table-secondary fw-bold">
-                                <td colspan="2" class="text-end">Total Liabilitas dan Aset Neto</td>
-                                <td class="text-end">
-                                    {{ number_format(($totalLiabilitas ?? 0) + ($totalAsetNeto ?? 0), 0, ',', '.') }}
+                            <tr class="table-warning fw-semibold">
+                                <td>—</td>
+                                <td class="fst-italic">Perubahan Aset Neto Tidak Terikat (Surplus/Defisit Periode Berjalan)
                                 </td>
+                                <td class="text-end">{{ number_format($anTTData['changeTotal'] ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+
+                            {{-- ✅ ganti jadi table-info agar "Saldo Akhir" beda jelas --}}
+                            <tr class="table-info fw-bold">
+                                <td colspan="2" class="text-end">Saldo Akhir Aset Neto Tidak Terikat</td>
+                                <td class="text-end">{{ number_format($anTTData['endingTotal'] ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+
+                            {{-- ========= Aset Neto Terikat Temporer ========= --}}
+                            <tr>
+                                <td colspan="3" class="text-muted pt-2">Aset Neto Terikat Temporer</td>
+                            </tr>
+
+                            @if (!empty($anTempData['openingRows']))
+                                @foreach ($anTempData['openingRows'] as $row)
+                                    <tr>
+                                        <td>{{ $row['akun']->kode_akun ?? '—' }}</td>
+                                        <td>{{ $row['akun']->nama_akun }}</td>
+                                        <td class="text-end">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
+                                    </tr>
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada saldo awal (akun aset neto
+                                        temporer).</td>
+                                </tr>
+                            @endif
+
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Saldo Awal Aset Neto Terikat Temporer</td>
+                                <td class="text-end">{{ number_format($anTempData['openingTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            <tr class="table-warning fw-semibold">
+                                <td>—</td>
+                                <td class="fst-italic">Perubahan Aset Neto Terikat Temporer (Surplus/Defisit Periode
+                                    Berjalan)</td>
+                                <td class="text-end">{{ number_format($anTempData['changeTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- ✅ ganti jadi table-info --}}
+                            <tr class="table-info fw-bold">
+                                <td colspan="2" class="text-end">Saldo Akhir Aset Neto Terikat Temporer</td>
+                                <td class="text-end">{{ number_format($anTempData['endingTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- ========= Aset Neto Terikat Permanen ========= --}}
+                            <tr>
+                                <td colspan="3" class="text-muted pt-2">Aset Neto Terikat Permanen</td>
+                            </tr>
+
+                            @if (!empty($anPermData['openingRows']))
+                                @foreach ($anPermData['openingRows'] as $row)
+                                    <tr>
+                                        <td>{{ $row['akun']->kode_akun ?? '—' }}</td>
+                                        <td>{{ $row['akun']->nama_akun }}</td>
+                                        <td class="text-end">{{ number_format($row['saldo'], 0, ',', '.') }}</td>
+                                    </tr>
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="3" class="text-muted fst-italic">Tidak ada saldo awal (akun aset neto
+                                        permanen).</td>
+                                </tr>
+                            @endif
+
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Saldo Awal Aset Neto Terikat Permanen</td>
+                                <td class="text-end">{{ number_format($anPermData['openingTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            <tr class="table-warning fw-semibold">
+                                <td>—</td>
+                                <td class="fst-italic">Perubahan Aset Neto Terikat Permanen (Surplus/Defisit Periode
+                                    Berjalan)</td>
+                                <td class="text-end">{{ number_format($anPermData['changeTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- ✅ ganti jadi table-info --}}
+                            <tr class="table-info fw-bold">
+                                <td colspan="2" class="text-end">Saldo Akhir Aset Neto Terikat Permanen</td>
+                                <td class="text-end">{{ number_format($anPermData['endingTotal'] ?? 0, 0, ',', '.') }}
+                                </td>
+                            </tr>
+
+                            {{-- ========= TOTAL REKONSILIASI ASET NETO ========= --}}
+                            {{-- ✅ dibuat super jelas: biru + text putih --}}
+                            <tr class="table-primary fw-bold text-white">
+                                <td colspan="2" class="text-end">Total Saldo Awal Aset Neto</td>
+                                <td class="text-end">{{ number_format($totalANOpening ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+
+                            <tr class="table-primary fw-bold text-white">
+                                <td colspan="2" class="text-end">
+                                    Total Perubahan Aset Neto<br>
+                                    <small class="fw-normal fst-italic text-black-50">(Surplus / Defisit Periode
+                                        Berjalan)</small>
+                                </td>
+                                <td class="text-end">{{ number_format($totalANChange ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+
+                            <tr class="table-primary fw-bold text-white">
+                                <td colspan="2" class="text-end">Total Saldo Akhir Aset Neto</td>
+                                <td class="text-end">{{ number_format($totalANEnding ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+
+                            {{-- ========= Total Aset Neto ========= --}}
+                            {{-- ✅ angka utama neraca: hijau --}}
+                            <tr class="table-success fw-bold">
+                                <td colspan="2" class="text-end">Total Aset Neto</td>
+                                <td class="text-end">{{ number_format($totalAsetNeto ?? 0, 0, ',', '.') }}</td>
                             </tr>
                         </tbody>
                     </table>

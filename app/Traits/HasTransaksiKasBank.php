@@ -268,4 +268,14 @@ trait HasTransaksiKasBank
             return back()->with('error', $e->getMessage())->withInput();
         }
     }
+
+    /**
+     * Untuk pemakaian internal (service/controller) agar bisa ikut rollback transaksi luar.
+     * Akan melempar Exception jika gagal (saldo kurang, validasi, dll).
+     */
+    protected function storeTransactionOrFail(Request $request, int $akunId, ?int $parentId)
+    {
+        return $this->processTransactionCore($request, $akunId, $parentId);
+    }
+
 }

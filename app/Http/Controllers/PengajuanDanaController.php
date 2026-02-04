@@ -38,12 +38,27 @@ class PengajuanDanaController extends Controller
                 ->addColumn('user_name', function ($row) {
                     return $row->pembuat->name ?? '-';
                 })
+                ->editColumn('status', function ($row) {
+                    $status = $row->status;
+
+                    $badgeClass = match ($status) {
+                        'Menunggu Verifikasi' => 'bg-warning text-dark',
+                        'Disetujui' => 'bg-primary',
+                        'Dicairkan' => 'bg-success',
+                        'Ditolak' => 'bg-danger',
+                        default => 'bg-secondary',
+                    };
+
+                    return '<span class="badge ' . $badgeClass . ' px-3 py-2 rounded-pill">' . e($status) . '</span>';
+                })
                 ->addColumn('aksi', function ($row) {
                     $role = auth()->user()->role;
                     $userId = auth()->user()->id;
+
                     $url = route('pengajuan.show', $row->id);
                     $exportUrl = route('pengajuan.export.pdf', $row->id);
 
+                    // Default: tombol Detail
                     $btnClass = 'btn-primary text-white rounded';
                     $icon = 'bi-eye';
                     $label = 'Detail';
@@ -52,30 +67,34 @@ class PengajuanDanaController extends Controller
                     $deleteBtn = '';
                     $canEdit = ($userId === $row->user_id);
 
+                    // ==============================
                     // Tombol Edit / Revisi + Delete
+                    // ==============================
                     if ($canEdit && ($row->status === 'Menunggu Verifikasi' || $row->status === 'Ditolak')) {
                         $btnLabel = ($row->status === 'Ditolak') ? 'Revisi' : 'Edit';
                         $btnClassRevisi = ($row->status === 'Ditolak') ? 'btn-danger' : 'btn-warning';
 
                         $editBtn = '
-        <button type="button"
-            class="btn btn-sm ' . $btnClassRevisi . ' rounded shadow-sm btn-edit-pengajuan"
-            data-id="' . $row->id . '"
-            data-bs-toggle="modal"
-            data-bs-target="#modalCreatePengajuan">
-            <i class="bi bi-pencil-square"></i> ' . $btnLabel . '
-        </button>';
+                <button type="button"
+                    class="btn btn-sm ' . $btnClassRevisi . ' rounded shadow-sm btn-edit-pengajuan"
+                    data-id="' . $row->id . '"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalCreatePengajuan">
+                    <i class="bi bi-pencil-square"></i> ' . $btnLabel . '
+                </button>';
 
                         $deleteBtn = '
-        <button type="button"
-            class="btn btn-sm btn-danger rounded shadow-sm btn-delete-pengajuan"
-            data-id="' . $row->id . '"
-            data-url="' . route('pengajuan.destroy', $row->id) . '">
-            <i class="bi bi-trash"></i> Hapus
-        </button>';
+                <button type="button"
+                    class="btn btn-sm btn-danger rounded shadow-sm btn-delete-pengajuan"
+                    data-id="' . $row->id . '"
+                    data-url="' . route('pengajuan.destroy', $row->id) . '">
+                    <i class="bi bi-trash"></i> Hapus
+                </button>';
                     }
 
+                    // ==============================
                     // Aksi utama (Detail / Review / Cairkan)
+                    // ==============================
                     if ($role == 'Manajer Keuangan' && $row->status == 'Menunggu Verifikasi') {
                         $btnClass = 'btn-warning text-dark rounded';
                         $icon = 'bi-clipboard-check';
@@ -87,25 +106,27 @@ class PengajuanDanaController extends Controller
                     }
 
                     $aksiBtn = '
-    <a href="' . $url . '"
-        class="btn btn-sm ' . $btnClass . ' rounded shadow-sm">
-        <i class="bi ' . $icon . '"></i> ' . $label . '
-    </a>';
+            <a href="' . $url . '"
+                class="btn btn-sm ' . $btnClass . ' rounded shadow-sm">
+                <i class="bi ' . $icon . '"></i> ' . $label . '
+            </a>';
 
                     $exportBtn = '
-    <a href="' . $exportUrl . '"
-        target="_blank"
-        class="btn btn-sm btn-outline-danger rounded shadow-sm">
-        <i class="bi bi-file-earmark-pdf"></i> PDF
-    </a>';
+            <a href="' . $exportUrl . '"
+                target="_blank"
+                class="btn btn-sm btn-outline-danger rounded shadow-sm">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </a>';
 
-                    // Wrapper:
-                    // - flex-column di mobile
-                    // - berubah jadi flex-row ketika >= sm (desktop/tab)
+                    // ==============================
+                    // WRAPPER RESPONSIVE:
+                    // - Mobile: flex-column (tombol vertikal)
+                    // - ≥ sm : flex-row (tombol sejajar seperti biasa)
+                    // ==============================
                     return '
-    <div class="d-flex flex-column flex-sm-row flex-sm-wrap gap-1" style="width:100%;">
-        ' . $editBtn . $deleteBtn . $aksiBtn . $exportBtn . '
-    </div>';
+            <div class="d-flex flex-column flex-sm-row flex-sm-wrap gap-1" style="width:100%;">
+                ' . $editBtn . $deleteBtn . $aksiBtn . $exportBtn . '
+            </div>';
                 })
                 ->rawColumns(['aksi', 'status'])
                 ->make(true);

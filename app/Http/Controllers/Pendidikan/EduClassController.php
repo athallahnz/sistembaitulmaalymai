@@ -2,73 +2,81 @@
 
 namespace App\Http\Controllers\Pendidikan;
 
+use App\Models\AkunKeuangan;
+use App\Models\EduClass;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use App\Models\EduClass;
-use App\Models\AkunKeuangan;
-use Yajra\DataTables\DataTables;
-
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class EduClassController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        $kelasList = EduClass::withCount('students')->get();
-        $eduClasses = EduClass::orderBy('tahun_ajaran', 'desc')->get();
-        $akunKeuangans = AkunKeuangan::where('parent_id', 202)->get();
-        return view('bidang.pendidikan.kelas.index', compact('kelasList', 'eduClasses', 'akunKeuangans'));
+        $akunKeuangans = AkunKeuangan::whereIn('parent_id', [201, 208])
+            ->orderBy('kode_akun')
+            ->get();
+
+        // Dropdown tahun: (tahun ini - 1) s/d (tahun ini + 5)
+        $currentYear = (int) date('Y');
+        $years = range($currentYear - 1, $currentYear + 5);
+        rsort($years);
+
+        return view('bidang.pendidikan.kelas.index', compact('akunKeuangans', 'years'));
     }
 
     public function data()
     {
-        $data = EduClass::withCount('students')->get();
+        $q = EduClass::query()
+            ->select('edu_classes.id', 'edu_classes.name', 'edu_classes.tahun_ajaran')
+            ->withCount('students')
+            ->orderBy('tahun_ajaran', 'desc')
+            ->orderBy('name');
 
-        return DataTables::of($data)
-            ->addColumn('students_count', function ($row) {
-                \Log::info($row); // cek di storage/logs/laravel.log
-                return $row->students_count ?? 0;
-            })
+        return DataTables::of($q)
+            ->addColumn('students_count', fn($row) => (int) ($row->students_count ?? 0))
             ->addColumn('actions', function ($row) {
-                $showUrl = route('edu_classes.show', $row->id);
-                $editUrl = route('edu_classes.edit', $row->id);
-                $deleteUrl = route('edu_classes.destroy', $row->id);
+                $showPageUrl = route('edu_classes.show', $row->id) . '?view=1'; // HTML
+                $editJsonUrl = route('edu_classes.show', $row->id);            // JSON
+                $updateUrl   = route('edu_classes.update', $row->id);
+                $deleteUrl   = route('edu_classes.destroy', $row->id);
 
-                $deleteButton = '';
-                if ($row->students_count == 0) {
-                    $deleteButton = '
-            <button type="button" class="btn btn-danger btn-sm btn-delete" data-url="' . $deleteUrl . '" title="Hapus">
+                $btnShow = '
+        <a href="' . $showPageUrl . '" class="btn btn-info btn-sm" title="Lihat">
+            <i class="bi bi-eye"></i>
+        </a>
+    ';
+
+                $btnEdit = '
+        <button type="button"
+            class="btn btn-warning btn-sm btn-edit"
+            title="Edit"
+            data-json-url="' . $editJsonUrl . '"
+            data-update-url="' . $updateUrl . '">
+            <i class="bi bi-pencil-square"></i>
+        </button>
+    ';
+
+                $btnDelete = '';
+                if ((int) $row->students_count === 0) {
+                    $btnDelete = '
+            <button type="button"
+                class="btn btn-danger btn-sm btn-delete"
+                title="Hapus"
+                data-url="' . $deleteUrl . '">
                 <i class="bi bi-trash"></i>
             </button>
         ';
                 }
 
-                return '
-        <a href="' . $showUrl . '" class="btn btn-info btn-sm" title="Lihat"><i class="bi bi-eye"></i></a>
-        <a href="' . $editUrl . '" class="btn btn-warning btn-sm" title="Edit"><i class="bi bi-pencil-square"></i></a>
-        ' . $deleteButton . '
-    ';
+                return '<div class="d-flex gap-1">' . $btnShow . $btnEdit . $btnDelete . '</div>';
             })
             ->rawColumns(['actions'])
             ->make(true);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return view('edu_classes.create');
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        // Validasi input
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'tahun_awal' => 'required|integer|min:2000|max:2099',
@@ -76,80 +84,112 @@ class EduClassController extends Controller
             'akun_keuangan_ids.*' => 'exists:akun_keuangans,id',
         ]);
 
-        // Buat format tahun_ajaran, misal 2025/2026
         $tahunAjaran = $validated['tahun_awal'] . '/' . ($validated['tahun_awal'] + 1);
 
-        // Simpan kelas
-        $eduClass = EduClass::create([
-            'name' => $validated['name'],
-            'tahun_awal' => $validated['tahun_awal'],
-            'tahun_ajaran' => $tahunAjaran,
-        ]);
+        // cegah duplikasi berdasarkan (name + tahun_ajaran)
+        $exists = EduClass::where('name', $validated['name'])
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->exists();
 
-        // Simpan relasi ke pivot table (jika ada akun keuangan yang dipilih)
-        if ($request->has('akun_keuangan_ids')) {
-            $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids']);
+        if ($exists) {
+            return back()->withInput()->withErrors([
+                'name' => 'Kelas dengan nama tersebut sudah ada pada tahun ajaran ini.',
+            ]);
         }
+
+        DB::transaction(function () use ($validated, $tahunAjaran) {
+            $eduClass = EduClass::create([
+                'name' => $validated['name'],
+                'tahun_ajaran' => $tahunAjaran,
+            ]);
+
+            $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids'] ?? []);
+        });
 
         return redirect()->route('edu_classes.index')
             ->with('success', 'Kelas baru berhasil ditambahkan.');
     }
 
-
     /**
-     * Display the specified resource.
+     * JSON untuk modal edit
      */
-    public function show(EduClass $eduClass)
+    public function show(Request $request, EduClass $eduClass)
     {
-        return view('bidang.pendidikan.kelas.show', compact('eduClass'));
+        // load relasi yang dibutuhkan
+        $eduClass->load(['akunKeuangans', 'students']);
+
+        // derive tahun_awal dari "2025/2026"
+        $tahunAwal = null;
+        if (!empty($eduClass->tahun_ajaran) && str_contains($eduClass->tahun_ajaran, '/')) {
+            $tahunAwal = (int) explode('/', $eduClass->tahun_ajaran)[0];
+        }
+
+        // Jika dipanggil untuk halaman (tombol show)
+        if ($request->boolean('view')) {
+            return view('bidang.pendidikan.kelas.show', compact('eduClass', 'tahunAwal'));
+        }
+
+        // Default: JSON untuk modal edit
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $eduClass->id,
+                'name' => $eduClass->name,
+                'tahun_awal' => $tahunAwal,
+                'tahun_ajaran' => $eduClass->tahun_ajaran,
+                'akun_keuangan_ids' => $eduClass->akunKeuangans->pluck('id')->map(fn($v) => (int)$v)->values(),
+            ],
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(EduClass $eduClass)
-    {
-        return view('bidang.pendidikan.kelas.edit', compact('eduClass'));
-    }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, EduClass $eduClass)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'tahun_awal' => 'required|integer|min:2000|max:2099',
+            'akun_keuangan_ids' => 'nullable|array',
+            'akun_keuangan_ids.*' => 'exists:akun_keuangans,id',
         ]);
 
         $tahunAjaran = $validated['tahun_awal'] . '/' . ($validated['tahun_awal'] + 1);
 
-        $eduClass->update([
-            'name' => $validated['name'],
-            'tahun_awal' => $validated['tahun_awal'],
-            'tahun_ajaran' => $tahunAjaran,
-        ]);
+        // cegah duplikasi berdasarkan (name + tahun_ajaran) kecuali id sendiri
+        $exists = EduClass::where('id', '!=', $eduClass->id)
+            ->where('name', $validated['name'])
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->exists();
+
+        if ($exists) {
+            return back()->withInput()->withErrors([
+                'name' => 'Kelas dengan nama tersebut sudah ada pada tahun ajaran ini.',
+            ]);
+        }
+
+        DB::transaction(function () use ($eduClass, $validated, $tahunAjaran) {
+            $eduClass->update([
+                'name' => $validated['name'],
+                'tahun_ajaran' => $tahunAjaran,
+            ]);
+
+            $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids'] ?? []);
+        });
 
         return redirect()->route('edu_classes.index')
             ->with('success', 'Data kelas berhasil diperbarui.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(EduClass $eduClass)
     {
-        // Cek apakah kelas masih memiliki murid
-        if ($eduClass->students()->count() > 0) {
+        if ($eduClass->students()->exists()) {
             return redirect()->route('edu_classes.index')
                 ->with('error', 'Kelas tidak dapat dihapus karena masih terdapat murid di dalamnya.');
         }
 
-        // Jika tidak ada murid, hapus kelas
+        $eduClass->akunKeuangans()->detach();
         $eduClass->delete();
 
         return redirect()->route('edu_classes.index')
             ->with('success', 'Data kelas berhasil dihapus.');
     }
-
 }

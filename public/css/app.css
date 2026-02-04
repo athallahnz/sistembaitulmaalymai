@@ -13451,3 +13451,18 @@ label[for="foto"]:hover i {
     transform: rotate(180deg);
 }
 
+/* memperhalus tap target */
+.btn,
+.form-control,
+.form-select {
+    border-radius: 0.75rem;
+}
+
+.nav-tabs .nav-link {
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+}
+
+.hover-shadow-sm:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.08);
+}

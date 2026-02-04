@@ -454,11 +454,23 @@
                         </a>
                     </li>
                 @elseif (auth()->user()->bidang && auth()->user()->bidang->name === 'Sosial')
-                    <li class="sidebar-header">Manajemen Infaq Bulanan</li>
+                    {{-- ===================== INFAQ SINOMAN ===================== --}}
+                    <li class="sidebar-header">Manajemen Infaq Sinoman</li>
+
                     <li class="sidebar-item {{ request()->routeIs('sosial.iuran.index') ? 'active' : '' }}">
                         <a class="sidebar-link" href="{{ route('sosial.iuran.index') }}">
                             <i class="align-middle" data-feather="archive"></i>
                             <span class="align-middle">Data Infaq Sinoman</span>
+                        </a>
+                    </li>
+
+                    {{-- ===================== DANA KEMATIAN ===================== --}}
+                    <li class="sidebar-header">Dana Kematian</li>
+
+                    <li class="sidebar-item {{ request()->routeIs('sosial.dana_kematian.pengeluaran') ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route('sosial.dana_kematian.pengeluaran') }}">
+                            <i class="align-middle" data-feather="heart"></i>
+                            <span class="align-middle">Pengeluaran Dana</span>
                         </a>
                     </li>
                 @endif

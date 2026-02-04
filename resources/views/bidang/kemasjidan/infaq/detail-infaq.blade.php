@@ -1,38 +1,50 @@
 @extends('layouts.app')
 
 @section('title', 'Detail Infaq Warga')
+
 @push('styles')
     <style>
-        .input-lunas {
-            background-color: #e6f7ee;
-            border: 1px solid #28a745;
+        .badge-lunas {
+            background: #198754;
         }
 
-        .input-belum {
-            background-color: #fdeaea;
-            border: 1px solid #dc3545;
+        .badge-belum {
+            background: #6c757d;
         }
     </style>
 @endpush
+
 @section('content')
     <div class="container py-4">
+
         {{-- ===== Header ===== --}}
         <header class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-            <h1 class="section-heading mb-1">
-                <span class="text-brown">Detail Infaq - Sdr. <strong>{{ $warga->nama ?? '-' }}</strong></span>
-            </h1>
+            <div>
+                <h1 class="section-heading mb-1">
+                    <span class="text-brown">Detail Infaq - Sdr. <strong>{{ $warga->nama ?? '-' }}</strong></span>
+                </h1>
+                <div class="text-muted small">
+                    HP: {{ $warga->hp ?? '-' }} • RT/No: {{ $warga->rt ?? '-' }}/{{ $warga->no ?? '-' }}
+                </div>
+            </div>
 
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('kemasjidan.infaq.index') }}" class="btn btn-outline-secondary">
-                    Kembali
-                </a>
-                {{-- bila perlu tambahkan tombol lain --}}
+                <a href="{{ route('kemasjidan.infaq.index') }}" class="btn btn-outline-secondary">Kembali</a>
+
+                {{-- tombol buka modal tambah infaq --}}
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                    data-bs-target="#modalCreateInfaqDetail">
+                    Tambah Infaq
+                </button>
             </div>
         </header>
 
         {{-- ===== Alerts ===== --}}
         @if (session('success'))
             <div class="alert alert-success shadow-sm">{{ session('success') }}</div>
+        @endif
+        @if (session('error'))
+            <div class="alert alert-danger shadow-sm">{{ session('error') }}</div>
         @endif
         @if ($errors->any())
             <div class="alert alert-danger shadow-sm">
@@ -44,276 +56,265 @@
             </div>
         @endif
 
-        {{-- ===== FORM UPDATE BULANAN ===== --}}
-        <div class="card glass shadow-sm border-0 mb-4">
-            <div class="card-body">
-                <form method="POST" action="{{ route('kemasjidan.infaq.update', $warga->id) }}" id="form-infaq-update"
-                    class="animate-fadein">
-                    @csrf
-                    @method('PUT')
+        {{-- ===== Filter Tahun ===== --}}
+        @php
+            $namaBulan = [
+                1 => 'Januari',
+                2 => 'Februari',
+                3 => 'Maret',
+                4 => 'April',
+                5 => 'Mei',
+                6 => 'Juni',
+                7 => 'Juli',
+                8 => 'Agustus',
+                9 => 'September',
+                10 => 'Oktober',
+                11 => 'November',
+                12 => 'Desember',
+            ];
+            $tahunSekarang = (int) ($tahun ?? now()->year);
+        @endphp
 
-                    @php
-                        $bulanList = [
-                            'januari',
-                            'februari',
-                            'maret',
-                            'april',
-                            'mei',
-                            'juni',
-                            'juli',
-                            'agustus',
-                            'september',
-                            'oktober',
-                            'november',
-                            'desember',
-                        ];
-                    @endphp
-                    <input type="hidden" name="metode_bayar" id="metode-bayar-detail">
-
-                    {{-- grid 4 kolom di md+, 2 kolom di sm --}}
-                    <div class="row g-3">
-                        @foreach ($bulanList as $bulan)
-                            @php
-                                $nominal = (float) ($infaq->$bulan ?? 0);
-                                $isLunas = $nominal > 0;
-                            @endphp
-
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <label class="form-label text-capitalize fw-semibold mb-1">{{ $bulan }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text {{ $isLunas ? 'input-lunas' : 'input-belum' }}">Rp</span>
-                                    <input type="text" inputmode="numeric" autocomplete="off" name="{{ $bulan }}"
-                                        class="form-control nominal-bulan {{ $isLunas ? 'input-lunas' : 'input-belum' }}"
-                                        value="{{ old($bulan, $nominal) }}">
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    {{-- total --}}
-                    <div class="row mt-4 g-3">
-                        <div class="col-12 col-md-6 col-lg-4">
-                            <label class="form-label fw-semibold">Total</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Rp</span>
-                                {{-- Display terformat --}}
-                                <input type="text" id="total-display" class="form-control" readonly
-                                    style="border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm);">
-                                {{-- Hidden untuk dikirim ke backend --}}
-                                <input type="hidden" name="total" id="total-infaq"
-                                    value="{{ old('total', $infaq->total ?? 0) }}">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
-                            Simpan
-                        </button>
-                        <a href="{{ route('kemasjidan.infaq.index') }}" class="btn btn-outline-secondary">
-                            Kembali
-                        </a>
-                    </div>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <form method="GET" action="{{ route('kemasjidan.infaq.detail', $warga->id) }}"
+                    class="d-flex gap-2 align-items-center">
+                    <label class="fw-semibold">Tahun</label>
+                    <input type="number" name="tahun" class="form-control" style="width:130px" min="2020"
+                        max="2100" value="{{ $tahunSekarang }}">
+                    <button class="btn btn-outline-primary" type="submit">Terapkan</button>
                 </form>
+
+                @php
+                    $totalTahun = $total ?? 0;
+                @endphp
+
+                <div class="text-end">
+                    <div class="text-muted small">Total Infaq Tahun {{ $tahunSekarang }}</div>
+                    <div class="fw-bold">Rp {{ number_format($totalTahun, 0, ',', '.') }}</div>
+                </div>
             </div>
         </div>
 
-        {{-- ===== STATUS PER BULAN + KWITANSI ===== --}}
-        <div class="card glass shadow-sm border-0">
+        {{-- ===== Tabel Status Per Bulan + Kwitansi ===== --}}
+        <div class="card shadow-sm border-0">
             <div class="card-body">
-                <h5 class="mb-3">Status Pembayaran Per Bulan</h5>
+                <h5 class="mb-3">Status Pembayaran Per Bulan ({{ $tahunSekarang }})</h5>
+
                 <div class="table-responsive">
                     <table class="table align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th>Bulan</th>
+                                <th style="width: 130px;">Bulan</th>
                                 <th>Nominal</th>
                                 <th>Status</th>
-                                <th>Kwitansi</th>
+                                <th style="width: 320px;">Aksi</th>
                             </tr>
                         </thead>
+
                         <tbody>
-                            @foreach ($bulanList as $bulan)
+                            @foreach ($bulanList as $bulanAngka => $data)
                                 @php
-                                    $nom = (float) ($infaq->$bulan ?? 0);
-                                    $lunas = $nom > 0;
+                                    $trx = $data['trx'];
+                                    $nom = (float) $data['nominal'];
+                                    $lunas = (bool) $data['lunas'];
                                 @endphp
+
                                 <tr>
-                                    <td class="text-capitalize fw-semibold">{{ $bulan }}</td>
-                                    <td>Rp{{ number_format($nom, 0, ',', '.') }}</td>
+                                    <td class="fw-semibold">{{ $data['nama'] }}</td>
+                                    <td>Rp {{ number_format($nom, 0, ',', '.') }}</td>
                                     <td>
                                         @if ($lunas)
-                                            <span class="badge text-bg-success text-white">Lunas</span>
+                                            <span class="badge badge-lunas text-white">Lunas</span>
                                         @else
-                                            <span class="badge text-bg-secondary">Belum Lunas</span>
+                                            <span class="badge badge-belum text-white">Belum</span>
                                         @endif
                                     </td>
-                                    <td class="d-flex gap-2">
+                                    <td class="d-flex flex-wrap gap-2">
                                         @if ($lunas)
                                             <a class="btn btn-sm btn-outline-primary"
-                                                href="{{ route('kemasjidan.infaq.receipt', ['warga' => $warga->id, 'bulan' => $bulan, 'pdf' => 1]) }}">
+                                                href="{{ route('kemasjidan.infaq.receipt', ['warga' => $warga->id, 'tahun' => $tahunSekarang, 'bulan' => $bulanAngka, 'pdf' => 1]) }}">
                                                 Cetak Kwitansi
                                             </a>
-                                            <a class="btn btn-sm btn-outline-success"
-                                                href="{{ route('kemasjidan.infaq.open-wa', ['warga' => $warga->id, 'bulan' => $bulan]) }}"
-                                                target="_blank">
-                                                Kirim via WhatsApp
-                                            </a>
                                         @else
-                                            <button class="btn btn-sm btn-outline-secondary" disabled>Belum
-                                                tersedia</button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-infaq"
+                                                data-bulan="{{ $bulanAngka }}" data-tahun="{{ $tahunSekarang }}"
+                                                data-bs-toggle="modal" data-bs-target="#modalCreateInfaqDetail">
+                                                Tambah Infaq
+                                            </button>
                                         @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
+
                     </table>
                 </div>
             </div>
         </div>
 
     </div>
+
+    {{-- ================= MODAL TAMBAH INFAQ (DETAIL) ================= --}}
+    <div class="modal fade" id="modalCreateInfaqDetail" tabindex="-1" aria-labelledby="modalCreateInfaqDetailLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="form-infaq-detail" method="POST" action="{{ route('kemasjidan.infaq.store') }}">
+                    @csrf
+
+                    <input type="hidden" name="warga_id" value="{{ $warga->id }}">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalCreateInfaqDetailLabel">Tambah Infaq Bulanan</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Nama Warga</label>
+                                <input type="text" class="form-control" value="{{ $warga->nama }}" readonly>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Tahun <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" name="tahun" id="tahun-detail-modal"
+                                    min="2020" max="2100" value="{{ $tahunSekarang }}" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Bulan <span class="text-danger">*</span></label>
+                                <select class="form-select" name="bulan" id="bulan-detail-modal" required>
+                                    @foreach ($namaBulan as $k => $v)
+                                        <option value="{{ $k }}">{{ $v }}</option>
+                                    @endforeach
+                                </select>
+                                <div id="paid-hint-detail" class="form-text text-danger d-none">
+                                    Infaq bulan & tahun ini sudah ada.
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Nominal (Rp) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control" name="nominal" id="nominal-detail-modal"
+                                        step="10000" min="1" required>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-2">
+                                    @foreach ([50000, 100000, 200000, 500000] as $n)
+                                        <button type="button" class="btn btn-sm btn-outline-primary set-nominal-detail"
+                                            data-amount="{{ $n }}">
+                                            {{ number_format($n, 0, ',', '.') }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Metode Pembayaran</label>
+                                <select class="form-select" name="metode_bayar" id="metode-detail-modal">
+                                    <option value="">-- Pilih Metode --</option>
+                                    <option value="tunai">Tunai</option>
+                                    <option value="transfer">Transfer</option>
+                                </select>
+
+                                <div class="row g-2 mt-1">
+                                    <div class="col-6">
+                                        <label class="form-label">Sumber (opsional)</label>
+                                        <input type="text" class="form-control" name="sumber"
+                                            placeholder="Kotak infaq/transfer/dll">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Keterangan (opsional)</label>
+                                        <input type="text" class="form-control" name="keterangan"
+                                            placeholder="Catatan tambahan">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btn-submit-detail">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('.nominal-bulan');
-            const totalHidden = document.getElementById('total-infaq'); // nilai murni untuk submit
-            const totalDisplay = document.getElementById('total-display'); // tampilan terformat
+            const form = document.getElementById('form-infaq-detail');
+            const btnSubmit = document.getElementById('btn-submit-detail');
+            const paidHint = document.getElementById('paid-hint-detail');
 
-            function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-                var n = !isFinite(+number) ? 0 : +number,
-                    prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                    sep = thousands_sep,
-                    dec = dec_point,
-                    s = '',
-                    toFixedFix = function(n, prec) {
-                        var k = Math.pow(10, prec);
-                        return '' + Math.round(n * k) / k;
-                    };
-                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-                if (s[0].length > 3) s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-                if ((s[1] || '').length < prec) {
-                    s[1] = s[1] || '';
-                    s[1] += new Array(prec - s[1].length + 1).join('0');
-                }
-                return s.join(dec);
-            }
+            const wargaId = {{ (int) $warga->id }};
+            const inpTahun = document.getElementById('tahun-detail-modal');
+            const selBulan = document.getElementById('bulan-detail-modal');
 
-            function formatInput(input) {
-                const raw = (input.value || '').replace(/\D/g, '');
-                input.dataset.raw = raw; // simpan angka murni
-                input.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
-            }
-
-            function hitungTotal() {
-                let total = 0;
-                inputs.forEach(i => {
-                    const raw = i.dataset.raw ?? i.value.replace(/\D/g, '');
-                    const val = parseInt(raw || '0', 10);
-                    if (!isNaN(val)) total += val;
+            // quick nominal
+            document.querySelectorAll('.set-nominal-detail').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('nominal-detail-modal').value = btn.dataset.amount;
                 });
-                totalHidden.value = total; // untuk submit
-                totalDisplay.value = number_format(total, 0, ',', '.'); // tampilan
-            }
-
-            // init format saat load
-            inputs.forEach(i => {
-                formatInput(i);
-                i.addEventListener('input', e => {
-                    formatInput(e.target);
-                    hitungTotal();
-                });
-                i.addEventListener('blur', e => {
-                    formatInput(e.target);
-                    hitungTotal();
-                });
-                i.addEventListener('change', hitungTotal);
             });
-            hitungTotal();
 
-            // sebelum submit: munculkan pilihan metode bayar (Tunai / Transfer)
-            const form = document.getElementById('form-infaq-update');
-            const metodeInput = document.getElementById('metode-bayar-detail');
-
-            function prepareAndSubmit(metode) {
-                if (metodeInput) {
-                    metodeInput.value = metode || ''; // 'tunai' / 'transfer' / ''
-                }
-
-                // bersihkan semua input agar backend nerima angka murni
-                inputs.forEach(i => {
-                    const raw = i.dataset.raw ?? i.value.replace(/\D/g, '');
-                    i.value = raw;
+            // ketika klik "Tambah Infaq" dari tabel, set bulan otomatis
+            document.querySelectorAll('.btn-add-infaq').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const b = btn.dataset.bulan;
+                    const t = btn.dataset.tahun;
+                    if (inpTahun) inpTahun.value = t;
+                    if (selBulan) selBulan.value = b;
+                    checkPaid();
                 });
+            });
 
-                form.submit();
-            }
+            async function checkPaid() {
+                const tahun = (inpTahun?.value || '').trim();
+                const bulan = (selBulan?.value || '').trim();
+                if (!tahun || !bulan) return;
 
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
+                const url =
+                    `{{ route('kemasjidan.infaq.check') }}?warga_id=${encodeURIComponent(wargaId)}&tahun=${encodeURIComponent(tahun)}&bulan=${encodeURIComponent(bulan)}`;
 
-                // cek: apakah ada minimal satu bulan yang diisi (biar nggak ganggu kalau kosong semua)
-                let adaIsi = false;
-                inputs.forEach(i => {
-                    const raw = (i.dataset.raw ?? i.value.replace(/\D/g, '')) || '0';
-                    if (parseInt(raw, 10) > 0) {
-                        adaIsi = true;
+                const res = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
                     }
                 });
 
-                if (!adaIsi) {
-                    // kalau nggak ada perubahan nilai, langsung submit tanpa set metode
-                    prepareAndSubmit('');
-                    return;
-                }
+                // DEBUG penting:
+                console.log('checkPaid status:', res.status, 'url:', url);
+                const text = await res.text();
+                console.log('checkPaid raw response:', text);
 
-                Swal.fire({
-                    title: 'Pilih Metode Pembayaran',
-                    html: `
-                        <div class="d-flex justify-content-center gap-2 mt-3">
-                            <button id="btn-tunai" class="swal2-confirm swal2-styled"
-                                style="display:block; width:100%; background:#198754;">
-                                Tunai (Cash)
-                            </button>
+                // kalau response bukan JSON, ini akan kelihatan di console
+                const data = JSON.parse(text);
 
-                            <button id="btn-transfer" class="swal2-confirm swal2-styled"
-                                style="display:block; width:100%; background:#0d6efd;">
-                                Transfer
-                            </button>
-                        </div>
+                const paid = !!data.paid;
+                paidHint.classList.toggle('d-none', !paid);
+                btnSubmit.disabled = paid;
+            }
 
-                        <div class="d-flex justify-content-center mt-3">
-                            <button id="btn-cancel" class="swal2-cancel swal2-styled"
-                                style="display:block; width:100%; background:#6c757d; margin-top:10px;">
-                                Batal
-                            </button>
-                        </div>
-                    `,
-                    showConfirmButton: false,
-                    showCancelButton: false,
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        const btnTunai = document.getElementById('btn-tunai');
-                        const btnTransfer = document.getElementById('btn-transfer');
-                        const btnCancel = document.getElementById('btn-cancel');
+            if (inpTahun) inpTahun.addEventListener('input', checkPaid);
+            if (selBulan) selBulan.addEventListener('change', checkPaid);
 
-                        btnTunai.addEventListener('click', () => {
-                            prepareAndSubmit('tunai');
-                            Swal.close();
-                        });
-
-                        btnTransfer.addEventListener('click', () => {
-                            prepareAndSubmit('transfer');
-                            Swal.close();
-                        });
-
-                        btnCancel.addEventListener('click', () => Swal.close());
-                    }
+            // cek awal saat modal dibuka
+            const modalEl = document.getElementById('modalCreateInfaqDetail');
+            if (modalEl) {
+                modalEl.addEventListener('show.bs.modal', () => {
+                    paidHint.classList.add('d-none');
+                    btnSubmit.disabled = false;
+                    checkPaid();
                 });
-            });
+            }
         });
     </script>
 @endpush

@@ -21,15 +21,24 @@
                     <li class="nav-item me-2">
                         <a href="{{ route('warga.dashboard') }}"
                             class="nav-link {{ request()->routeIs('warga.dashboard') ? 'active' : '' }}">
-                            Beranda
+                            Dashboard
                         </a>
                     </li>
+
                     <li class="nav-item me-2">
-                        <a href="{{ route('warga.tracking') }}"
-                            class="nav-link {{ request()->routeIs('warga.tracking') ? 'active' : '' }}">
-                            Tracking
+                        <a href="{{ route('warga.infaq') }}"
+                            class="nav-link {{ request()->routeIs('warga.infaq') ? 'active' : '' }}">
+                            Infaq
                         </a>
                     </li>
+
+                    <li class="nav-item me-2">
+                        <a href="{{ route('warga.iuran') }}"
+                            class="nav-link {{ request()->routeIs('warga.iuran') ? 'active' : '' }}">
+                            Iuran Sosial
+                        </a>
+                    </li>
+
                     <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
                         <form action="{{ route('warga.logout') }}" method="POST" class="d-inline">
                             @csrf
@@ -40,9 +49,9 @@
                     </li>
                 @else
                     <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
-                        <button href="{{ route('warga.login.form') }}" class="btn btn-ms btn-brown">
+                        <a href="{{ route('warga.login.form') }}" class="btn btn-ms btn-brown">
                             Login
-                        </button>
+                        </a>
                     </li>
                 @endif
             </ul>

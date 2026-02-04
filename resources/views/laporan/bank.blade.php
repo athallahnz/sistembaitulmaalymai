@@ -177,11 +177,12 @@
             select.innerHTML = '<option value="">Pilih Akun</option>';
 
             // Filter tipe_akun
-            const filterType = type === 'penerimaan' ? 'revenue' : 'expense';
+            const filterType =
+                type === 'penerimaan' ? ['revenue', 'asset', 'liability'] : ['expense', 'asset', 'liability'];
 
             // Tambahkan option sesuai tipe
             akunTanpaParent
-                .filter(a => a.tipe_akun === filterType)
+                .filter(a => filterType.includes(a.tipe_akun))
                 .forEach(a => {
                     const opt = document.createElement('option');
                     opt.value = a.id;

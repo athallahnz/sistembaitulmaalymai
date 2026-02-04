@@ -7,6 +7,7 @@ use App\Models\EduPayment;
 use App\Models\Piutang;
 use App\Models\Student;
 use App\Models\Transaksi;
+use App\Models\Ledger;
 use App\Models\EduClass;
 use App\Services\RevenueRecognitionService;
 use App\Services\StudentPaymentService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Log;
 
 class EduPaymentController extends Controller
 {
@@ -52,20 +54,36 @@ class EduPaymentController extends Controller
 
     public function show(Student $student)
     {
-        // Ambil total biaya dari student_cost
-        $totalBiaya = DB::table('student_costs')
+        // Total biaya dari student_costs
+        $totalBiaya = (float) DB::table('student_costs')
             ->where('student_id', $student->id)
             ->sum('jumlah');
 
-        // Ambil total pembayaran dari edu_payment
-        $totalBayar = DB::table('edu_payments')
+        // Total pembayaran dari edu_payments
+        $totalBayar = (float) DB::table('edu_payments')
             ->where('student_id', $student->id)
             ->sum('jumlah');
 
-        // Sisa tanggungan
+        // Sisa tanggungan (jika Anda ingin tetap "biaya - bayar")
         $sisa = $totalBiaya - $totalBayar;
 
-        // Ambil data pembayaran
+        // Total yang sudah diakui pendapatan (berdasarkan ledger credit)
+        $akunPBDPMB = config('akun.pendapatan_belum_diterima_pmb'); // 50012
+
+        $totalRecognized = (float) Ledger::query()
+            ->join('transaksis', 'transaksis.id', '=', 'ledgers.transaksi_id')
+            ->where('transaksis.type', 'pengakuan_pendapatan')
+            ->where('transaksis.student_id', $student->id)
+            ->where('transaksis.akun_keuangan_id', $akunPBDPMB) // ✅ PMB-only
+            ->sum('ledgers.credit');
+
+        // (Opsional tapi sangat direkomendasikan)
+        // Nominal yang masih bisa diakui sekarang = min(totalBayar, totalBiaya) - totalRecognized
+        $capPaid = min($totalBayar, $totalBiaya);
+        $remainingRecognizable = round($capPaid - $totalRecognized, 2);
+        $remainingRecognizable = max(0, $remainingRecognizable);
+
+        // Riwayat pembayaran
         $payments = DB::table('edu_payments')
             ->where('student_id', $student->id)
             ->orderBy('tanggal', 'desc')
@@ -76,6 +94,8 @@ class EduPaymentController extends Controller
             'totalBiaya' => $totalBiaya,
             'totalBayar' => $totalBayar,
             'sisa' => $sisa,
+            'totalRecognized' => $totalRecognized,
+            'remainingRecognizable' => $remainingRecognizable, // opsional
             'payments' => $payments,
         ]);
     }
@@ -85,39 +105,40 @@ class EduPaymentController extends Controller
         $request->validate([
             'student_id' => 'required|exists:students,id',
             'jumlah' => 'required|numeric|min:1000',
-            'metode' => 'required|in:tunai,transfer'
+            'metode' => 'required|in:tunai,transfer',
         ]);
 
-        // Ambil data student beserta relasi biaya dan pembayaran
-        $student = Student::with(['biaya', 'payments'])->findOrFail($request->student_id);
+        $student = Student::with('biaya')->findOrFail($request->student_id);
 
-        // Hitung total biaya dan total bayar
-        $totalBiaya = $student->biaya->sum('jumlah');
-        $totalBayar = $student->payments->sum('jumlah');
+        // Total biaya PMB (sum student_costs)
+        $totalBiaya = (int) $student->biaya->sum('jumlah');
+
+        // Total bayar PMB dihitung dari edu_payment_items (bill_type=pmb)
+        $totalBayar = (int) \App\Models\EduPaymentItem::query()
+            ->where('bill_type', 'pmb')
+            ->whereIn('bill_id', $student->biaya->pluck('id'))
+            ->sum('amount');
+
         $sisa = $totalBiaya - $totalBayar;
 
-        // Jika sudah lunas atau tidak ada sisa, tolak pembayaran
         if ($sisa <= 0) {
-            return back()->with(['error' => 'Pembayaran ditolak: Siswa sudah lunas.']);
+            return back()->with('error', 'Pembayaran ditolak: PMB siswa sudah lunas.');
         }
 
-        // Jika jumlah pembayaran melebihi sisa, juga bisa batasi (opsional)
-        if ($request->jumlah > $sisa) {
-            return back()->with(['error' => "Pembayaran melebihi sisa tagihan Rp " . number_format($sisa, 0, ',', '.')]);
+        $jumlahBayar = (int) $request->jumlah;
+        if ($jumlahBayar > $sisa) {
+            return back()->with('error', "Pembayaran melebihi sisa tagihan Rp " . number_format($sisa, 0, ',', '.'));
         }
 
-        // Simpan pembayaran
-        EduPayment::create([
-            'student_id' => $request->student_id,
-            'jumlah' => $request->jumlah,
-            'tanggal' => now(),
-            'verifikasi_token' => Str::random(20),
-        ]);
+        DB::transaction(function () use ($student, $jumlahBayar, $request) {
+            StudentPaymentService::payPMB(
+                student: $student,
+                amount: $jumlahBayar,
+                metode: $request->metode
+            );
+        });
 
-        // Trigger jurnal double-entry
-        StudentPaymentService::recordPayment($student, $request->jumlah, $request->metode);
-
-        return back()->with('success', 'Pembayaran berhasil disimpan!');
+        return back()->with('success', 'Pembayaran PMB berhasil disimpan!');
     }
 
     public function getData(Request $request)
@@ -293,61 +314,41 @@ class EduPaymentController extends Controller
             // ->setPaper([0, 0, 164, 500]) // Lebar 58mm, tinggi 176mm
             ->stream($namaFile);
     }
-    public function recognizePMB(Student $student)
+
+    // public function recognizePmbPreview(Student $student)
+    // {
+    //     return response()->json(
+    //         RevenueRecognitionService::previewPMBRecognitionManual($student)
+    //     );
+    // }
+
+    public function recognizePmbPreview(Student $student)
     {
-        $akunPiutangPMB = config('akun.piutang_pmb'); // 1032
-
-        // Ambil piutang utama PMB untuk siswa ini
-        $piutang = Piutang::where('student_id', $student->id)
-            ->where('akun_keuangan_id', $akunPiutangPMB)
-            ->orderBy('id', 'asc')
-            ->first();
-
-        // 1) Kalau piutang TIDAK ADA → anggap tagihan PMB belum pernah dibuat → BLOK
-        if (!$piutang) {
-            return back()->with(
-                'error',
-                "Pengakuan pendapatan PMB untuk {$student->name} tidak dapat dilakukan karena tagihan PMB belum terdaftar (piutang tidak ditemukan)."
-            );
-        }
-
-        // 2) Kalau piutang MASIH ADA SISA (> 0) → BELUM LUNAS → BLOK
-        if ($piutang->jumlah > 0 && $piutang->status === 'belum_lunas') {
-            return back()->with(
-                'error',
-                "Pengakuan pendapatan PMB untuk {$student->name} belum dapat dilakukan karena tagihan PMB masih BELUM LUNAS (sisa: " .
-                number_format($piutang->jumlah, 0, ',', '.') . ")."
-            );
-        }
-
-        // 3) Opsional: kalau status belum diset 'lunas' tapi jumlah sudah 0, kita bisa rapikan:
-        if ($piutang->jumlah <= 0 && $piutang->status !== 'lunas') {
-            $piutang->update([
-                'jumlah' => 0,
-                'status' => 'lunas',
-                'deskripsi' => 'Auto-set lunas sebelum pengakuan pendapatan PMB',
-            ]);
-        }
-
-        // 4) Cek apakah sudah pernah dilakukan pengakuan pendapatan PMB
-        $sudahRecognized = Transaksi::where('type', 'pengakuan_pendapatan')
-            ->where('sumber', $student->id)
-            ->exists();
-
-        if ($sudahRecognized) {
-            return back()->with(
-                'error',
-                "Pengakuan pendapatan PMB untuk {$student->name} sudah pernah dilakukan sebelumnya."
-            );
-        }
-
-        // 5) Baru jalankan pengakuan pendapatan
-        RevenueRecognitionService::recognizePMB($student);
-
-        return back()->with(
-            'success',
-            "Pengakuan pendapatan PMB untuk {$student->name} berhasil diproses."
-        );
+        $payload = RevenueRecognitionService::previewPMBRecognitionManual($student);
+        Log::info('PMB Preview', $payload);
+        return response()->json($payload);
     }
 
+    public function recognizePMB(Request $request, Student $student)
+    {
+        $request->validate([
+            'akun_keuangan_id' => ['required', 'integer'],
+        ]);
+
+        $selectedAkunId = (int) $request->akun_keuangan_id;
+
+        $amountToRecognize = RevenueRecognitionService::getRecognizableAmountPMB($student);
+
+        if ($amountToRecognize <= 0) {
+            return back()->with('error', "Tidak ada nominal PMB yang dapat diakui untuk {$student->name}.");
+        }
+
+        $result = RevenueRecognitionService::recognizePMBManualBySelectedCoa($student, $amountToRecognize, $selectedAkunId);
+
+        if (!$result['ok']) {
+            return back()->with('error', $result['message']);
+        }
+
+        return back()->with('success', $result['message']);
+    }
 }

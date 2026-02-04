@@ -23,6 +23,8 @@ class Transaksi extends Model
         'saldo',
         'user_id',      // user yang membuat transaksi
         'updated_by',   // user yang terakhir meng-update
+        'sumber', // bisa diisi sesuai kebutuhan
+        'student_id', // relasi ke siswa, nullable
     ];
 
     // =================== SCOPE ===================
@@ -91,7 +93,7 @@ class Transaksi extends Model
     {
         return $this->belongsTo(Bidang::class, 'bidang_name', 'name');
     }
-    
+
     // =================== USER LOG ===================
 
     /**

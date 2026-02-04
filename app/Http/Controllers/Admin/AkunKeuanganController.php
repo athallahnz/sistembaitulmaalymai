@@ -23,6 +23,18 @@ class AkunKeuanganController extends Controller
      */
     public function dataTable()
     {
+        $query = AkunKeuangan::query()
+            ->select([
+                'id',
+                'kode_akun',
+                'nama_akun',
+                'tipe_akun',
+                'parent_id',
+                'saldo_normal',
+                'is_kas_bank',
+                'cashflow_category'
+            ])
+            ->with(['parentAkun:id,kode_akun,nama_akun']);
         $query = AkunKeuangan::with('parentAkun');
 
         return DataTables::of($query)
@@ -96,16 +108,25 @@ class AkunKeuanganController extends Controller
                 'kode_akun' => 'required|unique:akun_keuangans,kode_akun',
                 'nama_akun' => 'required|string|max:255',
                 'tipe_akun' => 'required|in:asset,liability,revenue,expense,equity',
-
                 'kategori_psak' => 'nullable|in:aset_lancar,aset_tidak_lancar,liabilitas_jangka_pendek,liabilitas_jangka_panjang,aset_neto_tidak_terikat,aset_neto_terikat_temporer,aset_neto_terikat_permanen,pendapatan,beban',
                 'pembatasan' => 'nullable|in:tidak_terikat,terikat_temporer,terikat_permanen',
-
                 'saldo_normal' => 'required|in:debit,kredit',
                 'is_kas_bank' => 'required|boolean',
-
                 'parent_id' => 'nullable|exists:akun_keuangans,id',
                 'cashflow_category' => 'nullable|in:operasional,investasi,pendanaan',
                 'icon' => 'nullable|string|max:255',
+                'show_on_dashboard'   => 'required|boolean',
+                'dashboard_scope'     => 'nullable|in:BIDANG,BENDAHARA,YAYASAN,BOTH',
+                'dashboard_section'   => 'nullable|in:asset,liability,revenue,expense,kpi',
+                'dashboard_calc'      => 'nullable|in:rollup_children_period,rollup_children_ytd,balance_asof,custom',
+                'dashboard_order'     => 'nullable|integer',
+                'dashboard_title'     => 'nullable|string|max:255',
+                'dashboard_link_route' => 'nullable|string|max:255',
+                'dashboard_link_param' => 'nullable|string|max:255',
+                'dashboard_format'    => 'nullable|in:currency,number',
+                'dashboard_masked'    => 'nullable|boolean',
+                'dashboard_icon'      => 'nullable|string|max:255',
+
             ]);
 
             Log::info('Validasi sukses', ['validatedData' => $validatedData]);
@@ -117,7 +138,6 @@ class AkunKeuanganController extends Controller
             return redirect()
                 ->route('admin.akun_keuangan.index')
                 ->with('success', 'Akun Keuangan berhasil ditambahkan.');
-
         } catch (ValidationException $e) {
             Log::error('Validasi gagal', ['errors' => $e->errors()]);
             return redirect()->back()->withInput()->withErrors($e->errors());
@@ -135,6 +155,47 @@ class AkunKeuanganController extends Controller
         return view('admin.akun_keuangan.edit', compact('akunKeuangan', 'akunKeuangantanpaparent'));
     }
 
+    public function detailJson($id)
+    {
+        $a = AkunKeuangan::query()
+            ->with(['parentAkun:id,kode_akun,nama_akun'])
+            ->select([
+                'id',
+                'kode_akun',
+                'nama_akun',
+                'tipe_akun',
+                'kategori_psak',
+                'pembatasan',
+                'parent_id',
+                'saldo_normal',
+                'is_kas_bank',
+                'cashflow_category',
+                'icon',
+                'show_on_dashboard',
+                'dashboard_scope',
+                'dashboard_section',
+                'dashboard_calc',
+                'dashboard_order',
+                'dashboard_title',
+                'dashboard_link_route',
+                'dashboard_link_param',
+                'dashboard_format',
+                'dashboard_masked',
+                'dashboard_icon',
+                'created_at',
+                'updated_at'
+            ])
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => $a,
+            'parent' => $a->parentAkun
+                ? ($a->parentAkun->kode_akun . ' - ' . $a->parentAkun->nama_akun)
+                : '-',
+        ]);
+    }
+
+
     public function update(Request $request, AkunKeuangan $akunKeuangan)
     {
         try {
@@ -148,16 +209,24 @@ class AkunKeuanganController extends Controller
                 'kode_akun' => 'required|unique:akun_keuangans,kode_akun,' . $akunKeuangan->id . ',id',
                 'nama_akun' => 'required|string|max:255',
                 'tipe_akun' => 'required|in:asset,liability,revenue,expense,equity',
-
                 'kategori_psak' => 'nullable|in:aset_lancar,aset_tidak_lancar,liabilitas_jangka_pendek,liabilitas_jangka_panjang,aset_neto_tidak_terikat,aset_neto_terikat_temporer,aset_neto_terikat_permanen,pendapatan,beban',
                 'pembatasan' => 'nullable|in:tidak_terikat,terikat_temporer,terikat_permanen',
-
                 'saldo_normal' => 'required|in:debit,kredit',
                 'is_kas_bank' => 'required|boolean',
-
                 'parent_id' => 'nullable|exists:akun_keuangans,id',
                 'cashflow_category' => 'nullable|in:operasional,investasi,pendanaan',
                 'icon' => 'nullable|string|max:255',
+                'show_on_dashboard'   => 'required|boolean',
+                'dashboard_scope'     => 'nullable|in:BIDANG,BENDAHARA,YAYASAN,BOTH',
+                'dashboard_section'   => 'nullable|in:asset,liability,revenue,expense,kpi',
+                'dashboard_calc'      => 'nullable|in:rollup_children_period,rollup_children_ytd,balance_asof,custom',
+                'dashboard_order'     => 'nullable|integer',
+                'dashboard_title'     => 'nullable|string|max:255',
+                'dashboard_link_route' => 'nullable|string|max:255',
+                'dashboard_link_param' => 'nullable|string|max:255',
+                'dashboard_format'    => 'nullable|in:currency,number',
+                'dashboard_masked'    => 'nullable|boolean',
+                'dashboard_icon'      => 'nullable|string|max:255',
             ]);
 
             // Update data
@@ -168,7 +237,6 @@ class AkunKeuanganController extends Controller
             return redirect()
                 ->route('admin.akun_keuangan.index')
                 ->with('success', 'Akun berhasil diperbarui!');
-
         } catch (ValidationException $e) {
             Log::error('Validasi gagal saat update', ['errors' => $e->errors()]);
             return redirect()->back()->withInput()->withErrors($e->errors());
@@ -183,6 +251,4 @@ class AkunKeuanganController extends Controller
         $akunKeuangan->delete();
         return back()->with('success', 'Akun berhasil dihapus.');
     }
-
 }
-

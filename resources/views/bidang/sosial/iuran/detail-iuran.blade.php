@@ -22,6 +22,10 @@
         .card-summary {
             border-left: 4px solid var(--brand-brown, #622200);
         }
+
+        .td-aksi {
+            white-space: nowrap;
+        }
     </style>
 @endpush
 
@@ -87,28 +91,20 @@
                 <div class="row g-3">
                     <div class="col-md-3">
                         <div class="text-muted small mb-1">Total Tagihan</div>
-                        <div class="h5 mb-0">
-                            Rp {{ number_format($totalTagihan, 0, ',', '.') }}
-                        </div>
+                        <div class="h5 mb-0">Rp {{ number_format($totalTagihan, 0, ',', '.') }}</div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-muted small mb-1">Total Terbayar</div>
-                        <div class="h5 mb-0 text-success">
-                            Rp {{ number_format($totalBayar, 0, ',', '.') }}
-                        </div>
+                        <div class="h5 mb-0 text-success">Rp {{ number_format($totalBayar, 0, ',', '.') }}</div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-muted small mb-1">Sisa</div>
                         @php $sisa = max($totalTagihan - $totalBayar, 0); @endphp
-                        <div class="h5 mb-0 text-danger">
-                            Rp {{ number_format($sisa, 0, ',', '.') }}
-                        </div>
+                        <div class="h5 mb-0 text-danger">Rp {{ number_format($sisa, 0, ',', '.') }}</div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-muted small mb-1">Progress Bulan Lunas</div>
-                        <div class="h6 mb-1">
-                            {{ $lunasCount }}/12 bulan
-                        </div>
+                        <div class="h6 mb-1">{{ $lunasCount }}/12 bulan</div>
                         <div class="progress" style="height: 8px;">
                             <div class="progress-bar bg-success" role="progressbar"
                                 style="width: {{ ($lunasCount / 12) * 100 }}%;" aria-valuenow="{{ $lunasCount }}"
@@ -123,17 +119,28 @@
         {{-- ===== Detail Per Bulan ===== --}}
         <div class="card glass shadow-sm border-0">
             <div class="card-body">
-                <h5 class="mb-3">Status Iuran Per Bulan ({{ $tahun }})</h5>
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Status Iuran Per Bulan ({{ $tahun }})</h5>
+
+                    {{-- Optional: tombol tambah (kalau ingin add manual dari detail) --}}
+                    <button type="button" class="btn btn-sm btn-primary btn-add-iuran" data-bs-toggle="modal"
+                        data-bs-target="#modalCreateIuran" data-warga="{{ $warga->id }}"
+                        data-tahun="{{ $tahun }}" data-bulan="{{ now()->month }}" data-tagihan="0" data-bayar="0"
+                        data-metode="">
+                        <i class="bi bi-plus-circle"></i> Tambah
+                    </button>
+                </div>
 
                 <div class="table-responsive">
                     <table class="table align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 20%;">Bulan</th>
-                                <th style="width: 20%;">Tagihan (Rp)</th>
-                                <th style="width: 20%;">Terbayar (Rp)</th>
-                                <th style="width: 20%;">Status</th>
-                                <th style="width: 20%;">Tanggal Bayar</th>
+                                <th style="width: 16%;">Bulan</th>
+                                <th style="width: 16%;">Tagihan (Rp)</th>
+                                <th style="width: 16%;">Terbayar (Rp)</th>
+                                <th style="width: 16%;">Status</th>
+                                <th style="width: 16%;">Tanggal Bayar</th>
+                                <th style="width: 20%;" class="text-end">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -163,11 +170,17 @@
                                     <td class="fw-semibold">{{ $info['nama'] }}</td>
                                     <td>Rp {{ number_format($tagihan, 0, ',', '.') }}</td>
                                     <td>Rp {{ number_format($bayar, 0, ',', '.') }}</td>
-                                    <td>
-                                        <span class="badge {{ $badgeClass }}">{{ $label }}</span>
-                                    </td>
-                                    <td>
-                                        {{ $tanggal ?? '—' }}
+                                    <td><span class="badge {{ $badgeClass }}">{{ $label }}</span></td>
+                                    <td>{{ $tanggal ?? '—' }}</td>
+                                    <td class="td-aksi text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-edit-iuran"
+                                            data-bs-toggle="modal" data-bs-target="#modalCreateIuran"
+                                            data-warga="{{ $warga->id }}" data-tahun="{{ $tahun }}"
+                                            data-bulan="{{ $bulanNum }}" data-tagihan="{{ $tagihan }}"
+                                            data-bayar="{{ $bayar }}"
+                                            data-metode="{{ $row?->metode_bayar ?? '' }}">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </button>
                                     </td>
                                 </tr>
                             @endforeach
@@ -175,7 +188,6 @@
                     </table>
                 </div>
 
-                {{-- Opsional: Tombol shortcut ke tambah iuran untuk KK ini --}}
                 <div class="mt-3">
                     <a href="{{ route('sosial.iuran.index', ['tahun' => $tahun]) }}"
                         class="btn btn-outline-secondary btn-sm">
@@ -185,4 +197,7 @@
             </div>
         </div>
     </div>
+
+    {{-- Modal (dipanggil sekali) --}}
+    @include('bidang.sosial.iuran._modal_add_iuran', ['tahun' => $tahun])
 @endsection

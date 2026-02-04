@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Sosial;
 use App\Http\Controllers\Controller;
 use App\Models\IuranBulanan;
 use App\Models\Warga;
+use App\Models\Hutang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 use App\Traits\HasTransaksiKasBank;
-use DataTables;
+use Yajra\DataTables\Facades\DataTables;
 
 
 class IuranBulananController extends Controller
@@ -83,7 +85,8 @@ class IuranBulananController extends Controller
         $tahun = (int) ($request->tahun ?: today()->year);
         $q = trim((string) $request->get('q')); // <— dari form "Cari"
 
-        $query = Warga::withCount('anggotaKeluarga')
+        $query = Warga::kepalaKeluarga()
+            ->withCount('anggotaKeluarga')
             ->with(['iuranBulanan' => fn($q2) => $q2->where('tahun', $tahun)])
             ->whereNull('warga_id')
             ->when($q !== '', function ($qr) use ($q) {
@@ -192,70 +195,110 @@ class IuranBulananController extends Controller
      * - Debit  : Kas Sosial / Bank Sosial (tergantung metode_bayar)
      * - Kredit : Pendapatan Iuran Sosial (ISI ID akun pendapatan iuran sesuai COA)
      */
-    protected function catatPenerimaanIuran(
+
+    protected function catatPenerimaanIuranTerikat(
         IuranBulanan $iuran,
-        Warga $warga,
+        Warga $wargaKepala,
         int $tambahanBayar
     ): void {
-        if ($tambahanBayar <= 0) {
-            return; // tidak ada tambahan bayar, tidak perlu jurnal baru
-        }
+        if ($tambahanBayar <= 0) return;
 
         $user = auth()->user();
         if (!$user) {
-            Log::warning('catatPenerimaanIuran dipanggil tanpa user login, transaksi kas di-skip.');
-            return;
+            throw new \Exception('User tidak terautentikasi.');
         }
 
         $role = $user->role;
-        $bidangId = is_numeric($user->bidang_name ?? null) ? (int) $user->bidang_name : null;
+        $bidangId  = is_numeric($user->bidang_name ?? null) ? (int) $user->bidang_name : null;
+        $bidangKey = $role === 'Bendahara' ? null : (string) $bidangId; // konsisten string "3"
 
-        // --- 1) Tentukan akun sisi DEBIT berdasarkan metode_bayar ---
-        $metodeBayar = $iuran->metode_bayar; // sudah di-set di store()
-        $akunDebitId = $this->resolveAkunPenerimaanByMetode($role, $bidangId, $metodeBayar);
-
-        // --- 2) Akun PENDAPATAN IURAN SOSIAL (sisi KREDIT) ---
-        // TODO: ganti 3021 dengan ID akun pendapatan iuran sosial di tabel akun_keuangans
-        $akunPendapatanIuranId = 2029;
-
-        if (!$akunDebitId || !$akunPendapatanIuranId) {
-            Log::warning('Akun debit (kas/bank) atau pendapatan iuran belum dikonfigurasi, jurnal kas di-skip.', [
-                'akun_debit' => $akunDebitId,
-                'akun_pendapatan' => $akunPendapatanIuranId,
-                'metode_bayar' => $metodeBayar,
-            ]);
-            return;
+        $metodeBayar = strtolower(trim((string) $iuran->metode_bayar));
+        if (!in_array($metodeBayar, ['tunai', 'transfer'], true)) {
+            throw new \Exception('Metode pembayaran tidak valid.');
         }
 
-        // --- 3) Generate kode transaksi unik ---
+        // DEBIT: Kas/Bank
+        $akunDebitId = $this->resolveAkunPenerimaanByMetode($role, $bidangId, $metodeBayar);
+
+        // KREDIT: Hutang Program Sosial (Dana Kematian)
+        $akunHutangTerikatId = 5005;
+
+        if (!$akunDebitId) {
+            throw new \Exception('Akun kas/bank belum dikonfigurasi.');
+        }
+
         $kodePrefix = $this->makeKodePrefix($role, $bidangId);
-        $kode = $kodePrefix . '-IUR-' . now()->format('YmdHis') . '-' . $iuran->id;
+        $kode = $kodePrefix . '-DK-' . now()->format('YmdHis') . '-' . $iuran->id;
 
         $tanggal = $iuran->tanggal_bayar
-            ? $iuran->tanggal_bayar->toDateString()
+            ? (is_string($iuran->tanggal_bayar) ? $iuran->tanggal_bayar : $iuran->tanggal_bayar->toDateString())
             : now()->toDateString();
 
-        $namaBulan = $iuran->nama_bulan ?? ('Bulan ' . $iuran->bulan);
+        $bulan = str_pad((string) $iuran->bulan, 2, '0', STR_PAD_LEFT);
 
-        // Label metode buat deskripsi
-        $labelMetode = $metodeBayar ? (' [' . ucfirst($metodeBayar) . ']') : '';
+        // Semua diperlakukan sebagai Dana Kematian => pakai [DK]
+        $deskripsi = "[DK] Iuran {$iuran->tahun}-{$bulan} - {$wargaKepala->nama}";
 
-        // --- 4) Request virtual untuk storeTransaction() ---
+        // ===============================
+        // TRANSAKSI + LEDGER (double-entry)
+        // ===============================
         $req = new Request([
             'kode_transaksi' => $kode,
             'tanggal_transaksi' => $tanggal,
             'type' => 'penerimaan',
-            'deskripsi' => "Iuran Sinoman {$namaBulan} {$iuran->tahun} - {$warga->nama} (RT {$warga->rt}){$labelMetode}",
+            'deskripsi' => $deskripsi,
             'amount' => $tambahanBayar,
-            'bidang_name' => $role === 'Bendahara' ? null : $bidangId,
+            'bidang_name' => $bidangKey,
         ]);
 
-        // --- 5) Simpan double entry ---
-        // Debit  : akunDebitId (Kas / Bank Sosial)
-        // Kredit : akunPendapatanIuranId
-        $this->storeTransaction($req, $akunDebitId, $akunPendapatanIuranId);
-    }
+        $trxAkun = $this->storeTransactionOrFail(
+            $req,
+            (int) $akunDebitId,
+            (int) $akunHutangTerikatId
+        );
 
+        // ===============================
+        // 1) SUB-LEDGER: Hutang per Warga (untuk FIFO santunan)
+        // ===============================
+        Hutang::create([
+            'user_id' => $user->id,
+            'akun_keuangan_id' => $akunHutangTerikatId,
+            'parent_id' => null,
+            'warga_kepala_id' => $iuran->warga_kepala_id,
+            'iuran_bulanan_id' => $iuran->id,
+            'jumlah' => $tambahanBayar,
+            'tanggal_jatuh_tempo' => now()->addYears(50)->toDateString(),
+            'deskripsi' => $deskripsi,
+            'status' => 'belum_lunas',
+            'bidang_name' => $bidangKey,
+            'kode_transaksi' => $kode,
+            'transaksi_id' => $trxAkun->id ?? null,
+        ]);
+
+        // ===============================
+        // 2) SUB-LEDGER: POOL (SELALU)
+        // ===============================
+        $pool = Hutang::firstOrCreate(
+            [
+                'akun_keuangan_id' => $akunHutangTerikatId,
+                'warga_kepala_id'  => null,
+                'bidang_name'      => $bidangKey,
+                'kode_transaksi'   => 'DK-POOL',
+            ],
+            [
+                'user_id' => $user->id,
+                'parent_id' => null,
+                'iuran_bulanan_id' => null,
+                'jumlah' => 0,
+                'deskripsi' => '[DK-POOL] Dana Program Sosial (POOL)',
+                'status' => 'belum_lunas',
+                'tanggal_jatuh_tempo' => now()->addYears(50)->toDateString(),
+            ]
+        );
+
+        $pool->jumlah = (float) $pool->jumlah + (float) $tambahanBayar;
+        $pool->save();
+    }
 
     public function store(Request $request)
     {
@@ -265,7 +308,9 @@ class IuranBulananController extends Controller
             'bulan' => ['required', 'integer', 'between:1,12'],
             'nominal_tagihan' => ['required', 'integer', 'min:0'],
             'nominal_bayar' => ['required', 'integer', 'min:0'],
-            'metode_bayar' => ['nullable', 'string', 'max:50'],   // ⬅️ penting
+
+            // metode_bayar WAJIB jika nominal_bayar > 0
+            'metode_bayar' => ['nullable', Rule::in(['tunai', 'transfer'])],
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -293,9 +338,10 @@ class IuranBulananController extends Controller
                     'bulan' => $bulan,
                 ]);
             } else {
+                // blok rollback untuk yang sudah lunas
                 if (
                     $iuran->status === IuranBulanan::STATUS_LUNAS &&
-                    $bayarBaru < $iuran->nominal_bayar
+                    $bayarBaru < (int) $iuran->nominal_bayar
                 ) {
                     return back()
                         ->withInput()
@@ -305,7 +351,10 @@ class IuranBulananController extends Controller
 
             $iuran->nominal_tagihan = $tagihanBaru;
             $iuran->nominal_bayar = $bayarBaru;
-            $iuran->metode_bayar = $request->metode_bayar; // ⬅️ disimpan
+
+            // Set metode_bayar hanya jika ada pembayaran (bayarBaru > 0).
+            // Ini memastikan metode tersimpan rapi dan resolve akun debit tidak null ketika harus jurnal.
+            $iuran->metode_bayar = $bayarBaru > 0 ? $request->metode_bayar : null;
 
             if ($bayarBaru <= 0) {
                 $iuran->status = IuranBulanan::STATUS_BELUM;
@@ -320,21 +369,22 @@ class IuranBulananController extends Controller
 
             $iuran->save();
 
-            // === PENCATATAN JURNAL KAS/BANK ===
-            $warga = Warga::find($wargaId);
-            if ($warga) {
-                $this->catatPenerimaanIuran($iuran, $warga, $tambahanBayar);
+            // === PENCATATAN JURNAL KAS/BANK + HUTANG TERIKAT ===
+            // hanya untuk tambahan bayar, bukan total bayar
+            if ($tambahanBayar > 0) {
+                $warga = Warga::kepalaKeluarga()->find($wargaId);
+                if ($warga) {
+                    $this->catatPenerimaanIuranTerikat($iuran, $warga, $tambahanBayar);
+                }
             }
 
             return redirect()
                 ->route('sosial.iuran.show', [$wargaId, 'tahun' => $tahun])
-                ->with('success', 'Iuran bulan ' . $iuran->nama_bulan . ' untuk ' . ($warga->nama ?? 'warga') . ' berhasil disimpan.');
+                ->with('success', 'Iuran bulan ' . $iuran->nama_bulan . ' untuk ' . ($warga?->nama ?? 'warga') . ' berhasil disimpan.');
         });
     }
 
-    /**
-     * Update iuran untuk 1 kepala keluarga dalam 1 tahun (12 bulan sekaligus).
-     */
+
     public function update(Request $request, $wargaId)
     {
         $request->validate([
@@ -343,9 +393,12 @@ class IuranBulananController extends Controller
             'nominal_tagihan.*' => ['nullable', 'integer', 'min:0'],
             'nominal_bayar' => ['required', 'array'],
             'nominal_bayar.*' => ['nullable', 'integer', 'min:0'],
+
+            // divalidasi nullable dulu; nanti kita wajibkan secara kondisional (jika ada tambahan bayar)
+            'metode_bayar' => ['nullable', Rule::in(['tunai', 'transfer'])],
         ]);
 
-        return DB::transaction(function () use ($request, $wargaId) {
+        return DataTables::transaction(function () use ($request, $wargaId) {
             $tahun = (int) $request->tahun;
 
             // pastikan ini kepala keluarga
@@ -367,7 +420,7 @@ class IuranBulananController extends Controller
                 $row = $existing->get($bulan);
                 $newBayar = (int) ($bayarArr[$bulan] ?? 0);
 
-                if ($row && $row->status === IuranBulanan::STATUS_LUNAS && $newBayar < $row->nominal_bayar) {
+                if ($row && $row->status === IuranBulanan::STATUS_LUNAS && $newBayar < (int) $row->nominal_bayar) {
                     $namaBulan = (new IuranBulanan(['bulan' => $bulan]))->nama_bulan;
 
                     return back()
@@ -376,13 +429,36 @@ class IuranBulananController extends Controller
                 }
             }
 
-            // 2) PASS KEDUA: create/update per bulan
+            // 1.5) PRECHECK: apakah ada tambahan bayar pada submit ini?
+            $adaTambahanBayar = false;
+            foreach (range(1, 12) as $bulan) {
+                $row = $existing->get($bulan);
+                $oldBayar = $row ? (int) $row->nominal_bayar : 0;
+                $newBayar = (int) ($bayarArr[$bulan] ?? 0);
+
+                if ($newBayar > $oldBayar) {
+                    $adaTambahanBayar = true;
+                    break;
+                }
+            }
+
+            // Jika ada tambahan bayar, metode_bayar wajib (karena untuk menentukan akun debit)
+            if ($adaTambahanBayar && blank($request->metode_bayar)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['metode_bayar' => 'Metode bayar wajib diisi jika ada pembayaran.']);
+            }
+
+            // 2) PASS KEDUA: create/update per bulan + catat jurnal & hutang terikat untuk tambahan bayar
             foreach (range(1, 12) as $bulan) {
                 /** @var \App\Models\IuranBulanan|null $row */
                 $row = $existing->get($bulan);
 
                 $newTagihan = (int) ($tagihanArr[$bulan] ?? 0);
                 $newBayar = (int) ($bayarArr[$bulan] ?? 0);
+
+                $oldBayar = $row ? (int) $row->nominal_bayar : 0;
+                $tambahanBayar = max(0, $newBayar - $oldBayar);
 
                 // kalau tidak ada record + nilai 0 semua → lewati (tidak buat baris baru)
                 if (!$row && $newTagihan === 0 && $newBayar === 0) {
@@ -396,6 +472,15 @@ class IuranBulananController extends Controller
                         'bulan' => $bulan,
                     ]);
                 }
+
+                // set metode_bayar hanya jika ada tambahan bayar
+                if ($tambahanBayar > 0) {
+                    $row->metode_bayar = $request->metode_bayar;
+                } elseif ($newBayar <= 0) {
+                    // kalau tidak ada bayar sama sekali, rapikan metode menjadi null
+                    $row->metode_bayar = null;
+                }
+                // catatan: jika newBayar == oldBayar > 0, kita biarkan metode_bayar existing (tidak diubah)
 
                 $row->nominal_tagihan = $newTagihan;
                 $row->nominal_bayar = $newBayar;
@@ -413,6 +498,10 @@ class IuranBulananController extends Controller
                 }
 
                 $row->save();
+
+                if ($tambahanBayar > 0) {
+                    $this->catatPenerimaanIuranTerikat($row, $warga, $tambahanBayar);
+                }
             }
 
             return redirect()
