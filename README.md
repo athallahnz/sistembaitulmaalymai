@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="280" alt="Laravel Logo">
+  <img src="https://baitulmaal.alimansurabaya.com/storage/logos/cRXY3mgfCdt4zXflsxutFA1uow6W3WegcbsXvDp2.png" width="280" alt="Logo Yayasan">
 </p>
 
 <h1 align="center">💰 Sistem Informasi Keuangan Baitul Maal</h1>
