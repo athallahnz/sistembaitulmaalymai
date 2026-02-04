@@ -190,7 +190,11 @@ class LoginController extends Controller
     public function logout(Request $request)
     {
         $user = auth()->user();
-        $user->update(['is_active' => false]);
+
+        // Pastikan $user bukan null dan merupakan instance User sebelum memanggil update
+        if ($user instanceof User) {
+            $user->update(['is_active' => false]);
+        }
 
         Auth::logout();
         $request->session()->invalidate();

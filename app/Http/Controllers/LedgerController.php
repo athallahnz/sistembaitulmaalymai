@@ -67,11 +67,11 @@ class LedgerController extends Controller
 
         // --- data lain: akunTanpaParent, akunDenganParent, kodeTransaksi, dsb ---
         $akunTanpaParent = AkunKeuangan::whereNull('parent_id')
-            ->whereIn('tipe_akun', ['revenue', 'expense'])
+            ->whereIn('tipe_akun', ['asset','revenue', 'expense', 'liability'])
             ->get();
 
         $akunDenganParent = AkunKeuangan::whereNotNull('parent_id')
-            ->whereIn('tipe_akun', ['revenue', 'expense'])
+            ->whereIn('tipe_akun', ['asset','revenue', 'expense', 'liability'])
             ->get()
             ->groupBy('parent_id');
 

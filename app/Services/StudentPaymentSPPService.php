@@ -2,171 +2,151 @@
 
 namespace App\Services;
 
-use App\Models\Transaksi;
+use App\Models\EduPayment;
+use App\Models\EduPaymentItem;
 use App\Models\Ledger;
-use App\Models\Piutang;
 use App\Models\Student;
-use App\Models\PendapatanBelumDiterima;
+use App\Models\TagihanSpp;
+use App\Models\Transaksi;
+use App\Models\Piutang;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class StudentPaymentSPPService
 {
-    /**
-     * Mencatat pembayaran SPP siswa.
-     *
-     * Alur akuntansi (SPP):
-     *  - Saat tagihan dibuat  : D Piutang SPP, K Pendapatan Belum Diterima – SPP
-     *  - Saat pembayaran masuk: D Kas/Bank,   K Piutang SPP
-     *
-     * Pengakuan pendapatan (D PBD, K Pendapatan SPP) dilakukan di proses terpisah.
-     */
-    public static function recordPayment(Student $student, float $jumlah, string $metode = 'tunai')
+    public static function syncPiutangSPP(int $studentId): void
     {
-        DB::beginTransaction();
+        $akunPiutangSPP = config('akun.piutang_spp'); // 1031
 
-        try {
-            $tanggal = Carbon::now();
+        $masihAdaTagihan = TagihanSpp::where('student_id', $studentId)
+            ->where('status', 'belum_lunas')
+            ->exists();
 
-            // 1. Ambil akun dari config
-            $akunKasBank = match ($metode) {
-                'tunai' => config('akun.kas_pendidikan'),     // 1013
-                'transfer' => config('akun.bank_pendidikan'),    // 1023
-                default => throw new \InvalidArgumentException("Metode tidak valid"),
-            };
-
-            $akunPendapatanSPP = config('akun.pendapatan_spp');    // 2021
-            $akunPiutangSPP = config('akun.piutang_spp');       // 1031
-            // $akunPBDSPP     = config('akun.pendapatan_belum_diterima_spp'); // 511 (dipakai di service pengakuan pendapatan, bukan di sini)
-
-            // 2. Hitung saldo kas/bank terakhir (khusus bidang 2)
-            $lastSaldoAkun = Transaksi::where('akun_keuangan_id', $akunKasBank)
-                ->where('bidang_name', 2)
-                ->orderBy('tanggal_transaksi', 'asc')
-                ->get()
-                ->last();
-
-            $saldoSebelumnyaAkun = $lastSaldoAkun ? $lastSaldoAkun->saldo : 0;
-            $saldoBaru = $saldoSebelumnyaAkun + $jumlah;
-
-            // 3. Buat transaksi penerimaan (Kas/Bank)
-            $kode = 'SPP-' . now()->format('YmdHis') . '-' . strtoupper(substr(md5(rand()), 0, 5));
-
-            $transaksiDebit = Transaksi::create([
-                'kode_transaksi' => $kode,
-                'tanggal_transaksi' => $tanggal,
-                'type' => 'penerimaan',
-                'deskripsi' => 'Pembayaran SPP murid ' . $student->name,
-                'akun_keuangan_id' => $akunKasBank,        // Kas/Bank Pendidikan
-                'parent_akun_id' => $akunPendapatanSPP,  // Lawan "secara kasat mata"
-                'amount' => $jumlah,
-                'saldo' => $saldoBaru,
-                'bidang_name' => 2,
-                'sumber' => $student->id,
+        Piutang::where('student_id', $studentId)
+            ->where('akun_keuangan_id', $akunPiutangSPP)
+            ->where('status', 'belum_lunas')
+            ->update([
+                'status' => $masihAdaTagihan ? 'belum_lunas' : 'lunas',
+                'updated_at' => now(),
             ]);
+    }
 
-            // 4. (Opsional) Transaksi LAWAN untuk pendapatan (sebagai pasangan di tabel transaksis)
-            $transaksiKredit = Transaksi::create([
-                'kode_transaksi' => $kode . '-LAWAN',
-                'tanggal_transaksi' => $tanggal,
-                'type' => 'pengeluaran',
-                'deskripsi' => '(LAWAN) Pembayaran SPP murid ' . $student->name,
-                'akun_keuangan_id' => $akunPendapatanSPP,  // Pendapatan SPP
-                'parent_akun_id' => $akunKasBank,
-                'amount' => $jumlah,
-                'saldo' => $jumlah,
-                'bidang_name' => 2,
-                'sumber' => $student->id,
-            ]);
+    /**
+     * Pembayaran SPP: membuat edu_payments + items, lalu jurnal:
+     *   D Kas/Bank
+     *   K Piutang SPP
+     * dan update tagihan_spps jadi lunas untuk item yang dibayar.
+     *
+     * @param Collection<int,TagihanSpp> $tagihans
+     */
+    public static function paySPP(Student $student, Collection $tagihans, string $metode, int $total): EduPayment
+    {
+        $tanggal = Carbon::now();
+        $user = Auth::user();
 
-            // 5. Jurnal double-entry yang benar:
-            //    D Kas/Bank
-            //    K Piutang SPP
-            Ledger::insert([
-                [
-                    'transaksi_id' => $transaksiDebit->id,
-                    'akun_keuangan_id' => $akunKasBank,   // Debit Kas/Bank
-                    'debit' => $jumlah,
-                    'credit' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'transaksi_id' => $transaksiDebit->id,
-                    'akun_keuangan_id' => $akunPiutangSPP, // Kredit Piutang SPP
-                    'debit' => 0,
-                    'credit' => $jumlah,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
+        // 1) Resolve akun kas/bank berdasarkan metode (bidang pendidikan)
+        $akunKasBank = match ($metode) {
+            'tunai' => (int) config('akun.kas_pendidikan'),   // 1013
+            'transfer' => (int) config('akun.bank_pendidikan'), // 1023
+            default => throw new \InvalidArgumentException('Metode tidak valid'),
+        };
 
-            // 6. Update Piutang SPP siswa
-            $piutang = Piutang::where('student_id', $student->id)
-                ->where('status', 'belum_lunas')
-                ->first();
+        $akunPiutangSPP = (int) config('akun.piutang_spp'); // 1031
 
-            if ($piutang) {
-                $sisa = $piutang->jumlah - $jumlah;
-
-                // Tetap hapus tagihan tambahan di deskripsi
-                $piutang->deskripsi = preg_replace(
-                    '/\s\+\sTagihan SPP siswa\s\d{1,2}\/\d{4}/',
-                    '',
-                    $piutang->deskripsi
-                );
-
-                $piutang->jumlah = max(0, $sisa);
-
-                // Jika lunas semua
-                if ($piutang->jumlah <= 0) {
-                    $piutang->status = 'lunas';
-                    $piutang->deskripsi = 'Lunas semua';
-                }
-
-                $piutang->save();
-            }
-
-            // 7. Kurangi jumlah pada PendapatanBelumDiterima (TABLE),
-            //    ini hanya tracker sisa "unearned" per siswa.
-            $jumlahPembayaran = $jumlah;
-
-            $pendapatans = PendapatanBelumDiterima::where('student_id', $student->id)
-                ->where('jumlah', '>', 0)
-                ->orderBy('tanggal_pencatatan', 'asc')
-                ->get();
-
-            foreach ($pendapatans as $pendapatan) {
-                if ($jumlahPembayaran <= 0) {
-                    break;
-                }
-
-                $kurangi = min($pendapatan->jumlah, $jumlahPembayaran);
-
-                // Tetap hapus tagihan tambahan di deskripsi
-                $pendapatan->deskripsi = preg_replace(
-                    '/\s\+\sTagihan SPP siswa\s\d{1,2}\/\d{4}/',
-                    '',
-                    $pendapatan->deskripsi
-                );
-
-                $pendapatan->jumlah -= $kurangi;
-
-                // Jika sisa = 0 → Lunas semua
-                if ($pendapatan->jumlah <= 0) {
-                    $pendapatan->deskripsi = 'Lunas semua';
-                }
-
-                $pendapatan->save();
-                $jumlahPembayaran -= $kurangi;
-            }
-
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Gagal mencatat pembayaran SPP: ' . $e->getMessage());
-            throw $e;
+        // 2) Validasi total dari DB vs argumen (double safety)
+        $dbTotal = (int) $tagihans->sum('jumlah');
+        if ($dbTotal !== $total) {
+            throw new \RuntimeException("Total pembayaran tidak konsisten (db={$dbTotal}, input={$total}).");
         }
+
+        // 3) Hitung saldo kas/bank terakhir (bidang pendidikan = 2)
+        $lastSaldo = Transaksi::where('akun_keuangan_id', $akunKasBank)
+            ->where('bidang_name', 2)
+            ->orderBy('tanggal_transaksi', 'asc')
+            ->get()
+            ->last();
+
+        $saldoSebelumnya = $lastSaldo ? (float) $lastSaldo->saldo : 0;
+        $saldoBaru = $saldoSebelumnya + $total;
+
+        // 4) Buat transaksi header (1 transaksi cukup)
+        $kode = 'SPP-' . now()->format('YmdHis') . '-' . strtoupper(Str::random(5));
+
+        $transaksi = Transaksi::create([
+            'kode_transaksi' => $kode,
+            'tanggal_transaksi' => $tanggal,
+            'type' => 'penerimaan',
+            'deskripsi' => 'Pembayaran SPP murid ' . $student->name,
+            'akun_keuangan_id' => $akunKasBank, // Kas/Bank Pendidikan
+            'parent_akun_id' => $akunPiutangSPP, // lawan = Piutang SPP (lebih benar daripada pendapatan)
+            'amount' => $total,
+            'saldo' => $saldoBaru,
+            'bidang_name' => 2,
+            'student_id' => $student->id,
+        ]);
+
+        // 5) Ledger double-entry: D Kas/Bank, K Piutang
+        Ledger::insert([
+            [
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $akunKasBank,
+                'debit' => $total,
+                'credit' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'transaksi_id' => $transaksi->id,
+                'akun_keuangan_id' => $akunPiutangSPP,
+                'debit' => 0,
+                'credit' => $total,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        // 6) Buat edu_payments (header) + items
+        $payment = EduPayment::create([
+            'student_id' => $student->id,
+            // kolom lama jumlah boleh tetap diisi agar kompatibel
+            'jumlah' => $total,
+            'total' => $total,
+            'tanggal' => $tanggal,
+            'metode' => $metode,
+            'akun_kas_bank_id' => $akunKasBank,
+            'user_id' => $user?->id,
+            'transaksi_id' => $transaksi->id,
+            'verifikasi_token' => (string) Str::uuid(),
+            'status_verifikasi' => 'verified',
+            'catatan' => null,
+        ]);
+
+        // items: alokasi per tagihan spp
+        $items = [];
+        foreach ($tagihans as $t) {
+            $items[] = [
+                'edu_payment_id' => $payment->id,
+                'bill_type' => 'spp',
+                'bill_id' => $t->id,
+                'amount' => (int) $t->jumlah,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        EduPaymentItem::insert($items);
+
+        // 7) Update tagihan_spps jadi lunas + set transaksi_id (audit)
+        TagihanSpp::whereIn('id', $tagihans->pluck('id'))
+            ->update([
+                'status' => 'lunas',
+                'transaksi_id' => $transaksi->id, // optional audit
+            ]);
+
+        self::syncPiutangSPP($student->id);
+
+        return $payment;
     }
 }

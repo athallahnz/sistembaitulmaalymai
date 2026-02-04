@@ -65,6 +65,41 @@ class LaporanKeuanganController extends Controller
             : ($totalKredit - $totalDebit);
     }
 
+    private function aggregateLedgerUntil(Carbon $cutoffDate, string $role, ?int $bidangId)
+    {
+        return Ledger::select(
+            'akun_keuangan_id',
+            DB::raw('SUM(debit)  as total_debit'),
+            DB::raw('SUM(credit) as total_credit')
+        )
+            ->whereHas('transaksi', function ($q) use ($cutoffDate, $role, $bidangId) {
+                $q->whereDate('tanggal_transaksi', '<=', $cutoffDate);
+
+                if ($role === 'Bidang' && $bidangId) {
+                    $q->where('bidang_name', $bidangId);
+                }
+            })
+            ->groupBy('akun_keuangan_id')
+            ->get()
+            ->keyBy('akun_keuangan_id');
+    }
+
+    /**
+     * Ambil ringkasan perubahan aset neto dari laporan aktivitas untuk periode tertentu.
+     * Return: [perubahanTidakTerikat, perubahanTemporer, perubahanPermanen, totalPerubahanAsetNeto]
+     */
+    private function buildPerubahanAsetNetoFromAktivitas(Carbon $startDate, Carbon $endDate): array
+    {
+        $aktivitas = $this->buildAktivitasData($startDate, $endDate);
+
+        return [
+            'perubahanTidakTerikat' => $aktivitas['perubahanTidakTerikat'] ?? 0,
+            'perubahanTemporer' => $aktivitas['perubahanTemporer'] ?? 0,
+            'perubahanPermanen' => $aktivitas['perubahanPermanen'] ?? 0,
+            'totalPerubahanAsetNeto' => $aktivitas['totalPerubahanAsetNeto'] ?? 0,
+        ];
+    }
+
     /*********************************************************
      *  ========== 1) LAPORAN ARUS KAS (PSAK 2) ==========
      *********************************************************/
@@ -329,8 +364,10 @@ class LaporanKeuanganController extends Controller
 
     /**
      * Core builder Posisi Keuangan (dipakai web + export).
+     * Neraca balance tanpa closing journal:
+     * Aset Neto = Saldo Awal (<= H-1 startDate) + Perubahan (startDate..endDate)
      */
-    private function buildPosisiKeuanganData(Carbon $endDate): array
+    private function buildPosisiKeuanganData(Carbon $endDate, ?Carbon $startDate = null): array
     {
         $map = $this->resolveKasBankForUser();
         $role = $map['role'];
@@ -338,30 +375,22 @@ class LaporanKeuanganController extends Controller
         $kasId = $map['kasId'];
         $bankId = $map['bankId'];
 
+        // Default periode perubahan aset neto: YTD (1 Jan..endDate)
+        $startDate = $startDate ?: (clone $endDate)->startOfYear();
+        $openingCutoff = (clone $startDate); // include 1 Jan
+
         // Ambil semua akun yang sudah punya kategori_psak
         $akunList = AkunKeuangan::whereNotNull('kategori_psak')
             ->orderBy('kode_akun')
             ->get();
 
-        // Aggregate ledger s.d. endDate (TANPA filter bidang) → saldo global by akun
-        $saldoPerAkun = Ledger::select(
-            'akun_keuangan_id',
-            DB::raw('SUM(debit)  as total_debit'),
-            DB::raw('SUM(credit) as total_credit')
-        )
-            ->whereHas('transaksi', function ($q) use ($endDate, $role, $bidangId) {
-                $q->whereDate('tanggal_transaksi', '<=', $endDate);
+        // Saldo akhir (untuk Aset & Liabilitas) s.d endDate
+        $saldoPerAkunEnd = $this->aggregateLedgerUntil($endDate, $role, $bidangId);
 
-                // 🔐 FILTER BIDANG
-                if ($role === 'Bidang' && $bidangId) {
-                    $q->where('bidang_name', $bidangId);
-                }
-            })
-            ->groupBy('akun_keuangan_id')
-            ->get()
-            ->keyBy('akun_keuangan_id');
+        // Saldo awal (untuk Aset Neto) s.d openingCutoff
+        $saldoPerAkunOpening = $this->aggregateLedgerUntil($openingCutoff, $role, $bidangId);
 
-        // Inisialisasi kelompok PSAK
+        // Kelompok PSAK (untuk tampilan)
         $kelompok = [
             'aset_lancar' => [],
             'aset_tidak_lancar' => [],
@@ -373,10 +402,8 @@ class LaporanKeuanganController extends Controller
         ];
 
         foreach ($akunList as $akun) {
-            $agg = $saldoPerAkun->get($akun->id);
-            $saldo = $this->hitungSaldoAkun($akun, $agg);
-
-            if (abs($saldo) < 0.005) {
+            $kategori = $akun->kategori_psak;
+            if (!isset($kelompok[$kategori])) {
                 continue;
             }
 
@@ -387,17 +414,50 @@ class LaporanKeuanganController extends Controller
                 }
             }
 
-            $kategori = $akun->kategori_psak;
+            // ✅ MODEL B:
+            // - Aset & Liabilitas pakai saldo akhir (<= endDate)
+            // - Aset Neto pakai saldo awal (<= openingCutoff)
+            $isAsetNeto = str_starts_with($kategori, 'aset_neto_');
 
-            if (!isset($kelompok[$kategori])) {
+            $agg = $isAsetNeto
+                ? $saldoPerAkunOpening->get($akun->id)
+                : $saldoPerAkunEnd->get($akun->id);
+
+            $saldo = $this->hitungSaldoAkun($akun, $agg);
+
+            if (abs($saldo) < 0.005) {
                 continue;
             }
 
             $kelompok[$kategori][] = [
                 'akun' => $akun,
                 'saldo' => $saldo,
+                'is_synthetic' => false,
             ];
         }
+
+        // ===== Perubahan Aset Neto (periode berjalan) dari Aktivitas =====
+        $perubahan = $this->buildPerubahanAsetNetoFromAktivitas($startDate, $endDate);
+
+        // Sisipkan baris sintetis “Surplus/Defisit Periode Berjalan” per pembatasan
+        $pushSynthetic = function (string $kategori, float $nilai) use (&$kelompok) {
+            if (abs($nilai) < 0.005) {
+                return;
+            }
+
+            $kelompok[$kategori][] = [
+                'akun' => (object) [
+                    'kode_akun' => null,
+                    'nama_akun' => 'Surplus/Defisit Periode Berjalan',
+                ],
+                'saldo' => $nilai,
+                'is_synthetic' => true,
+            ];
+        };
+
+        $pushSynthetic('aset_neto_tidak_terikat', (float) ($perubahan['perubahanTidakTerikat'] ?? 0));
+        $pushSynthetic('aset_neto_terikat_temporer', (float) ($perubahan['perubahanTemporer'] ?? 0));
+        $pushSynthetic('aset_neto_terikat_permanen', (float) ($perubahan['perubahanPermanen'] ?? 0));
 
         // Total per kelompok
         $total = [];
@@ -407,34 +467,28 @@ class LaporanKeuanganController extends Controller
 
         $totalAset = ($total['aset_lancar'] ?? 0) + ($total['aset_tidak_lancar'] ?? 0);
         $totalLiab = ($total['liabilitas_jangka_pendek'] ?? 0) + ($total['liabilitas_jangka_panjang'] ?? 0);
+
+        // Total aset neto sudah mencakup saldo awal + perubahan periode berjalan
         $totalAN = ($total['aset_neto_tidak_terikat'] ?? 0)
             + ($total['aset_neto_terikat_temporer'] ?? 0)
             + ($total['aset_neto_terikat_permanen'] ?? 0);
 
         $selisih = $totalAset - ($totalLiab + $totalAN);
 
-        // Summary kas/bank semua bidang (hanya untuk Bendahara)
+        // ===== Summary kas/bank semua bidang (hanya untuk Bendahara) =====
         $saldoKasTotal = 0;
         $saldoBankTotal = 0;
 
         if ($role === 'Bendahara') {
-            // Kas = kas-bank dengan kode_akun diawali '101'
-            $akunKasAll = $akunList->filter(function ($a) {
-                return $a->is_kas_bank && str_starts_with((string) $a->kode_akun, '101');
-            });
-
+            $akunKasAll = $akunList->filter(fn($a) => $a->is_kas_bank && str_starts_with((string) $a->kode_akun, '101'));
             foreach ($akunKasAll as $akunKas) {
-                $aggKas = $saldoPerAkun->get($akunKas->id);
+                $aggKas = $saldoPerAkunEnd->get($akunKas->id);
                 $saldoKasTotal += $this->hitungSaldoAkun($akunKas, $aggKas);
             }
 
-            // Bank = kas-bank dengan kode_akun diawali '102'
-            $akunBankAll = $akunList->filter(function ($a) {
-                return $a->is_kas_bank && str_starts_with((string) $a->kode_akun, '102');
-            });
-
+            $akunBankAll = $akunList->filter(fn($a) => $a->is_kas_bank && str_starts_with((string) $a->kode_akun, '102'));
             foreach ($akunBankAll as $akunBank) {
-                $aggBank = $saldoPerAkun->get($akunBank->id);
+                $aggBank = $saldoPerAkunEnd->get($akunBank->id);
                 $saldoBankTotal += $this->hitungSaldoAkun($akunBank, $aggBank);
             }
         }
@@ -445,33 +499,41 @@ class LaporanKeuanganController extends Controller
             'role' => $role,
             'bidangId' => $bidangId,
 
+            'startDate' => $startDate,
             'endDate' => $endDate,
 
             'kelompok' => $kelompok,
             'total' => $total,
+
             'totalAset' => $totalAset,
             'totalLiabilitas' => $totalLiab,
             'totalAsetNeto' => $totalAN,
             'selisih' => $selisih,
 
+            // Summary bendahara
             'saldoKasTotal' => $saldoKasTotal,
             'saldoBankTotal' => $saldoBankTotal,
             'totalKeuanganSemuaBidang' => $totalKeuanganSemuaBidang,
+
+            // Perubahan aset neto (untuk display terpisah bila diperlukan)
+            'perubahanTidakTerikat' => (float) ($perubahan['perubahanTidakTerikat'] ?? 0),
+            'perubahanTemporer' => (float) ($perubahan['perubahanTemporer'] ?? 0),
+            'perubahanPermanen' => (float) ($perubahan['perubahanPermanen'] ?? 0),
+            'totalPerubahanAsetNeto' => (float) ($perubahan['totalPerubahanAsetNeto'] ?? 0),
         ];
     }
 
     // ====== WEB VIEW: Posisi Keuangan ======
     public function posisiKeuangan(Request $request)
     {
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->start_date)
-            : null;
-
         $endDate = $request->filled('end_date')
             ? Carbon::parse($request->end_date)
             : Carbon::now();
 
-        $data = $this->buildPosisiKeuanganData($endDate);
+        // YTD otomatis untuk rekonsiliasi aset neto
+        $startDate = (clone $endDate)->startOfYear();
+
+        $data = $this->buildPosisiKeuanganData($endDate, $startDate);
 
         return view('laporan.posisi_keuangan', $data);
     }
@@ -479,15 +541,13 @@ class LaporanKeuanganController extends Controller
     // ====== EXPORT: Posisi Keuangan PDF ======
     public function exportPosisiKeuanganPdf(Request $request)
     {
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->start_date)
-            : null;
-
         $endDate = $request->filled('end_date')
             ? Carbon::parse($request->end_date)
             : Carbon::now();
 
-        $data = $this->buildPosisiKeuanganData($endDate);
+        $startDate = (clone $endDate)->startOfYear();
+
+        $data = $this->buildPosisiKeuanganData($endDate, $startDate);
 
         $pdf = Pdf::loadView('laporan.export.posisi_keuangan_pdf', $data)
             ->setPaper('a4', 'portrait');
@@ -501,15 +561,13 @@ class LaporanKeuanganController extends Controller
     // ====== EXPORT: Posisi Keuangan Excel ======
     public function exportPosisiKeuanganExcel(Request $request)
     {
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->start_date)
-            : null;
-
         $endDate = $request->filled('end_date')
             ? Carbon::parse($request->end_date)
             : Carbon::now();
 
-        $data = $this->buildPosisiKeuanganData($endDate);
+        $startDate = (clone $endDate)->startOfYear();
+
+        $data = $this->buildPosisiKeuanganData($endDate, $startDate);
 
         $suffix = $endDate->toDateString();
         $name = 'Laporan_Posisi_Keuangan_' . $suffix . '.xlsx';
@@ -639,11 +697,9 @@ class LaporanKeuanganController extends Controller
             if ($pembatasan === 'tidak_terikat') {
                 $bebanTidakTerikat[] = ['akun' => $akun, 'saldo' => $nilai];
                 $totalBebanTidakTerikat += $nilai;
-
             } elseif ($pembatasan === 'terikat_temporer') {
                 $bebanTerikatTemporer[] = ['akun' => $akun, 'saldo' => $nilai];
                 $totalBebanTemporer += $nilai;
-
             } elseif ($pembatasan === 'terikat_permanen') {
                 $bebanTerikatPermanen[] = ['akun' => $akun, 'saldo' => $nilai];
                 $totalBebanPermanen += $nilai;

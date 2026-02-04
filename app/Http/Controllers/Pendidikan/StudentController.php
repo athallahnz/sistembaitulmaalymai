@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Pendidikan;
 
-use Carbon\Carbon;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use App\Models\Student;
 use App\Models\Bidang;
 use App\Models\WaliMurid;
@@ -15,12 +19,8 @@ use App\Models\PendapatanBelumDiterima;
 use App\Models\Piutang;
 use App\Models\Transaksi;
 use App\Services\StudentFinanceService;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
-use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 
 
@@ -219,7 +219,7 @@ class StudentController extends Controller
             return redirect()->route('students.index')->with('success', 'Data murid dan wali beserta rincian biaya berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Gagal simpan siswa: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('Gagal simpan siswa: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->with('error', 'Terjadi kesalahan saat menyimpan data.')->withInput();
         }
     }
@@ -234,27 +234,37 @@ class StudentController extends Controller
                 'ec.tahun_ajaran as ec_tahun',
             ]);
 
+        // ✅ filter by tab (edu_class_id)
+        if ($request->filled('tahun_ajaran')) {
+            $q->where('ec.tahun_ajaran', $request->tahun_ajaran);
+        }
+        //
+        if ($request->filled('edu_class_id')) {
+            $q->where('students.edu_class_id', $request->edu_class_id);
+        }
+
+
         return DataTables::of($q)
             ->addColumn('actions', function ($row) {
                 $showUrl = route('students.show', $row->id);
                 $editUrl = route('students.edit', $row->id);
                 $deleteUrl = route('students.destroy', $row->id);
 
+                // ⚠️ Jangan render <form id="delete-form"> di sini (ID duplikat).
                 return <<<HTML
                 <a href="{$showUrl}" class="btn btn-info btn-sm me-2 mb-2"><i class="bi bi-eye"></i></a>
                 <a href="{$editUrl}" class="btn btn-warning btn-sm me-2 mb-2"><i class="bi bi-pencil-square"></i></a>
-                <button type="button" class="btn btn-danger btn-sm mb-2 btn-hapus" data-url="{$deleteUrl}">
+                <button type="button"
+                        class="btn btn-danger btn-sm mb-2 btn-hapus"
+                        data-url="{$deleteUrl}">
                     <i class="bi bi-trash"></i>
                 </button>
-                <form id="delete-form" method="POST" style="display:none;">
-                    @csrf
-                    @method('DELETE')
-                </form>
             HTML;
             })
             ->addColumn('kelas', function ($row) {
                 return ($row->ec_name ? $row->ec_name : '-') . ($row->ec_tahun ? ' - ' . $row->ec_tahun : '');
             })
+
             // agar global search ke "kelas" jalan
             ->filterColumn('kelas', function ($query, $keyword) {
                 $query->where(function ($qq) use ($keyword) {
@@ -262,10 +272,13 @@ class StudentController extends Controller
                         ->orWhere('ec.tahun_ajaran', 'like', "%{$keyword}%");
                 });
             })
+
             // agar sort kolom "kelas" jalan
             ->orderColumn('kelas', function ($query, $order) {
-                $query->orderBy('ec.name', $order)->orderBy('ec.tahun_ajaran', $order);
+                $query->orderBy('ec.name', $order)
+                    ->orderBy('ec.tahun_ajaran', $order);
             })
+
             ->rawColumns(['actions'])
             ->make(true);
     }
@@ -348,7 +361,7 @@ class StudentController extends Controller
         // $akunKeuangans = $class?->akunKeuangans ?? collect();
         $akunKeuangans = AkunKeuangan::where('parent_id', 201)->get();
 
-        // 🧩 Tambahkan Log untuk memastikan data terkirim
+        // 🧩 TambahkanLog untuk memastikan data terkirim
         Log::info('=== DEBUG EDIT STUDENT ===', [
             'student_id' => $student->id,
             'student_name' => $student->name,
@@ -375,7 +388,7 @@ class StudentController extends Controller
 
     public function update(Request $request, $id)
     {
-        \Log::debug('🔥 MASUK KE METHOD UPDATE');
+        Log::debug('🔥 MASUK KE METHOD UPDATE');
 
         // === A) Normalisasi TTL ke Y-m-d sebelum validasi ===
         if ($request->filled('ttl')) {
@@ -448,7 +461,7 @@ class StudentController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::debug('🚨 VALIDASI GAGAL', $validator->errors()->toArray());
+            Log::debug('🚨 VALIDASI GAGAL', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
 
@@ -462,10 +475,10 @@ class StudentController extends Controller
             }
         }
 
-        \Log::debug('✅ VALIDASI LULUS', $request->all());
-        \Log::debug('Request Update Student', $request->all());
-        \Log::debug('Wali Data', ['wali' => $request->wali]);
-        \Log::debug('Uploaded Files', $request->allFiles());
+        Log::debug('✅ VALIDASI LULUS', $request->all());
+        Log::debug('Request Update Student', $request->all());
+        Log::debug('Wali Data', ['wali' => $request->wali]);
+        Log::debug('Uploaded Files', $request->allFiles());
 
         if (!isset($request->wali['nama']) || !is_array($request->wali['nama'])) {
             throw new \Exception('Data wali tidak valid atau tidak ditemukan.');
@@ -533,7 +546,7 @@ class StudentController extends Controller
                 $student->kk = $request->file('kk')->store('students/kk', 'public');
             }
 
-            \Log::info('Before update student', $student->toArray());
+            Log::info('Before update student', $student->toArray());
 
             // === E) Update data siswa ===
             $student->update([
@@ -555,7 +568,7 @@ class StudentController extends Controller
                 'total_biaya' => $totalBiaya,
             ]);
 
-            \Log::info('After update student', $student->fresh()->toArray());
+            Log::info('After update student', $student->fresh()->toArray());
 
             // === F) Sinkronisasi Wali Murid (Ayah/Ibu) ===
             foreach ($request->wali['nama'] as $i => $nama) {
@@ -587,7 +600,7 @@ class StudentController extends Controller
                     'foto_ktp' => $fotoKtp,
                 ];
 
-                \Log::info("Memproses wali ke-$i", $dataWali);
+                Log::info("Memproses wali ke-$i", $dataWali);
 
                 if ($wali) {
                     $wali->update($dataWali);
@@ -623,7 +636,7 @@ class StudentController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            \Log::error('Gagal update siswa', [
+            Log::error('Gagal update siswa', [
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),

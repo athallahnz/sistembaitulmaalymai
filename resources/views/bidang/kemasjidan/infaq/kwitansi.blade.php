@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Kwitansi Infaq - {{ strtoupper($bulan) }}</title>
+    <title>Kwitansi Infaq - {{ strtoupper($bulanNama ?? '') }} {{ $tahun ?? '' }}</title>
     <style>
         /* ============== PAGE ============== */
         @page {
@@ -11,7 +11,6 @@
             margin: 8mm;
         }
 
-        /* Dompdf hormati ini */
         html,
         body {
             margin: 0;
@@ -25,14 +24,12 @@
             line-height: 1.35;
         }
 
-        /* ============== TOKENS ============== */
         :root {
             --brand: #622200;
             --muted: #666;
             --border: #e5e5e5;
         }
 
-        /* ============== LAYOUT ============== */
         .wrap {
             width: 100%;
         }
@@ -61,7 +58,6 @@
             margin-top: 3mm;
         }
 
-        /* ============== HEADER ============== */
         .header {
             border-bottom: 0.6mm solid var(--brand);
             padding-bottom: 2mm;
@@ -123,7 +119,6 @@
             font-weight: 600;
         }
 
-        /* ============== BOX DATA ============== */
         .box {
             border: .3mm solid var(--border);
             border-radius: 2mm;
@@ -168,7 +163,6 @@
             margin-top: 2mm;
         }
 
-        /* ============== VERIFIKASI + TTD ============== */
         .sign-table {
             width: 100%;
             border-collapse: collapse;
@@ -199,7 +193,6 @@
             margin-top: 1.6mm;
         }
 
-        /* Pastikan SVG benar-benar kecil */
         .qr-box svg {
             width: 18mm;
             height: 18mm;
@@ -238,14 +231,12 @@
             margin-top: .6mm;
         }
 
-        /* ============== FOOTNOTE ============== */
         .footnote {
             color: var(--muted);
             font-size: 2.6mm;
             margin-top: 3mm;
         }
 
-        /* ============== WATERMARK ============== */
         .watermark {
             position: absolute;
             inset: 0;
@@ -279,18 +270,30 @@
                     <td class="org-cell">
                         <h1 class="org-title">Yayasan Masjid Al Iman Sutorejo Indah</h1>
                         <p class="org-sub">
-                            Sistem Baitul Maal — Kwitansi Infaq Bulanan Al Iman<br>
-                            Alamat: {{ $alamatYayasan ?? 'Jl. Sutorejo Indah, Surabaya' }}<br>
+                            Sistem Baitul Maal — Kwitansi Infaq Kemasjidan<br>
+                            Alamat: {{ $alamatYayasan ?? '-' }}<br>
                             Telp: {{ $teleponYayasan ?? '-' }} • Email: {{ $emailYayasan ?? '-' }}
                         </p>
 
                         <table class="meta">
                             <tr>
                                 <td class="label">Kode Kwitansi</td>
-                                <td class="value">{{ $kode }}</td>
+                                <td class="value">{{ $kode ?? '-' }}</td>
                                 <td class="label right">Tanggal</td>
-                                <td class="value right">{{ $tanggal->format('d M Y H:i') }}</td>
+                                <td class="value right">
+                                    {{ ($tanggal ?? now())->format('d M Y H:i') }}
+                                </td>
                             </tr>
+
+                            @if (!empty($trx?->kode_transaksi) || !empty($trx?->metode_bayar))
+                                <tr>
+                                    <td class="label">Kode Transaksi</td>
+                                    <td class="value">{{ $trx->kode_transaksi ?? '-' }}</td>
+                                    <td class="label right">Metode</td>
+                                    <td class="value right">
+                                        {{ !empty($trx?->metode_bayar) ? ucfirst($trx->metode_bayar) : '-' }}</td>
+                                </tr>
+                            @endif
                         </table>
                     </td>
                 </tr>
@@ -301,27 +304,41 @@
         <div class="box">
             <div class="row">
                 <div class="key">Nama</div>
-                <div class="val">{{ $warga->nama }}</div>
+                <div class="val">{{ $warga->nama ?? '-' }}</div>
             </div>
             <div class="row">
                 <div class="key">RT / No</div>
-                <div class="val">{{ $warga->rt }} / {{ $warga->no }}</div>
+                <div class="val">{{ $warga->rt ?? '-' }} / {{ $warga->no ?? '-' }}</div>
             </div>
             <div class="row">
                 <div class="key">Alamat</div>
-                <div class="val">{{ $warga->alamat }}</div>
+                <div class="val">{{ $warga->alamat ?? '-' }}</div>
             </div>
 
             <hr class="hr">
 
             <div class="row">
-                <div class="key">Bulan</div>
-                <div class="val text-capitalize">{{ ucfirst($bulan) }}</div>
+                <div class="key">Periode</div>
+                <div class="val">{{ $bulanNama ?? '-' }} {{ $tahun ?? '' }}</div>
             </div>
+
+            @if (!empty($trx?->sumber))
+                <div class="row">
+                    <div class="key">Sumber</div>
+                    <div class="val">{{ $trx->sumber }}</div>
+                </div>
+            @endif
+
+            @if (!empty($trx?->keterangan))
+                <div class="row">
+                    <div class="key">Keterangan</div>
+                    <div class="val">{{ $trx->keterangan }}</div>
+                </div>
+            @endif
 
             <div class="total-line">
                 <div>Nominal</div>
-                <div>Rp {{ number_format($nominal, 0, ',', '.') }}</div>
+                <div>Rp {{ number_format((float) ($nominal ?? 0), 0, ',', '.') }}</div>
             </div>
 
             <table class="sign-table">
@@ -338,10 +355,10 @@
                     <!-- KANAN: TTD -->
                     <td class="sign-right">
                         <div class="sign-block">
-                            <div class="sign-date">Surabaya, {{ $tanggal->format('d M Y') }}</div>
-                            <div class="sign-title">Mengetahui,<br>Bidang Sosial</div>
+                            <div class="sign-date">Surabaya, {{ ($tanggal ?? now())->format('d M Y') }}</div>
+                            <div class="sign-title">Mengetahui,<br>Bidang Kemasjidan</div>
                             <div class="sign-name">{{ $ttdNama ?? '____________________' }}</div>
-                            <div class="sign-role">{{ $ttdJabatan ?? 'Koordinator Bidang Sosial' }}</div>
+                            <div class="sign-role">{{ $ttdJabatan ?? 'Koordinator Bidang Kemasjidan' }}</div>
                         </div>
                     </td>
                 </tr>

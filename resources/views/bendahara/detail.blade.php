@@ -1,11 +1,13 @@
 @extends('layouts.app')
-@section('title', 'Catatan Buku Harian')
+@section('title', 'Detail Transaksi')
+
 @section('content')
     <div class="container">
         <div class="d-flex align-items-center mb-4">
             <a href="{{ url()->previous() }}" class="me-1 text-decoration-none">
                 <i class="bi bi-arrow-left-short fs-1"></i>
             </a>
+
             <h1 class="mb-0">
                 Detail Transaksi:
                 <strong>
@@ -23,35 +25,42 @@
                 </strong>
             </h1>
         </div>
+
         <div class="p-3 shadow table-responsive rounded">
-            <table id="transaksi-table" class="p-2 table table-striped table-bordered rounded yajra-datatable">
+            <table id="transaksi-table" class="table table-striped table-bordered align-middle yajra-datatable">
                 <thead class="table-light">
                     <tr>
-                        <th>Tanggal</th>
-                        <th>Kode Transaksi</th>
-                        <th>Jenis Transaksi</th>
+                        <th style="width:120px;">Tanggal</th>
+                        <th style="width:220px;">Kode Transaksi</th>
+                        <th style="width:180px;">Jenis Transaksi</th>
                         <th>Akun</th>
                         <th>Sub Akun</th>
                         <th>Deskripsi</th>
-                        <th>Jumlah</th>
+                        <th class="text-end" style="width:140px;">Debit</th>
+                        <th class="text-end" style="width:140px;">Kredit</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        $(document).ready(function() {
-            var table = $('.yajra-datatable').DataTable({
+        $(function() {
+            $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
+                order: [
+                    [0, 'asc']
+                ],
                 ajax: {
                     url: "{{ route('bendahara.detail.data') }}",
                     data: function(d) {
                         d.parent_akun_id = @json($parentAkunId);
                         d.type = @json($type);
+                        d.start_date = @json(request('start_date'));
+                        d.end_date = @json(request('end_date'));
                     }
                 },
                 columns: [{
@@ -79,10 +88,19 @@
                         name: 'deskripsi'
                     },
                     {
-                        data: 'amount',
-                        name: 'amount',
-                        render: function(data, type, row) {
-                            return number_format(data); // Format debit
+                        data: 'debit',
+                        name: 'debit',
+                        className: 'text-end',
+                        render: function(data) {
+                            return number_format(data || 0);
+                        }
+                    },
+                    {
+                        data: 'credit',
+                        name: 'credit',
+                        className: 'text-end',
+                        render: function(data) {
+                            return number_format(data || 0);
                         }
                     }
                 ]

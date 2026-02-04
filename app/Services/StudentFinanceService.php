@@ -45,7 +45,7 @@ class StudentFinanceService
 
         // 1) HAPUS transaksi "pendapatan belum diterima" PMB + ledger-nya untuk siswa ini
         $trxPbd = Transaksi::where('type', 'pendapatan belum diterima')
-            ->where('sumber', $student->id)
+            ->where('student_id', $student->id)
             ->get();
 
         foreach ($trxPbd as $trx) {
@@ -118,7 +118,7 @@ class StudentFinanceService
             'bidang_name' => $bidangId,
             'amount' => $totalBiaya,
             'saldo' => $totalBiaya,
-            'sumber' => $student->id,
+            'student_id' => $student->id,
         ]);
 
         // ==========================
@@ -180,40 +180,38 @@ class StudentFinanceService
             'type' => 'pendapatan belum diterima',
             'deskripsi' => "Tagihan SPP siswa {$student->name} - {$bulan}/{$tahun}",
 
-            // LAWAN = Pendapatan Belum Diterima SPP
+            // lawan = PBD SPP (akun kewajiban)
             'akun_keuangan_id' => config('akun.pendapatan_belum_diterima_spp'),
 
-            // AKUN UTAMA = Piutang SPP
+            // akun utama = Piutang SPP
             'parent_akun_id' => config('akun.piutang_spp'),
 
             'bidang_name' => 2,
             'amount' => $jumlah,
             'saldo' => $jumlah,
+
+            // ==== tambahan baru ====
+            'student_id' => $student->id,
+            'sumber' => config('sumber.pendapatan_belum_diterima_spp'), // 50011
         ]);
 
-        // ==========================
-        // Jurnal double-entry (SPP)
-        // Debit  : Piutang SPP (asset)
-        // Kredit : Pendapatan Belum Diterima - SPP (liability)
-        // ==========================
+        // Ledger: Debit Piutang, Kredit PBD
         Ledger::create([
             'transaksi_id' => $transaksi->id,
-            'akun_keuangan_id' => config('akun.piutang_spp'), // Piutang SPP
+            'akun_keuangan_id' => config('akun.piutang_spp'),
             'debit' => $jumlah,
             'credit' => 0,
         ]);
 
         Ledger::create([
             'transaksi_id' => $transaksi->id,
-            // ⬇️ GUNAKAN akun kewajiban baru
-            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima_spp'), // Pendapatan Belum Diterima – SPP
+            'akun_keuangan_id' => config('akun.pendapatan_belum_diterima_spp'),
             'debit' => 0,
             'credit' => $jumlah,
         ]);
 
-        // Piutang
+        // Piutang (rekap by siswa)
         $existingPiutang = Piutang::where('student_id', $student->id)->first();
-
         if ($existingPiutang) {
             $existingPiutang->update([
                 'jumlah' => $existingPiutang->jumlah + $jumlah,
@@ -234,9 +232,8 @@ class StudentFinanceService
             ]);
         }
 
-        // Pendapatan Belum Diterima (rekap by siswa)
+        // PBD (rekap by siswa)
         $existingPBD = PendapatanBelumDiterima::where('student_id', $student->id)->first();
-
         if ($existingPBD) {
             $existingPBD->update([
                 'jumlah' => $existingPBD->jumlah + $jumlah,
@@ -253,6 +250,8 @@ class StudentFinanceService
                 'bidang_name' => 2,
             ]);
         }
+
+        return $transaksi; // <=== penting, untuk disimpan ke tagihan_spps.transaksi_id
     }
 
     public function deleteWithAllRelations(Student $student): void

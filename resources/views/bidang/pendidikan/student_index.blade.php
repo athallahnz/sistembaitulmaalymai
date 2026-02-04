@@ -5,20 +5,84 @@
         .modal-xxl {
             max-width: 95% !important;
         }
-    </style>
-    <div class="container">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item active" aria-current="page"><a>Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page"><a>Dashboard</a></li>
-            </ol>
-        </nav>
-        <h1 class="mb-4">Dashboard Murid</h1>
 
-        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#studentModal">
-            <i class="bi bi-person-plus"></i>
-            Tambah Murid
-        </button>
+        /* supaya tab rapi & nyaman di-scroll */
+        .nav-tabs.flex-nowrap .nav-link {
+            white-space: nowrap;
+        }
+    </style>
+
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a>Home</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+                    </ol>
+                </nav>
+                <h1 class="mb-2">Dashboard Murid</h1>
+                <div class="text-muted small mt-1">Kelola data murid, biaya, dan RFID.</div>
+            </div>
+
+            @php
+                $tahunAjarans = $eduClasses->pluck('tahun_ajaran')->unique()->sort()->values();
+
+                $classesJson = $eduClasses
+                    ->map(
+                        fn($c) => [
+                            'id' => $c->id,
+                            'name' => $c->name,
+                            'tahun_ajaran' => $c->tahun_ajaran,
+                        ],
+                    )
+                    ->values()
+                    ->toJson();
+            @endphp
+
+            <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-md-center gap-2">
+                {{-- Tahun Ajaran (di kanan, sebelah tombol) --}}
+                <div style="min-width: 220px;">
+                    <select id="filterTahunAjaran" class="form-select form-select">
+                        <option value="">Semua Tahun Ajaran</option>
+                        @foreach ($tahunAjarans as $ta)
+                            <option value="{{ $ta }}">{{ $ta }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#studentModal">
+                    <i class="bi bi-person-plus me-1"></i>
+                    Tambah Murid
+                </button>
+            </div>
+        </div>
+
+        <input type="hidden" id="selectedTahunAjaran" value="">
+        <input type="hidden" id="selectedEduClassId" value="">
+
+        {{-- Simpan dataset kelas untuk JS --}}
+        <script>
+            window.__EDU_CLASSES__ = {!! $classesJson !!};
+        </script>
+
+        {{-- Filter Tab Kelas --}}
+        <div class="card border-0 shadow-sm rounded-4 mb-3">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <div>
+                        <div class="fw-semibold">Filter Kelas</div>
+                        <div class="text-muted small">Tab akan menyesuaikan sesuai Tahun Ajaran yang dipilih.</div>
+                    </div>
+                </div>
+
+                <div class="overflow-auto">
+                    <ul class="nav nav-tabs flex-nowrap" id="kelasTabs" role="tablist" style="white-space:nowrap;">
+                        {{-- tabs injected by JS --}}
+                    </ul>
+                </div>
+            </div>
+        </div>
 
         <div class="p-3 shadow table-responsive rounded">
             <table class="table table-bordered yajra-datatable">
@@ -33,16 +97,20 @@
                 </thead>
             </table>
         </div>
-        <form id="delete-form" method="POST" style="display: none;">
+
+        {{-- Single delete form (jangan duplikasi di server response datatable) --}}
+        <form id="delete-form" method="POST" style="display:none;">
             @csrf
             @method('DELETE')
         </form>
+
         {{-- Modal Form Tambah Student --}}
         <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xxl">
                 <div class="modal-content">
                     <form method="POST" action="{{ route('students.store') }}" enctype="multipart/form-data">
                         @csrf
+
                         <div class="modal-header">
                             <h2 class="modal-title"><strong>Formulir Pendaftaran Murid Baru</strong></h2>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -61,11 +129,12 @@
                                             @foreach ($eduClasses as $class)
                                                 <option value="{{ $class->id }}"
                                                     {{ old('edu_class_id') == $class->id ? 'selected' : '' }}>
-                                                    {{ $class->name }} -
-                                                    {{ $class->tahun_ajaran }}</option>
+                                                    {{ $class->name }} - {{ $class->tahun_ajaran }}
+                                                </option>
                                             @endforeach
                                         </select>
                                     </div>
+
                                     <div class="row mb-3">
                                         <div class="col-md-8">
                                             <label>NISN</label>
@@ -106,7 +175,7 @@
                                     </div>
 
                                     <div class="mb-3">
-                                        <label>Jenis Kelamin <span class="text-danger">*</span> </label>
+                                        <label>Jenis Kelamin <span class="text-danger">*</span></label>
                                         <select name="jenis_kelamin" class="form-select" required>
                                             <option value="L" {{ old('jenis_kelamin') == 'L' ? 'selected' : '' }}>
                                                 Laki-laki</option>
@@ -212,6 +281,7 @@
                                 {{-- Kolom 2: Data Wali Murid --}}
                                 <div class="col-md-4">
                                     <h4 class="mb-3">Data Wali Murid</h4>
+
                                     <div class="accordion mb-4" id="waliAccordion">
                                         <div class="accordion-item">
                                             <h2 class="accordion-header" id="headingAyah">
@@ -221,9 +291,8 @@
                                                     Data Ayah
                                                 </button>
                                             </h2>
-                                            <div id="collapseAyah"
-                                                class="accordion-collapse collapse show"aria-labelledby="headingAyah"
-                                                data-bs-parent="#waliAccordion">
+                                            <div id="collapseAyah" class="accordion-collapse collapse show"
+                                                aria-labelledby="headingAyah" data-bs-parent="#waliAccordion">
                                                 <div class="accordion-body">
                                                     @include(
                                                         'bidang.pendidikan.wali_murids.partials.form_wali_murid',
@@ -283,8 +352,10 @@
                                         </thead>
                                         <tbody></tbody>
                                     </table>
-                                    <button type="button" id="addRow" class="btn btn-sm btn-outline-primary mb-3">+
-                                        Tambah Biaya</button>
+
+                                    <button type="button" id="addRow" class="btn btn-sm btn-outline-primary mb-3">
+                                        + Tambah Biaya
+                                    </button>
 
                                     <div class="mb-3">
                                         <label>Total Biaya</label>
@@ -319,6 +390,7 @@
 
     </div>
 @endsection
+
 @push('scripts')
     {{-- CDN untuk Flatpickr --}}
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -326,18 +398,21 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // === Modal: Buka otomatis jika ada error ===
+            // =========================
+            // MODAL AUTO OPEN (ERROR)
+            // =========================
             @if ($errors->any())
                 const studentModal = new bootstrap.Modal(document.getElementById('studentModal'));
                 studentModal.show();
 
-                // Fokus ke input RFID saat modal terbuka
                 document.getElementById('studentModal').addEventListener('shown.bs.modal', function() {
                     document.getElementById('rfid_uid_input')?.focus();
                 });
             @endif
 
-            // === Inisialisasi Flatpickr untuk TTL dan Hitung Usia ===
+            // =========================
+            // FLATPICKR TTL + HITUNG USIA
+            // =========================
             flatpickr("input[name='ttl']", {
                 dateFormat: "d/m/Y",
                 altInput: true,
@@ -359,6 +434,7 @@
                     if (selectedDates.length > 0) {
                         const birthDate = selectedDates[0];
                         const today = new Date();
+
                         let years = today.getFullYear() - birthDate.getFullYear();
                         let months = today.getMonth() - birthDate.getMonth();
                         let days = today.getDate() - birthDate.getDate();
@@ -371,36 +447,125 @@
                             months += 12;
                             years--;
                         }
+
                         document.querySelector("input[name='usia']").value =
                             `${years} tahun ${months} bulan ${days} hari`;
                     }
                 }
             });
 
-            // helper format rupiah sederhana (kalau belum ada)
-            function number_format(x) {
-                x = Number(x || 0);
-                return x.toLocaleString('id-ID');
+            // =========================
+            // HELPER: RUPIAH
+            // =========================
+            function rupiah(n) {
+                n = Number(n || 0);
+                return n.toLocaleString('id-ID');
             }
 
-            $('.yajra-datatable').DataTable({
+            function formatRupiah(angka) {
+                angka = Number(String(angka || 0).replace(/\D/g, '')) || 0;
+                return new Intl.NumberFormat('id-ID').format(angka);
+            }
+
+            // =========================
+            // DATA TABLES + FILTER TAB
+            // =========================
+            const allClasses = Array.isArray(window.__EDU_CLASSES__) ? window.__EDU_CLASSES__ : [];
+
+            const selectedEduClassIdEl = document.getElementById('selectedEduClassId');
+            const selectedTahunAjaranEl = document.getElementById('selectedTahunAjaran');
+            const tahunSelectEl = document.getElementById('filterTahunAjaran');
+            const tabsWrapEl = document.getElementById('kelasTabs');
+
+            function rupiah(n) {
+                n = Number(n || 0);
+                return n.toLocaleString('id-ID');
+            }
+
+            function escapeHtml(str) {
+                return String(str ?? '').replace(/[&<>"']/g, m => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                } [m]));
+            }
+
+            function buildTabs(tahunAjaran) {
+                if (!tabsWrapEl) return;
+
+                // Filter kelas by tahun ajaran (kalau kosong berarti semua)
+                const filtered = tahunAjaran ?
+                    allClasses.filter(c => String(c.tahun_ajaran) === String(tahunAjaran)) :
+                    allClasses.slice();
+
+                // Build HTML tabs (Selalu ada tab "Semua")
+                let html = `
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" type="button" data-kelas-id="" role="tab">
+                    Semua
+                </button>
+            </li>
+        `;
+
+                // Optional: sort by name
+                filtered.sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+
+                html += filtered.map(c => `
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" type="button" data-kelas-id="${escapeHtml(c.id)}" role="tab">
+                    ${escapeHtml(c.name)}
+                    <span class="text-muted small">(${escapeHtml(c.tahun_ajaran)})</span>
+                </button>
+            </li>
+        `).join('');
+
+                tabsWrapEl.innerHTML = html;
+
+                // Reset selected kelas -> "Semua"
+                selectedEduClassIdEl.value = '';
+            }
+
+            function setActiveTabByKelasId(kelasId) {
+                if (!tabsWrapEl) return;
+                const btn = tabsWrapEl.querySelector(`button[data-kelas-id="${kelasId}"]`) ||
+                    tabsWrapEl.querySelector(`button[data-kelas-id=""]`);
+
+                if (!btn) return;
+
+                tabsWrapEl.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+                btn.classList.add('active');
+                selectedEduClassIdEl.value = btn.getAttribute('data-kelas-id') || '';
+            }
+
+            // ==================
+            // DataTables init
+            // ==================
+            const dtStudents = $('.yajra-datatable').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('students.data') }}",
+                ajax: {
+                    url: "{{ route('students.data') }}",
+                    data: function(d) {
+                        d.edu_class_id = selectedEduClassIdEl?.value || '';
+                        d.tahun_ajaran = selectedTahunAjaranEl?.value || '';
+                    }
+                },
                 columns: [{
                         data: 'name',
                         name: 'students.name'
-                    }, // penting: pakai tabel kolom nyata
+                    },
                     {
                         data: 'kelas',
-                        name: 'ec.name'
-                    }, // penting: alias JOIN 'ec'
+                        name: 'kelas'
+                    },
                     {
                         data: 'total_biaya',
                         name: 'students.total_biaya',
                         orderable: false,
                         searchable: false,
-                        render: (data) => number_format(data)
+                        render: data => rupiah(data)
                     },
                     {
                         data: 'rfid_uid',
@@ -414,56 +579,66 @@
                         orderable: false,
                         searchable: false
                     }
-                ],
-                error: function(xhr) {
-                    console.log(xhr.responseText);
-                }
+                ]
             });
 
+            // ============================
+            // Tabs click -> filter kelas
+            // ============================
+            tabsWrapEl?.addEventListener('click', function(e) {
+                const btn = e.target.closest('button[data-kelas-id]');
+                if (!btn) return;
 
-            // === Fungsi Format Angka ===
-            function number_format(number, decimals = 0, dec_point = ',', thousands_sep = '.') {
-                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-                let n = !isFinite(+number) ? 0 : +number,
-                    prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-                    sep = thousands_sep,
-                    dec = dec_point,
-                    s = '',
-                    toFixedFix = function(n, prec) {
-                        return '' + Math.round(n * Math.pow(10, prec)) / Math.pow(10, prec);
-                    };
-                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-                if (s[0].length > 3) {
-                    s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-                }
-                if ((s[1] || '').length < prec) {
-                    s[1] = s[1] || '';
-                    s[1] += new Array(prec - s[1].length + 1).join('0');
-                }
-                return s.join(dec);
-            }
+                tabsWrapEl.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+                btn.classList.add('active');
 
-            // === Dinamis Rincian Biaya ===
+                selectedEduClassIdEl.value = btn.getAttribute('data-kelas-id') || '';
+                dtStudents.ajax.reload(null, true);
+            });
+
+            // ==========================================
+            // Tahun ajaran change -> rebuild tabs + reset
+            // ==========================================
+            tahunSelectEl?.addEventListener('change', function() {
+                const ta = this.value || '';
+                selectedTahunAjaranEl.value = ta;
+
+                // rebuild tabs untuk TA terpilih
+                buildTabs(ta);
+
+                // pastikan tab "Semua" aktif
+                setActiveTabByKelasId('');
+
+                dtStudents.ajax.reload(null, true);
+            });
+
+            // ======================
+            // Initial render
+            // ======================
+            buildTabs(''); // awal tampil semua kelas
+            setActiveTabByKelasId(''); // tab Semua aktif
+
+            // =========================
+            // DINAMIS RINCIAN BIAYA
+            // =========================
             const tbody = document.querySelector('#costTable tbody');
             const totalDisplay = document.getElementById('total_display');
             const totalInput = document.getElementById('total_biaya');
             const akunTemplate = document.querySelector('.akun-template');
             const classSelect = document.querySelector('[name="edu_class_id"]');
 
-            function formatRupiah(angka) {
-                return new Intl.NumberFormat('id-ID').format(angka);
-            }
-
             function updateTotal() {
                 let total = 0;
                 document.querySelectorAll('input.jumlah-hidden').forEach(input => {
                     total += parseInt(input.value) || 0;
                 });
-                totalDisplay.value = formatRupiah(total);
-                totalInput.value = total;
+                if (totalDisplay) totalDisplay.value = formatRupiah(total);
+                if (totalInput) totalInput.value = total;
             }
 
             document.getElementById('addRow')?.addEventListener('click', () => {
+                if (!tbody || !akunTemplate) return;
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>
@@ -472,41 +647,52 @@
                         </select>
                     </td>
                     <td>
-                        <input type="text" class="form-control jumlah" required>
+                        <input type="text" class="form-control jumlah" inputmode="numeric" required>
                         <input type="hidden" name="jumlah[]" class="jumlah-hidden">
                     </td>
                     <td class="text-center">
                         <button type="button" class="btn btn-danger btn-sm remove-row">
                             <i class="bi bi-trash3"></i>
                         </button>
-                    </td>`;
+                    </td>
+                `;
                 tbody.appendChild(row);
             });
 
-            tbody.addEventListener('click', function(e) {
+            tbody?.addEventListener('click', function(e) {
                 if (e.target.closest('.remove-row')) {
-                    e.target.closest('tr').remove();
+                    e.target.closest('tr')?.remove();
                     updateTotal();
                 }
             });
 
-            tbody.addEventListener('input', function(e) {
-                if (e.target.classList.contains('jumlah')) {
-                    const angka = e.target.value.replace(/\D/g, '');
-                    e.target.value = formatRupiah(angka);
-                    const hidden = e.target.closest('td').querySelector('.jumlah-hidden');
-                    if (hidden) hidden.value = angka;
-                    updateTotal();
-                }
+            tbody?.addEventListener('input', function(e) {
+                const el = e.target;
+                if (!el.classList.contains('jumlah')) return;
+
+                const angka = String(el.value || '').replace(/\D/g, '');
+                el.value = formatRupiah(angka);
+
+                const hidden = el.closest('td')?.querySelector('.jumlah-hidden');
+                if (hidden) hidden.value = angka;
+
+                updateTotal();
             });
 
             // AJAX Ambil Akun Keuangan Default Berdasarkan Kelas
             classSelect?.addEventListener('change', function() {
-                fetch(`/kelas/${this.value}/akun-keuangan`)
+                const kelasId = this.value;
+                if (!kelasId || !tbody) return;
+
+                fetch(`/kelas/${kelasId}/akun-keuangan`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    })
                     .then(res => res.json())
                     .then(data => {
                         tbody.innerHTML = '';
-                        data.forEach(akun => {
+                        (data || []).forEach(akun => {
                             const row = document.createElement('tr');
                             row.innerHTML = `
                                 <td>
@@ -515,42 +701,45 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" class="form-control jumlah" required>
+                                    <input type="text" class="form-control jumlah" inputmode="numeric" required>
                                     <input type="hidden" name="jumlah[]" class="jumlah-hidden">
                                 </td>
                                 <td class="text-center">
                                     <button type="button" class="btn btn-danger btn-sm remove-row">
                                         <i class="bi bi-trash3"></i>
                                     </button>
-                                </td>`;
+                                </td>
+                            `;
                             tbody.appendChild(row);
                         });
                         updateTotal();
-                    });
+                    })
+                    .catch(() => {});
             });
 
             updateTotal();
 
-            // === Alamat: Salin Alamat KK ke Alamat Tinggal & Wali ===
+            // =========================
+            // ALAMAT: COPY KK → TINGGAL & WALI
+            // =========================
             const alamatKK = document.getElementById('alamat_kk');
             const alamatTinggal = document.getElementById('alamat_tinggal');
             const copyAlamatTinggal = document.getElementById('copyAlamatTinggal');
 
             copyAlamatTinggal?.addEventListener('change', function() {
+                if (!alamatKK || !alamatTinggal) return;
                 alamatTinggal.value = this.checked ? alamatKK.value : '';
             });
 
             alamatKK?.addEventListener('input', function() {
-                if (copyAlamatTinggal.checked) {
-                    alamatTinggal.value = this.value;
-                }
+                if (!alamatTinggal || !copyAlamatTinggal) return;
+                if (copyAlamatTinggal.checked) alamatTinggal.value = this.value;
             });
 
-            // Fungsi untuk Wali (Ayah/Ibu)
             function setupAlamatWali(index) {
                 const checkbox = document.getElementById(`copyAlamatWali${index}`);
                 const alamat = document.getElementById(`alamat_wali_${index}`);
-                if (!checkbox || !alamat) return;
+                if (!checkbox || !alamat || !alamatKK) return;
 
                 checkbox.addEventListener('change', function() {
                     if (this.checked) {
@@ -563,18 +752,16 @@
                 });
 
                 alamatKK.addEventListener('input', function() {
-                    if (checkbox.checked) {
-                        alamat.value = alamatKK.value;
-                    }
+                    if (checkbox.checked) alamat.value = alamatKK.value;
                 });
             }
 
-            // Inisialisasi untuk Ayah (0) dan Ibu (1)
             setupAlamatWali(0);
             setupAlamatWali(1);
-        });
 
-        document.addEventListener('DOMContentLoaded', function() {
+            // =========================
+            // DELETE STUDENT (SWEETALERT)
+            // =========================
             const deleteForm = document.getElementById('delete-form');
 
             document.body.addEventListener('click', function(e) {
@@ -582,10 +769,11 @@
                 if (!btn) return;
 
                 const url = btn.getAttribute('data-url');
+                if (!url || !deleteForm) return;
 
                 Swal.fire({
                     title: 'Yakin ingin menghapus?',
-                    text: "Data siswa akan dihapus permanen.",
+                    text: "Data Murid akan dihapus permanen.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',

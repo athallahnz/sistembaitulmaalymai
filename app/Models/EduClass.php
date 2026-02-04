@@ -10,7 +10,7 @@ class EduClass extends Model
 {
 
     protected $table = 'edu_classes';
-    protected $fillable = ['name', 'tahun_ajaran'];
+    protected $fillable = ['name', 'tahun_ajaran','tahun_awal'];
 
     public function students()
     {

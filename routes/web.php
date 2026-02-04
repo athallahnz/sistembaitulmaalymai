@@ -34,6 +34,8 @@ use App\Http\Controllers\Pendidikan\WaliMuridController;
 use App\Http\Controllers\Kemasjidan\KemasjidanController;
 use App\Http\Controllers\Kemasjidan\TrackingInfaqController;
 use App\Http\Controllers\Sosial\IuranBulananController;
+use App\Http\Controllers\Sosial\DanaKematianController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\WargaController;
 use App\Exports\TransaksisExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -108,6 +110,8 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     Route::prefix('akun-keuangan')->name('akun_keuangan.')->group(function () {
         // Index (utama)
         Route::get('/', [AkunKeuanganController::class, 'index'])->name('index');
+        Route::get('/admin/akun-keuangan/{id}/detail-json', [AkunKeuanganController::class, 'detailJson'])
+            ->name('detail_json');
 
         // DataTables AJAX
         Route::get('/data/table', [AkunKeuanganController::class, 'dataTable'])->name('datatable');
@@ -116,13 +120,13 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::resource('data', AkunKeuanganController::class)->except(['index'])->parameters([
             'data' => 'akunKeuangan'
         ])->names([
-                    'create' => 'create',
-                    'store' => 'store',
-                    'show' => 'show',
-                    'edit' => 'edit',
-                    'update' => 'update',
-                    'destroy' => 'destroy',
-                ]);
+            'create' => 'create',
+            'store' => 'store',
+            'show' => 'show',
+            'edit' => 'edit',
+            'update' => 'update',
+            'destroy' => 'destroy',
+        ]);
     });
 
     Route::prefix('add_bidangs')->name('add_bidangs.')->group(function () {
@@ -220,6 +224,15 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
         Route::post('/transaksi/opening-balance', [TransaksiController::class, 'storeOpeningBalance'])
             ->name('transaksi.opening-balance.store');
 
+        // Route untuk menyimpan Adjustment
+        Route::get('/transaksi/adjustment/check', [TransaksiController::class, 'checkAdjustment'])->name('transaksi.adjustment.check');
+
+        Route::get('/transaksi/adjustment/preview', [TransaksiController::class, 'previewAdjustment'])
+            ->name('transaksi.adjustment.preview');
+
+        Route::post('/transaksi/adjustment', [TransaksiController::class, 'storeAdjustment'])
+            ->name('transaksi.adjustment.store');
+
         // Route untuk menyimpan Transfer antar Akun
         Route::post('/transaksi/transfer', [TransaksiController::class, 'storeTransfer'])
             ->name('transaksi.transfer.store');
@@ -266,10 +279,41 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
     Route::get('/api/spp-tagihan-by-rfid/{uid}', [TagihanSppController::class, 'getTagihanByRfid']);
     Route::get('/tagihan-spp/{id}', [TagihanSppController::class, 'show'])->name('tagihan-spp.show');
     Route::get('/tagihan-spp/kwitansi/{id}', [TagihanSppController::class, 'printReceipt'])->name('tagihan-spp.kwitansi.per');
+    Route::delete('/tagihan-spp/student/{student}/periode', [TagihanSppController::class, 'destroyPeriodeByStudent'])->name('tagihan-spp.destroy-periode-student');
+    Route::delete('/tagihan-spp/student/{student}', [TagihanSppController::class, 'destroyByStudent'])->name('tagihan-spp.destroy-student');
+    // ========== SPP: History Tagihan (group per siswa + child row) ==========
+    Route::get('/pendidikan/tagihan-spp/history', [TagihanSppController::class, 'history'])
+        ->name('tagihan-spp.history');
+
+    // DataTables utama: 1 row per siswa (per kelas)
+    Route::get('/pendidikan/tagihan-spp/history/data', [TagihanSppController::class, 'historyStudentsData'])
+        ->name('tagihan-spp.history.data');
+
+    // Child row: list tagihan milik siswa (filter tahun/bulan optional)
+    Route::get('/pendidikan/tagihan-spp/history/student/{student}/items', [TagihanSppController::class, 'historyStudentItems'])
+        ->name('tagihan-spp.history.student-items');
+
+    // Edit massal 1 periode (bulan/tahun) per kelas
+    Route::post('/pendidikan/tagihan-spp/history/bulk-edit', [TagihanSppController::class, 'bulkEditPeriodeByKelas'])
+        ->name('tagihan-spp.history.bulk-edit');
+
+    // Mobile version
+    Route::get('/pendidikan/tagihan-spp/history/mobile', [TagihanSppController::class, 'historyStudentsMobile'])
+        ->name('tagihan-spp.history.mobile');
+
+    // delete 1 item tagihan (per murid)
+    Route::delete('/tagihan-spp/item/{tagihanSpp}', [TagihanSppController::class, 'destroyItem'])
+        ->name('tagihan-spp.destroy-item');
+
+    // delete 1 periode untuk 1 kelas (bulk per kelas)
+    Route::delete('/tagihan-spp/kelas/{eduClass}/periode', [TagihanSppController::class, 'destroyPeriodeByClass'])
+        ->name('tagihan-spp.destroy-periode-class');
 
     // ========== PMB: recognize per siswa dari payment-dashboard ==========
     Route::post('/payment-dashboard/{student}/recognize-pmb', [EduPaymentController::class, 'recognizePMB'])
         ->name('payment.recognize_pmb');
+    Route::get('/payment/pmb/{student}/recognize-preview', [EduPaymentController::class, 'recognizePmbPreview'])
+        ->name('payment.recognize_pmb.preview');
 
     // ========== SPP: recognize per siswa ==========
     Route::post('/tagihan-spp/{student}/recognize', [TagihanSppController::class, 'recognizeStudentSPP'])
@@ -287,8 +331,17 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
     Route::delete('students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
     Route::get('/data', [StudentController::class, 'getData'])->name('students.data');
 
-    Route::get('edu_classes/data', [EduClassController::class, 'data'])->name('edu_classes.data');
-    Route::resource('edu_classes', EduClassController::class);
+    // ========== EDU CLASSES ROUTES ==========
+    Route::prefix('kelas')->name('edu_classes.')->group(function () {
+        Route::get('/data', [EduClassController::class, 'data'])->name('data');
+
+        // endpoint JSON untuk modal edit
+        Route::get('/{eduClass}', [EduClassController::class, 'show'])->name('show');
+    });
+
+    // CRUD normal (index/store/update/destroy) tetap lewat resource
+    Route::resource('edu_classes', EduClassController::class)->except(['show']);
+
 
     Route::get('/students/{student}/costs/create', [StudentCostController::class, 'create'])->name('student_costs.create');
     Route::post('/students/{student}/costs', [StudentCostController::class, 'store'])->name('student_costs.store');
@@ -301,19 +354,23 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
         Route::get('/create', [KemasjidanController::class, 'create'])->name('create');    // optional (kalau mau halaman terpisah)
         Route::get('/lookup', [KemasjidanController::class, 'lookupWarga'])->name('lookup');
         Route::get('/check', [KemasjidanController::class, 'checkPaid'])->name('check');
+
         Route::post('/store', [KemasjidanController::class, 'store'])->name('store');
         Route::get('/detail/{id}', [KemasjidanController::class, 'show'])->name('detail');
         Route::put('/update/{id}', [KemasjidanController::class, 'update'])->name('update'); // <— dipakai form di atas
-        Route::get('/receipt/{warga}/{bulan}', [KemasjidanController::class, 'receipt'])->name('receipt'); // cetak
-        Route::get('/receipt/{warga}/{bulan}/open-wa', [KemasjidanController::class, 'openWhatsappLink'])
+
+        Route::get('/{warga}/{tahun}/{bulan}/receipt', [KemasjidanController::class, 'receipt'])
+            ->name('receipt');
+        Route::get('/{warga}/{tahun}/{bulan}/open-wa', [KemasjidanController::class, 'openWhatsappLink'])
             ->name('open-wa');
-        Route::get('/verify/{warga}/{bulan}/{year}', [KemasjidanController::class, 'verifyReceipt'])
+        Route::get('/verify/{warga}/{tahun}/{bulan}', [KemasjidanController::class, 'verifyReceipt'])
             ->name('verify');
         Route::get('/datatable', [KemasjidanController::class, 'datatable'])
             ->name('datatable');
     });
 
     Route::resource('wargas', WargaController::class)->except(['show']);
+
     Route::prefix('bidang/kemasjidan/warga')->name('kemasjidan.warga.')->group(function () {
         Route::get('/', [WargaController::class, 'index'])->name('index');
         Route::get('/data', [WargaController::class, 'data'])->name('data');
@@ -351,6 +408,26 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
             ->whereNumber('warga');
     });
 
+    Route::middleware(['auth'])->prefix('sosial/dana-kematian')->group(function () {
+        Route::get('/pengeluaran', [DanaKematianController::class, 'pengeluaran'])
+            ->name('sosial.dana_kematian.pengeluaran');
+
+        Route::get('/saldo/{warga}', [DanaKematianController::class, 'getSaldoHutangDanaKematian'])
+            ->name('sosial.dana_kematian.saldo');
+
+        Route::post('/pengeluaran/{jenis}', [DanaKematianController::class, 'storePengeluaranDanaKematian'])
+            ->name('sosial.dana-kematian.store'); // boleh tetap pakai name Anda yang
+
+        Route::get('/sosial/dana-kematian/pengeluaran', [DanaKematianController::class, 'pengeluaran'])
+            ->name('sosial.dana_kematian.pengeluaran');
+
+        Route::get('/dana-kematian/saldo-warga/{warga}', [DanaKematianController::class, 'getSaldoHutangDanaKematian'])
+            ->name('dana_kematian.saldo');
+
+        Route::get('/dana-kematian/saldo-kasbank/{metode}', [DanaKematianController::class, 'getSaldoKasBankByMetode'])
+            ->name('dana_kematian.saldo_kasbank');
+    });
+
     Route::prefix('bidang/pengajuan')->name('pengajuan.')->group(function () {
         // List Data
         Route::get('/', [PengajuanDanaController::class, 'index'])->name('index');
@@ -381,18 +458,21 @@ Route::middleware(['role:Ketua Yayasan|Manajer Keuangan|Bendahara|Bidang'])->gro
 
 // // ========== ROUTE PUBLIK (untuk WARGA) ==========
 Route::prefix('tracking-infaq')->name('warga.')->group(function () {
-    // halaman & aksi login khusus warga infaq
     Route::get('/login', [TrackingInfaqController::class, 'showLogin'])->name('login.form');
     Route::post('/login', [TrackingInfaqController::class, 'login'])->name('login');
 
-    // logout
     Route::post('/keluar', [TrackingInfaqController::class, 'logout'])->name('logout');
 
-    // halaman tracking (protected)
     Route::middleware('warga.auth')->group(function () {
-        Route::get('/tracking', [TrackingInfaqController::class, 'dashboard'])->name('dashboard');
+        // Dashboard ringkas (2 kartu / 2 tabel)
+        Route::get('/dashboard', [TrackingInfaqController::class, 'dashboard'])->name('dashboard');
+
+        // Halaman tracking khusus
+        Route::get('/infaq', [TrackingInfaqController::class, 'trackingInfaq'])->name('infaq');
+        Route::get('/iuran', [TrackingInfaqController::class, 'trackingIuran'])->name('iuran');
     });
 });
+
 
 
 // Login routes
@@ -413,14 +493,10 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 Route::resource('piutangs', PiutangController::class);
 Route::resource('hutangs', HutangController::class);
 
-Route::get('/notifications/read', function () {
-    dd(Auth::user());
-    $user = Auth::user();
+Route::middleware('auth')->group(function () {
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.readAll');
 
-    if ($user && method_exists($user, 'unreadNotifications')) {
-        $user->unreadNotifications()->markAsRead();
-    }
-
-    return redirect()->back();
-})->name('notifications.markAsRead');
-
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markOneAsRead'])
+        ->name('notifications.readOne');
+});

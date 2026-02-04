@@ -51,6 +51,11 @@
                 <i class="bi bi-box-arrow-in-down"></i> Opening Balance
             </button>
 
+            <button type="button" class="btn btn-success mb-3 me-2 shadow" id="btn-adjustment" data-bs-toggle="modal"
+                data-bs-target="#penyesuaianModal">
+                <i class="bi bi-box-arrow-in-down"></i> Adjustment Saldo Activities
+            </button>
+
             <button type="button" class="btn btn-primary mb-3 me-2 shadow" data-bs-toggle="modal"
                 data-bs-target="#transferModal">
                 <i class="bi bi-arrow-left-right"></i> Transfer Kas / Bank
@@ -182,6 +187,50 @@
                             <button type="submit" class="btn btn-primary">Simpan</button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="penyesuaianModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Penyesuaian Surplus / Defisit</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <div class="mb-3">
+                            <label class="mb-2">Tanggal Penyesuaian</label>
+                            <input type="date" name="tanggal" id="tanggalPenyesuaian" class="form-control" required>
+                        </div>
+
+                        <hr>
+
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Total Pendapatan</th>
+                                <td class="text-end" id="totalPendapatan">-</td>
+                            </tr>
+                            <tr>
+                                <th>Total Beban</th>
+                                <td class="text-end" id="totalBeban">-</td>
+                            </tr>
+                            <tr class="fw-bold">
+                                <th>Surplus / Defisit</th>
+                                <td class="text-end" id="surplusDefisit">-</td>
+                            </tr>
+                        </table>
+
+                        <div id="statusBadge" class="text-center fw-bold"></div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" id="btnPostAdjustment" class="btn btn-primary">
+                            Posting Penyesuaian
+                        </button>
                     </div>
                 </div>
             </div>
@@ -691,6 +740,195 @@
                     console.log(xhr.responseText);
                 }
             });
+        });
+
+        // ==========================
+        // PREVIEW PENYESUAIAN SURPLUS / DEFISIT
+        // ==========================
+        document.addEventListener('DOMContentLoaded', function() {
+            const tanggalInput = document.getElementById('tanggalPenyesuaian');
+            const totalPendapatan = document.getElementById('totalPendapatan');
+            const totalBeban = document.getElementById('totalBeban');
+            const surplusDefisit = document.getElementById('surplusDefisit');
+            const statusBadge = document.getElementById('statusBadge');
+            const btnPost = document.getElementById('btnPostAdjustment');
+
+            let previewData = null;
+            let alreadyAdjusted = false;
+
+            // ====================
+            // Preview Penyesuaian
+            // ====================
+            tanggalInput.addEventListener('change', function() {
+                const tanggal = this.value;
+                if (!tanggal) return;
+
+                fetch("{{ route('transaksi.adjustment.preview') }}?tanggal=" + tanggal, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        previewData = data;
+                        totalPendapatan.innerText = new Intl.NumberFormat('id-ID').format(data
+                            .pendapatan);
+                        totalBeban.innerText = new Intl.NumberFormat('id-ID').format(data.beban);
+                        surplusDefisit.innerText = new Intl.NumberFormat('id-ID').format(data
+                            .surplus_defisit);
+
+                        // Status badge
+                        if (data.status === 'SURPLUS') {
+                            statusBadge.innerHTML = '<span class="badge bg-success">SURPLUS</span>';
+                        } else if (data.status === 'DEFISIT') {
+                            statusBadge.innerHTML = '<span class="badge bg-danger">DEFISIT</span>';
+                        } else {
+                            statusBadge.innerHTML = '<span class="badge bg-secondary">NOL</span>';
+                        }
+
+                        // Disable tombol jika NOL
+                        if (data.status === 'NOL') {
+                            btnPost.disabled = true;
+                            btnPost.classList.add('btn-secondary');
+                            btnPost.classList.remove('btn-primary');
+                        } else {
+                            btnPost.disabled = false;
+                            btnPost.classList.remove('btn-secondary');
+                            btnPost.classList.add('btn-primary');
+                        }
+
+                        // Cek apakah sudah ada penyesuaian tahun ini (guard)
+                        fetch("{{ route('transaksi.adjustment.check') }}?tanggal=" + tanggal, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(res => res.json())
+                            .then(check => {
+                                if (check.exists) {
+                                    alreadyAdjusted = true;
+                                    btnPost.disabled = true;
+                                    btnPost.classList.add('btn-secondary');
+                                    btnPost.classList.remove('btn-primary');
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Sudah Pernah Penyesuaian',
+                                        text: 'Penyesuaian sudah pernah dilakukan untuk tahun ini.'
+                                    });
+                                } else {
+                                    alreadyAdjusted = false;
+                                }
+                            });
+
+                    })
+                    .catch(() => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Oops...',
+                            text: 'Terjadi kesalahan saat preview.'
+                        });
+                        totalPendapatan.innerText = totalBeban.innerText = surplusDefisit.innerText =
+                            '-';
+                        statusBadge.innerHTML = '';
+                        previewData = null;
+                    });
+            });
+
+            // ====================
+            // Post Penyesuaian via AJAX
+            // ====================
+            btnPost.addEventListener('click', function() {
+                if (!tanggalInput.value) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Peringatan',
+                        text: 'Pilih tanggal terlebih dahulu.'
+                    });
+                    return;
+                }
+                if (!previewData) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Peringatan',
+                        text: 'Lakukan preview terlebih dahulu.'
+                    });
+                    return;
+                }
+                if (alreadyAdjusted) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Sudah pernah penyesuaian tahun ini.'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Konfirmasi',
+                    text: "Apakah Anda yakin ingin memposting penyesuaian ini?",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, posting!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch("{{ route('transaksi.adjustment.store') }}", {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({
+                                    tanggal: tanggalInput.value
+                                })
+                            })
+                            .then(res => res.json())
+                            .then(res => {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Berhasil',
+                                        text: res.message ||
+                                            'Penyesuaian berhasil diposting.'
+                                    }).then(() => {
+                                        // reset modal
+                                        tanggalInput.value = '';
+                                        totalPendapatan.innerText = totalBeban
+                                            .innerText = surplusDefisit.innerText = '-';
+                                        statusBadge.innerHTML = '';
+                                        previewData = null;
+                                        alreadyAdjusted = false;
+                                        btnPost.disabled = false;
+                                        btnPost.classList.add('btn-primary');
+                                        btnPost.classList.remove('btn-secondary');
+
+                                        // tutup modal
+                                        var modal = bootstrap.Modal.getInstance(document
+                                            .getElementById('penyesuaianModal'));
+                                        modal.hide();
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Gagal',
+                                        text: res.message ||
+                                            'Terjadi kesalahan saat posting.'
+                                    });
+                                }
+                            })
+                            .catch(() => {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Oops...',
+                                    text: 'Terjadi kesalahan saat posting.'
+                                });
+                            });
+                    }
+                });
+            });
+
         });
 
         // ==========================

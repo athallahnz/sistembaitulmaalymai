@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AkunKeuangan extends Model
 {
@@ -12,15 +15,17 @@ class AkunKeuangan extends Model
     protected $table = 'akun_keuangans';
     protected $primaryKey = 'id';
 
-    // Karena ID bukan auto increment
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    // created_at & updated_at boleh NULL
-    public $timestamps = false;
+    /**
+     * Sesuai DESCRIBE:
+     * - id = bigint unsigned, auto_increment
+     * - created_at/updated_at ada
+     */
+    public $incrementing = true;
+    protected $keyType = 'int';
+    public $timestamps = true;
 
     protected $fillable = [
-        'id',
+        // Core
         'nama_akun',
         'tipe_akun',
         'kategori_psak',
@@ -30,63 +35,70 @@ class AkunKeuangan extends Model
         'saldo_normal',
         'is_kas_bank',
         'cashflow_category',
-        'icon'
+        'icon',
+
+        // Dashboard columns (baru)
+        'show_on_dashboard',
+        'dashboard_scope',
+        'dashboard_section',
+        'dashboard_calc',
+        'dashboard_order',
+        'dashboard_title',
+        'dashboard_link_route',
+        'dashboard_link_param',
+        'dashboard_format',
+        'dashboard_masked',
+        'dashboard_icon',
+    ];
+
+    protected $casts = [
+        'id' => 'integer',
+        'parent_id' => 'integer',
+        'is_kas_bank' => 'boolean',
+        'show_on_dashboard' => 'boolean',
+        'dashboard_masked' => 'boolean',
+        'dashboard_order' => 'integer',
     ];
 
     /* ============================
         RELASI
     ============================ */
 
-    // Akun Induk
     public function parentAkun()
     {
-        return $this->belongsTo(AkunKeuangan::class, 'parent_id', 'id');
+        return $this->belongsTo(self::class, 'parent_id', 'id');
     }
 
-    // Anak Akun
+    // Nama relasi yang lebih standar untuk dipakai di controller/detail
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_id', 'id');
+    }
+
+    // Kompatibilitas: kalau ada kode lama yang masih memanggil childAkun()
     public function childAkun()
     {
-        return $this->hasMany(AkunKeuangan::class, 'parent_id', 'id');
+        return $this->children();
     }
 
-    // Relasi ke transaksis (akun utama)
     public function transaksis()
     {
         return $this->hasMany(Transaksi::class, 'akun_keuangan_id');
     }
 
-    // Relasi ke transaksis di mana ini adalah akun lawannya
     public function transaksiLawan()
     {
         return $this->hasMany(Transaksi::class, 'parent_akun_id');
     }
 
-    /* ============================
-        SALDO (OPSIONAL)
-    ============================ */
-    public function getSaldoAttribute()
-    {
-        // Idealnya, type = penerimaan/pengeluaran → bukan debit/kredit
-        // Jadi fungsi ini sebenarnya TIDAK cocok dengan struktur transaksimu sekarang.
-
-        // PERINGATAN:
-        // Jika dipakai, harus diperbaiki untuk membaca debit/kredit dari jurnal.
-
-        return 0; // sementara dimatikan supaya tidak menyesatkan
-    }
-
-    /* ============================
-        RELASI LAIN
-    ============================ */
-
     public function studentCosts()
     {
-        return $this->hasMany(StudentCost::class);
+        return $this->hasMany(StudentCost::class, 'akun_keuangan_id');
     }
 
     public function eduClasses()
     {
-        return $this->belongsToMany(EduClass::class, 'edu_class_akun_keuangan');
+        return $this->belongsToMany(EduClass::class, 'edu_class_akun_keuangan', 'akun_keuangan_id', 'edu_class_id');
     }
 
     public function ledgers()
@@ -94,30 +106,32 @@ class AkunKeuangan extends Model
         return $this->hasMany(Ledger::class, 'akun_keuangan_id');
     }
 
+    /* ============================
+        HELPER: SALDO
+    ============================ */
+
     /**
-     * Helper: aggregate saldo per akun (mirip buildAktivitasData()).
-     * Menghasilkan collection keyed by akun_keuangan_id:
-     * [akun_id => (object){ akun_keuangan_id, total_debit, total_credit }]
-     *
-     * $excludeLawan:
-     *   - null  : semua transaksi
-     *   - true  : HANYA yang bukan %-LAWAN
-     *   - false : HANYA yang %-LAWAN
+     * Aggregate saldo per akun dari ledger dalam periode.
+     * Return: Collection keyed by akun_keuangan_id
+     * [
+     *   akun_id => (object){ akun_keuangan_id, total_debit, total_credit }
+     * ]
      */
     public static function buildSaldoPerAkun(
         ?Carbon $startDate = null,
         ?Carbon $endDate = null,
         ?int $bidangId = null,
         ?bool $excludeLawan = null
-    ): \Illuminate\Support\Collection {
-        $startDate = $startDate ?? now()->copy()->startOfYear();
-        $endDate = $endDate ?? now()->copy()->endOfDay();
+    ): Collection {
+        $startDate = $startDate ? $startDate->copy()->startOfDay() : now()->copy()->startOfYear();
+        $endDate   = $endDate ? $endDate->copy()->endOfDay() : now()->copy()->endOfDay();
 
-        $query = Ledger::select(
-            'akun_keuangan_id',
-            DB::raw('SUM(debit)  as total_debit'),
-            DB::raw('SUM(credit) as total_credit')
-        )
+        $query = Ledger::query()
+            ->select(
+                'akun_keuangan_id',
+                DB::raw('SUM(debit)  as total_debit'),
+                DB::raw('SUM(credit) as total_credit')
+            )
             ->whereHas('transaksi', function ($q) use ($startDate, $endDate, $bidangId, $excludeLawan) {
                 $q->whereDate('tanggal_transaksi', '>=', $startDate)
                     ->whereDate('tanggal_transaksi', '<=', $endDate);
@@ -131,18 +145,17 @@ class AkunKeuangan extends Model
                 } elseif ($excludeLawan === false) {
                     $q->where('kode_transaksi', 'like', '%-LAWAN');
                 }
-            });
+            })
+            ->groupBy('akun_keuangan_id');
 
-        return $query->groupBy('akun_keuangan_id')
-            ->get()
-            ->keyBy('akun_keuangan_id');
+        return $query->get()->keyBy('akun_keuangan_id');
     }
 
     /**
      * Ambil semua akun dalam suatu grup (berdasarkan parent_id).
      */
-    public static function getAkunByGroup(int $groupId)
+    public static function getAkunByGroup(int $groupId): Collection
     {
-        return AkunKeuangan::where('parent_id', $groupId)->get();
+        return self::query()->where('parent_id', $groupId)->get();
     }
 }

@@ -40,12 +40,14 @@
         </div>
 
         <div class="mb-4">
-            <form action="{{ route('tagihan-spp.recognize.student', $student->id) }}" method="POST" class="d-inline">
+            <form id="form-recognize-spp-student" action="{{ route('tagihan-spp.recognize.student', $student->id) }}"
+                method="POST" class="d-inline">
                 @csrf
+
                 <input type="hidden" name="bulan" value="{{ now()->month }}">
                 <input type="hidden" name="tahun" value="{{ now()->year }}">
-                <button type="submit" class="btn btn-primary mb-3"
-                    onclick="return confirm('Proses pengakuan pendapatan SPP bulan ini untuk {{ $student->name }}?')">
+
+                <button type="submit" class="btn btn-primary mb-3" id="btn-recognize-spp-student">
                     <i class="bi bi-check-circle"></i> Recognize SPP Bulan Ini
                 </button>
             </form>
@@ -103,3 +105,54 @@
         <a href="{{ route('tagihan-spp.dashboard') }}" class="btn btn-secondary">Kembali ke Dashboard</a>
     </div>
 @endsection
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('form-recognize-spp-student');
+            const btn = document.getElementById('btn-recognize-spp-student');
+
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Konfirmasi Pengakuan Pendapatan',
+                    html: `
+                <div class="text-start">
+                    <p>Anda akan melakukan <strong>pengakuan pendapatan SPP</strong> untuk:</p>
+                    <table class="table table-sm mt-2">
+                        <tr>
+                            <td>Nama Siswa</td>
+                            <td>: <strong>{{ $student->name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Periode</td>
+                            <td>: <strong>{{ now()->month }}/{{ now()->year }}</strong></td>
+                        </tr>
+                    </table>
+                    <p class="text-danger fw-semibold mt-2 mb-0">
+                        Transaksi ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+            `,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Proses',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#0d6efd',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true,
+                    focusCancel: true,
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        btn.disabled = true;
+                        btn.innerHTML = `
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    Memproses...
+                `;
+                        form.submit();
+                    }
+                });
+            });
+        });
+    </script>
+@endpush

@@ -9,7 +9,20 @@ class Hutang extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'akun_keuangan_id', 'parent_id', 'jumlah', 'tanggal_jatuh_tempo', 'deskripsi', 'status','bidang_name'];
+    protected $fillable = [
+        'user_id',
+        'akun_keuangan_id',
+        'parent_id',
+        'warga_kepala_id',
+        'iuran_bulanan_id',
+        'jumlah',
+        'tanggal_jatuh_tempo',
+        'deskripsi',
+        'kode_transaksi',
+        'transaksi_id',
+        'status',
+        'bidang_name',
+    ];
 
     public function user()
     {
