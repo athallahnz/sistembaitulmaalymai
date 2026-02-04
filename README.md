@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-10-red">
-  <img src="https://img.shields.io/badge/PHP-8.x-blue">
+  <img src="https://img.shields.io/badge/PHP-8.2.4-blue">
   <img src="https://img.shields.io/badge/Bootstrap-5.3-purple">
   <img src="https://img.shields.io/badge/Status-Production%20Ready-success">
   <img src="https://img.shields.io/badge/License-MIT-lightgrey">
