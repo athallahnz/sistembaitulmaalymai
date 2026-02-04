@@ -2,7 +2,7 @@
   <img src="https://baitulmaal.alimansurabaya.com/storage/logos/cRXY3mgfCdt4zXflsxutFA1uow6W3WegcbsXvDp2.png" width="280" alt="Logo Yayasan">
 </p>
 
-<h1 align="center">💰 Sistem Informasi Keuangan Baitul Maal</h1>
+<h1 align="center">Sistem Informasi Keuangan Baitul Maal</h1>
 <h3 align="center">Yayasan Masjid Al Iman Surabaya</h3>
 
 <p align="center">
