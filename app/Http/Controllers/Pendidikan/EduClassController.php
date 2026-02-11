@@ -42,31 +42,31 @@ class EduClassController extends Controller
                 $deleteUrl   = route('edu_classes.destroy', $row->id);
 
                 $btnShow = '
-        <a href="' . $showPageUrl . '" class="btn btn-info btn-sm" title="Lihat">
-            <i class="bi bi-eye"></i>
-        </a>
-    ';
+                    <a href="' . $showPageUrl . '" class="btn btn-info btn-sm" title="Lihat">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                ';
 
                 $btnEdit = '
-        <button type="button"
-            class="btn btn-warning btn-sm btn-edit"
-            title="Edit"
-            data-json-url="' . $editJsonUrl . '"
-            data-update-url="' . $updateUrl . '">
-            <i class="bi bi-pencil-square"></i>
-        </button>
-    ';
+                    <button type="button"
+                        class="btn btn-warning btn-sm btn-edit"
+                        title="Edit"
+                        data-json-url="' . $editJsonUrl . '"
+                        data-update-url="' . $updateUrl . '">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                ';
 
                 $btnDelete = '';
                 if ((int) $row->students_count === 0) {
                     $btnDelete = '
-            <button type="button"
-                class="btn btn-danger btn-sm btn-delete"
-                title="Hapus"
-                data-url="' . $deleteUrl . '">
-                <i class="bi bi-trash"></i>
-            </button>
-        ';
+                    <button type="button"
+                        class="btn btn-danger btn-sm btn-delete"
+                        title="Hapus"
+                        data-url="' . $deleteUrl . '">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                ';
                 }
 
                 return '<div class="d-flex gap-1">' . $btnShow . $btnEdit . $btnDelete . '</div>';
@@ -101,6 +101,7 @@ class EduClassController extends Controller
             $eduClass = EduClass::create([
                 'name' => $validated['name'],
                 'tahun_ajaran' => $tahunAjaran,
+                'tahun_awal' => $validated['tahun_awal'], // ← WAJIB DITAMBAHKAN
             ]);
 
             $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids'] ?? []);
@@ -170,8 +171,9 @@ class EduClassController extends Controller
             $eduClass->update([
                 'name' => $validated['name'],
                 'tahun_ajaran' => $tahunAjaran,
+                'tahun_awal' => $validated['tahun_awal'], // ← WAJIB DITAMBAHKAN
             ]);
-
+            
             $eduClass->akunKeuangans()->sync($validated['akun_keuangan_ids'] ?? []);
         });
 
